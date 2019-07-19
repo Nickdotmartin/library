@@ -1,11 +1,11 @@
 # functions
 python functions I use regularly:
-  dictionary tools
-  data tools
-  network tools
-  train model
-  get hidden activations
-  get selectivity
-  lesion model
-  visualise units
+  dictionary tools\n
+  data tools\n
+  network tools\n
+  train model\n
+  get hidden activations\n
+  get selectivity\n
+  lesion model\n
+  visualise units\n
 
