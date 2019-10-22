@@ -1,15 +1,14 @@
 import os
-
+import pickle
+import pandas as pd
+import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
-import pandas as pd
-import pickle
-import numpy as np
 import ptitprince as pt
 from itertools import zip_longest
 
-from nick_dict_tools import load_dict, focussed_dict_print, print_nested_round_floats
+from tools.dict import load_dict, focussed_dict_print, print_nested_round_floats
 
 # or, if ptitprince is NOT installed
 # from ptitprince import PtitPrince as pt

@@ -4,32 +4,23 @@ import json
 import os
 
 import numpy as np
-import pandas as pd
 
 import tensorflow as tf
-from tensorflow.keras.layers import Dense, RNN, LSTM, Activation, Dropout, Flatten
-from tensorflow.keras.layers import SimpleRNN, GRU, LSTM, Input, TimeDistributed
-
-from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam, SGD, RMSprop
 # from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.python.keras.callbacks import TensorBoard
 
 from keras.preprocessing.image import ImageDataGenerator
-
 import matplotlib.pyplot as plt
-
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
-from nick_dict_tools import load_dict, focussed_dict_print, print_nested_round_floats
-from nick_data_tools import load_x_data, load_y_data
-from nick_network_tools import get_model_dict, get_scores
-from RNN_STM_tools import generate_STM_RNN_seqs, get_label_seqs, get_test_scores
+from tools.dict import load_dict, focussed_dict_print, print_nested_round_floats
+from tools.data import load_x_data, load_y_data
+from tools.network import get_model_dict, get_scores
+from tools.RNN_STM import generate_STM_RNN_seqs, get_label_seqs, get_test_scores
 
-from tf_cnns_14082019 import con6_pool3_fc1, con2_pool2_fc1, con4_pool2_fc1, \
-    con4_pool2_fc1_reluconv, con4_pool2_fc1_noise_layer
-from tf_rnns_15102019 import Bowers14rnn, SimpleRNNn, GRUn, LSTMn, Seq2Seq
+from models.rnns import Bowers14rnn, SimpleRNNn, GRUn, LSTMn, Seq2Seq
 
 
 '''

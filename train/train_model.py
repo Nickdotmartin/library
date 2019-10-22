@@ -2,12 +2,9 @@ import csv
 import datetime
 import os.path
 import json
-import sys
-import pickle
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import tensorflow as tf
 
 from tensorflow.keras.optimizers import Adam, SGD, RMSprop
@@ -23,10 +20,9 @@ from nick_data_tools import load_x_data, load_y_data
 from nick_network_tools import get_model_dict, get_scores
 
 from mlps import fc1, fc2, fc4
-# from cnns import con6_pool3_fc1, con2_pool2_fc1, con4_pool2_fc1, con4_pool2_fc1_reluconv, con4_pool2_fc1_noise_layer
-from tf_cnns_14082019 import con6_pool3_fc1, con2_pool2_fc1, con4_pool2_fc1, \
+from models.cnns import con6_pool3_fc1, con2_pool2_fc1, con4_pool2_fc1, \
     con4_pool2_fc1_reluconv, con4_pool2_fc1_noise_layer
-from rnns import lstm_1, lstm_2, lstm_4
+from models.rnns import SimpleRNNn, GRUn, LSTMn
 
 
 '''following coding tips session with Ben'''

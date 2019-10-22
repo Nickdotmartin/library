@@ -3,7 +3,6 @@ import pickle
 import os.path
 import datetime
 import copy
-import sys
 
 import numpy as np
 import pandas as pd
@@ -12,9 +11,9 @@ import matplotlib.pyplot as plt
 from tensorflow.keras.models import load_model
 from tensorflow.keras.models import Model
 
-from nick_dict_tools import load_dict, focussed_dict_print, print_nested_round_floats
-from nick_data_tools import load_x_data, load_y_data, get_dset_path
-from nick_network_tools import get_scores
+from tools.dict import load_dict, focussed_dict_print, print_nested_round_floats
+from tools.data import load_x_data, load_y_data, get_dset_path
+from tools.network import get_scores
 
 
 ########################

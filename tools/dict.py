@@ -1,7 +1,3 @@
-import numpy as np
-import pandas as pd
-from sklearn.metrics import confusion_matrix
-from itertools import product
 import pickle
 import json
 import os.path
@@ -190,6 +186,8 @@ def load_dict(dict_name):
 
     return loaded_dict
 
+
+
 def load_dict_from_data(data_path):
     """function to take a data_path (from datasets folder) of dict.
     It will join the path to the main datapath and extract the dset name.
@@ -233,10 +231,3 @@ def load_dict_from_data(data_path):
     return loaded_dict
 
 
-# dict_path = "/home/nm13850/Documents/PhD/python_v2/experiments/train_script_check" \
-#             "/train_script_check_con6_pool3_fc1_CIFAR_10_2019_aug/all_test_set_gha" \
-#             "/train_script_check_con6_pool3_fc1_CIFAR_10_2019_aug_GHA_dict.pickle"
-#
-# this_dict = load_dict(dict_path)
-# simple_dict_print(this_dict)
-# print_nested_round_floats(this_dict)

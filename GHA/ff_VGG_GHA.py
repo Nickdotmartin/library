@@ -8,8 +8,8 @@ import pandas as pd
 
 from tensorflow.keras.applications.vgg16 import VGG16
 
-from nick_dict_tools import load_dict, focussed_dict_print, print_nested_round_floats
-from hdf_tools import hdf_pred_scores, hdf_gha
+from tools.dict import load_dict, focussed_dict_print, print_nested_round_floats
+from tools.hdf import hdf_pred_scores, hdf_gha
 
 
 

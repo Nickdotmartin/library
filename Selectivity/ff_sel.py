@@ -1,5 +1,4 @@
 import os
-import sys
 import datetime
 import copy
 import csv
@@ -10,8 +9,8 @@ import pickle
 from sklearn.metrics import roc_curve, auc
 from scipy.stats.stats import pearsonr
 
-from nick_dict_tools import load_dict, focussed_dict_print, print_nested_round_floats
-from nick_data_tools import nick_read_csv
+from tools.dict import load_dict, focussed_dict_print
+from tools.data import nick_read_csv
 
 
 def nick_roc_stuff(class_list, hid_acts, this_class, class_a_size, not_a_size, verbose=False):

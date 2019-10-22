@@ -1,12 +1,11 @@
 import datetime
-import sys
 
 from itertools import product
 import numpy as np
 import pandas as pd
 from sklearn.metrics import confusion_matrix
 
-from nick_data_tools import load_x_data, load_y_data, nick_to_csv, nick_read_csv
+from tools.data import load_x_data, load_y_data, nick_to_csv, nick_read_csv
 
 
 tools_date = int(datetime.datetime.now().strftime("%y%m%d"))

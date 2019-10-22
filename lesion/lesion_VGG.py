@@ -9,10 +9,9 @@ import pickle
 from tensorflow.keras.models import load_model
 from tensorflow.keras.applications.vgg16 import VGG16
 
-from nick_dict_tools import load_dict, focussed_dict_print, print_nested_round_floats
-from nick_data_tools import load_x_data, load_y_data, nick_to_csv, nick_read_csv
-from nick_network_tools import get_scores, VGG_get_scores
-from hdf_tools import hdf_pred_scores
+from tools.dict import load_dict, focussed_dict_print, print_nested_round_floats
+from tools.data import load_x_data, load_y_data, nick_to_csv, nick_read_csv
+from tools.hdf import hdf_pred_scores
 
 
 

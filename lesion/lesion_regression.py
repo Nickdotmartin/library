@@ -24,8 +24,7 @@ from keras.utils.np_utils import to_categorical
 
 import statsmodels.api as sm
 
-from nick_dict_tools import load_dict, focussed_dict_print, print_nested_round_floats
-from nick_data_tools import nick_read_csv, nick_to_csv
+from tools.dict import load_dict, focussed_dict_print, print_nested_round_floats
 
 
 # todo: Rather than correlating max_class_drop with selectivity,

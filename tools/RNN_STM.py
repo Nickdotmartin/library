@@ -1,8 +1,7 @@
 import os
-import random
 import numpy as np
 import more_itertools
-from Nick_functions.nick_dict_tools import load_dict, focussed_dict_print
+from tools.dict import load_dict, focussed_dict_print
 
 
 

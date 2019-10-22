@@ -1,24 +1,10 @@
-import numpy as np
-import pandas as pd
-from sklearn.metrics import confusion_matrix
-from itertools import product
-import pickle
-import json
 import csv
 import os.path
-import datetime
-import random
-from nick_dict_tools import load_dict, load_dict_from_data
-import sys
+import numpy as np
+import pandas as pd
 
-# todo: add filepath for load data from
-# todo: add filepath for load hid_acts from
+from tools.dict import load_dict
 
-# TODO: make script for load hid acts
-
-# todo: only save summary docs as csv.  all other output should be numpy, pickle or excel.
-#  or for csv use this https://stackoverflow.com/questions/50047237/how-to-preserve-dtypes-of-dataframes-when-using-to-csv
-#  nick_to_csv and nick_read_csv
 
 def nick_to_csv(df, path):
     """
@@ -107,24 +93,7 @@ def load_x_data(x_filename):
         print("unknown X_data file type: {}".format(x_filename[-3:]))
     return x_data
 
-# def load_y_data(y_filename):
-#     """will open the y_data from npy or csv format and return:
-#         1. a pd.dataframe of item and classes
-#         2. a list of y class labels"""
-#
-#     print("\n**** load_y_data() ****")
-#     if y_filename[-3:] == 'csv':
-#         item_and_class_df = pd.read_csv(y_filename, header=None, names=["item", "class"])
-#         y_label_list = item_and_class_df['class'].tolist()
-#         print("loaded y_filename as csv: {} {}".format(y_filename, item_and_class_df.shape))
-#     elif y_filename[-3:] == 'npy':
-#         y_labels_items = np.load(y_filename)
-#         item_and_class_df = pd.DataFrame({'item': y_labels_items[:, 0], 'class': y_labels_items[:, 1]})
-#         y_label_list = item_and_class_df['class'].tolist()
-#         print("loaded y_filename as npy: {} {}".format(y_filename, item_and_class_df.shape))
-#     else:
-#         print("unknown y_filename file type: {}".format(y_filename[-3:]))
-#     return item_and_class_df, y_label_list
+
 
 def load_y_data(y_label_path):
     """will open the y_data from npy or csv format and return:
@@ -218,8 +187,8 @@ def load_data(data_dict, x_y, test_train_val='train_set'):
         # # get_data in second set of keys (nested in test_train_val)
 
     else:
-        print("\ntraining data not found")
-        sys.exit()
+        ValueError("\ntraining data not found")
+
 
     dset_filename = data_info_location[get_dataset]
 
@@ -261,144 +230,6 @@ def load_data(data_dict, x_y, test_train_val='train_set'):
     return dataset
 
 
-def load_from_datasets(data_path, x_y, test_train_val='train_set'):
-    """
-    load x or y data from data_dict.  Can specify train, test, val
-    If y returns a dict with {"y_df": y_df, 'y_label_list': y_label_list}
-    :param data_path: string of path from datasets folder to folder of data (e.g., other_classification/iris/orig/iris)
-    # :param data_dict: str(dict_name) or dict
-    :param x_y: str specific X/x or Y/y
-    :param test_train_val: str 'train_set', 'test_set' or 'val_set'
-    :return: dataset
-    """
-
-    print("\n****load_from_datasets()****")
-    print("\n****DO NOT USE THIS FUNCTION, ITS HORRIBLY SLOW, GET SOMETHING BETTER****")
-
-    # dataset_root = '/home/nm13850/Documents/PhD/python_v2/datasets/'
-    #
-    # dset_dir, dset_name = os.path.split(data_path)
-    # look_here = os.path.join(dataset_root, dset_dir)
-    # os.chdir(look_here)
-    #
-    # if type(data_path) is str:
-    #     data_dict = load_dict_from_data(data_path)
-    #
-    # # # x or y data
-    # if x_y in ['x', 'X']:
-    #     get_dataset = 'X_data'
-    # elif x_y in ['y', 'Y']:
-    #     get_dataset = 'Y_data'
-    # else:
-    #     print("ERROR x_y should be either 'x'/'X' or 'y'/'Y'")
-    #
-    # # # train_test_val data
-    # if 'train' in test_train_val:
-    #     dset_type = 'train'
-    # elif 'val' in test_train_val:
-    #     dset_type = 'val'
-    # elif 'test' in test_train_val:
-    #     dset_type = 'test'
-    # elif 'mini' in test_train_val:
-    #     dset_type = 'mini'
-    # else:
-    #     raise TypeError("Are you after test, train or val data?")
-    #     sys.exit()
-    #
-    # # # search dset location for files containing the necessary info
-    # file_list = os.listdir(look_here)
-    # print("file_list: {}".format(file_list))
-    # shortlist = []
-    #
-    # for file in file_list:
-    #     if dset_type in file:
-    #         if x_y.upper() in file:
-    #             shortlist.append(file)
-    # if len(shortlist) == 1:
-    #     dset_filename = shortlist[0]
-    # else:
-    #     print("\n\n*********************\n* INPUT REQUIRED!!! *\n*********************")
-    #     for index, file in enumerate(shortlist):
-    #         print(index, file)
-    #     print("shortlist: {}".format(shortlist))
-    #     dset_index = input('select dataset using index')
-    #     dset_filename = shortlist[int(dset_index)]
-    # # print("dset_filename: {}".format(dset_filename))
-    #
-    # # #  find main dataset
-    # # # could be only data avaliable(data_dict), train(data_dict['train_set']),
-    # # # could be test(data_dict['test_set']) or val(data_dict['val_set'])
-    # # data_info_location = data_dict
-    # # # if dset_type is 'train':
-    # # if get_dataset in data_dict.keys():  # is it in first set of keys?
-    # #     pass
-    # #     # # get data in first set of keys
-    # # elif 'data_info' in data_dict.keys():  # data_dict['data_info']
-    # #     if get_dataset in data_dict['data_info'].keys():
-    # #         data_info_location = data_dict['data_info']
-    # #         # # get_data in second set of keys (nested in data_info
-    # #     elif test_train_val in data_dict['data_info'].keys():  # data_dict['data_info']['test_train_val']
-    # #         if get_dataset in data_dict['data_info'][test_train_val].keys():
-    # #             data_info_location = data_dict['data_info'][test_train_val]
-    # #             # # get_data in 3rd set of keys nested in 'data_info' and 'train_test_val
-    # #         else:
-    # #             print("not found ln204 get_dataset in data_dict['data_info'][test_train_val].keys():")
-    # #     else:
-    # #         print("not found ln206 train_set in data_dict['data_dict'].keys():")
-    # #
-    # # # if 'data_info' in data_dict.keys():  # data_dict['data_info']
-    # # elif test_train_val in data_dict.keys():  # data_dict['test_train_val']
-    # #     data_info_location = data_dict[test_train_val]
-    # #     # # get_data in second set of keys (nested in test_train_val)
-    # #
-    # # else:
-    # #     print("\ntraining data not found")
-    # #     sys.exit()
-    #
-    # # dset_filename = data_info_location[get_dataset]
-    # # print("data_info_location: \nget_dataset:{}\n"
-    # #       "dset_filename:{}".format(
-    # #     # data_info_location,
-    # #     get_dataset, dset_filename))
-    #
-    # # # if X
-    # if get_dataset is 'X_data':
-    #     if dset_filename[-3:] == 'csv':
-    #         dataset = np.loadtxt(dset_filename, delimiter=",")
-    #         print("loaded X as csv: {} {}".format(dset_filename, np.shape(dataset)))
-    #     elif dset_filename[-3:] == 'npy':
-    #         dataset = np.load(dset_filename)
-    #         print("loaded X as npy: {} {}".format(dset_filename, np.shape(dataset)))
-    #     else:
-    #         print("unknown X_data file type: {}".format(dset_filename[-3:]))
-    #
-    # # # if y
-    # if get_dataset is 'Y_data':
-    #     # print("dset_filename: {}".format(dset_filename))
-    #
-    #     # print("load_y_data returns a dict with y_df and y_label_list")
-    #     # if dset_filename == 'use_to_categorical':
-    #     #     print("ERROR: {}".format(dset_filename))
-    #     # dset_filename = data_info_location['Y_labels']
-    #     #     print("FIXED: {}".format(dset_filename))
-    #
-    #     if dset_filename[-3:] == 'csv':
-    #         item_and_class_df = pd.read_csv(dset_filename, header=None, names=["item", "class"])
-    #         y_label_list = item_and_class_df['class'].tolist()
-    #         dataset = {"y_df": item_and_class_df, 'y_label_list': y_label_list}
-    #         print("loaded y_filename as csv: {} {}".format(dset_filename, item_and_class_df.shape))
-    #     elif dset_filename[-3:] == 'npy':
-    #         y_labels_items = np.load(dset_filename)
-    #         item_and_class_df = pd.DataFrame({'item': y_labels_items[:, 0], 'class': y_labels_items[:, 1]})
-    #         y_label_list = item_and_class_df['class'].tolist()
-    #         dataset = {"y_df": item_and_class_df, 'y_label_list': y_label_list}
-    #         print("loaded y_filename as npy: {} {}".format(dset_filename, item_and_class_df.shape))
-    #     else:
-    #         print("unknown y_filename file type: {}".format(dset_filename[-3:]))
-
-    return dataset
-
-
 def load_data_no_dict(dataset_name):
     """
     load x or y data from filename (data has no dict).
@@ -410,20 +241,20 @@ def load_data_no_dict(dataset_name):
     """
 
     if dataset_name[-3:] == 'csv':
-        dataset = np.loadtxt(dset_filename, delimiter=",")
+        dataset = np.loadtxt(dataset_name, delimiter=",")
         print("loaded dataset as csv: {} {}".format(dataset_name, np.shape(dataset)))
     elif os.path.isfile("{}.csv".format(dataset_name)):
         dataset = np.loadtxt("{}.csv".format(dataset_name), delimiter=",")
         print("loaded dataset as csv: {} {}".format(dataset_name, np.shape(dataset)))
 
     elif dataset_name[-3:] == 'npy':
-        dataset = np.load(dset_filename)
+        dataset = np.load(dataset_name)
         print("loaded dataset as npy: {} {}".format(dataset_name, np.shape(dataset)))
     elif os.path.isfile("{}.npy".format(dataset_name)):
         dataset = np.load("{}.npy".format(dataset_name))
         print("loaded dataset as npy: {} {}".format(dataset_name, np.shape(dataset)))
     else:
-        print("unknown dataset file type: {}".format(dset_filename[-3:]))
+        print("unknown dataset file type: {}".format(dataset_name[-3:]))
 
     return dataset
 
@@ -468,7 +299,7 @@ def sort_cycle_duplicates_list(list_to_sort, verbose=False):
     while len(list_to_sort) >= 1:
         for value in sample_values:
             if value in list_to_sort:
-                random_sample.remove(value)
+                np.random.random_sample.remove(value)
                 sorted_sample.append(value)
                 # print(random_sample, sorted_sample)
                 if verbose is True:
