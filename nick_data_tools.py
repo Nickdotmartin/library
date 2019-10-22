@@ -14,10 +14,6 @@ import sys
 # todo: add filepath for load data from
 # todo: add filepath for load hid_acts from
 
-# todo: make save summary function -
-# TODO # take in filename, data (dataframe?)
-# # if file exists, append, else create it.
-
 # TODO: make script for load hid acts
 
 # todo: only save summary docs as csv.  all other output should be numpy, pickle or excel.
