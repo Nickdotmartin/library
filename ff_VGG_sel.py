@@ -17,14 +17,11 @@ from hdf_tools_29082019 import hdf_df_string_clean
 '''This script uses shelve instead of pickle for sel_p_unit dict.
 Sel-per_unit shelve was too big (maxed computed memory at about 141GB)
 Trying new version to make things smaller.
+
+change to save per unit csv after each unit.
+
+change to make it start from whatever unit has not been run.
 '''
-# todo: change ROC to include class0!!!
-
-
-
-
-
-
 
 def nick_roc_stuff(class_list, hid_acts, this_class, class_a_size, not_a_size, verbose=False):
     """
@@ -42,7 +39,8 @@ def nick_roc_stuff(class_list, hid_acts, this_class, class_a_size, not_a_size, v
 
     print("**** nick_roc_stuff() ****")
 
-    if this_class > 0:
+    # # if this class is not empty
+    if class_a_size > 0:
 
         # convert class list to binary one vs all
         binary_array = [1 if i == this_class else 0 for i in np.array(class_list)]
@@ -633,12 +631,13 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
         if test_run is True:
             layer_counter = layer_counter + 1
-            if layer_counter > 3:
+            if layer_counter > 2:
                 print(f"\tskip this layer!: test_run, only running subset of layers")
                 continue
 
         # # check if layer totals have already been calculated for sel_p_unit_dict and highlights dict
-        sel_p_u_layer_done = False
+        sel_p_u_layer_started = False
+        sel_p_u_continue = False
         # with open(sel_per_unit_pickle_name, "rb") as pickle_load:
         #     sel_p_unit_dict = pickle.load(pickle_load)
         #     sel_p_unit_keys = sel_p_unit_dict.keys()
@@ -646,9 +645,21 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         with shelve.open(sel_per_unit_db_name) as db:
             sel_p_unit_keys = list(db.keys())
             print(sel_p_unit_keys)
+            if layer_name in sel_p_unit_keys:
+                sel_p_u_layer_started = True
+                last_key = sel_p_unit_keys[-1]
+                print(last_key)
+                last_dict_keys = list(db[last_key].keys())
+                print(last_dict_keys)
+                last_completed_unit = last_dict_keys[-1]
+                if type(last_completed_unit) is str:
+                    last_completed_unit = last_dict_keys[-2]
+                print(last_completed_unit)
+                # last_completed_unit = max(list(db[sel_p_unit_keys][-1].keys()))
+                print(f"done to {last_key} unit {last_completed_unit}")
 
-        if layer_name in sel_p_unit_keys:
-            sel_p_u_layer_done = True
+
+
 
         highlights_layer_done = False
         with open(sel_highlights_list_dict_name, "rb") as pickle_load:
@@ -668,17 +679,29 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             if 'Total' in layer_names:
                 already_done_means_total = True
 
-        layer_done = [sel_p_u_layer_done, highlights_layer_done, layer_means_csv_done]
+        layer_done = [sel_p_u_layer_started, highlights_layer_done, layer_means_csv_done]
 
         if layer_done == [True, True, True]:
             print(f"\tdocs layer has already been completed\n"
-                  f"\t(sel_p_u_layer_done, highlights_layer_done, layer_means_csv_done)")
+                  f"\t(sel_p_u_layer_started, highlights_layer_done, layer_means_csv_done)")
             continue
+
+        elif layer_done == [True, False, False]:
+            print("I have started this layer but not finished")
+            print(f"should continue from {sel_p_unit_keys[-1]} unit {last_completed_unit+1}")
+            # I have started on this layer (sel_p_u_layer_started) but not finished.
+            # # now check which units have been done.
+            sel_p_u_continue = True
+
+
         else:
             print(f"\tNot yet completed this layer\n"
-                  f"\tsel_p_u_layer_done: {sel_p_u_layer_done}\n"
+                  f"\tsel_p_u_layer_started: {sel_p_u_layer_started}\n"
                   f"\thighlights_layer_done: {highlights_layer_done}\n"
                   f"\tlayer_means_csv_done: {layer_means_csv_done}")
+
+
+
 
         # layer_number = key
         with h5py.File(hdf_name, 'r') as gha_data:
@@ -689,7 +712,9 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         units_per_layer = len(hid_acts_df.columns)
 
         with shelve.open(sel_per_unit_db_name, protocol=pickle.HIGHEST_PROTOCOL) as db:
-            db[layer_name] = dict()
+            # if not already started layer
+            if layer_name not in list(db.keys()):
+                db[layer_name] = dict()
 
         # # remove incorrect responses
         if correct_items_only:
@@ -707,8 +732,13 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         for unit_index, unit in enumerate(hid_acts_df.columns):
 
             if test_run is True:
-                if unit_index > 3:
+                if unit_index > 2:
                     continue
+
+            if sel_p_u_continue is True:
+                if unit_index <= last_completed_unit:
+                    continue
+
 
             print(f"\n*************\nrunning layer {layer_number} of {n_layers} ({layer_name}): "
                   f"unit {unit} of {units_per_layer}\n************")
@@ -867,6 +897,32 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                 with shelve.open(sel_per_unit_db_name, protocol=pickle.HIGHEST_PROTOCOL, writeback=True) as db:
                     db[layer_name][unit] = unit_dict
 
+                # # save sel per unit csv
+                max_sel_csv_name = f'{sel_path}/{output_filename}_{layer_name}_sel_p_unit.csv'
+
+                # # get headers and values
+                max_sel_headers = list(max_sel_p_unit_dict.keys())
+                max_sel_headers = ['unit'] + max_sel_headers
+                max_sel_values = list(max_sel_p_unit_dict.values())
+                max_sel_values = [unit] + max_sel_values
+
+                # check if csv exists
+                if not os.path.isfile(max_sel_csv_name):
+                    max_sel_csv = open(max_sel_csv_name, 'w')
+                    mywriter = csv.writer(max_sel_csv)
+                    mywriter.writerow(max_sel_headers)
+                    print(f"creating: {max_sel_csv_name}")
+                else:
+                    max_sel_csv = open(max_sel_csv_name, 'a')
+                    mywriter = csv.writer(max_sel_csv)
+                    print(f"appending to: {max_sel_csv_name}")
+
+                mywriter.writerow(max_sel_values)
+                max_sel_csv.close()
+
+
+
+
             else:
                 print("dead unit found")
                 unit_dict = 'dead_unit'
@@ -877,14 +933,15 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
 
 
-        # # make max per unit csv
-        max_sel_csv_name = f'{sel_path}/{output_filename}_{layer_name}_sel_p_unit.csv'
-        max_sel_df = pd.DataFrame.from_dict(data=max_sel_dict, orient='index')
-        max_sel_df.index.rename('unit', inplace=True)
-        max_sel_df.to_csv(max_sel_csv_name)
-        print("\n\nmax sel df")
-        print(max_sel_df.head())
-        # nick_to_csv(max_sel_df, max_sel_csv_name)
+        # # # make max per unit csv
+        # max_sel_csv_name = f'{sel_path}/{output_filename}_{layer_name}_sel_p_unit.csv'
+        # max_sel_df = pd.DataFrame.from_dict(data=max_sel_dict, orient='index')
+        # max_sel_df.index.rename('unit', inplace=True)
+        # max_sel_df.to_csv(max_sel_csv_name)
+        # print("\n\nmax sel df")
+        # print(max_sel_df.head())
+        # # nick_to_csv(max_sel_df, max_sel_csv_name)
+        max_sel_df = pd.read_csv(max_sel_csv_name)
 
         # # get layer_sel_mean_dict
         # # for each unit, for each measure, the max_value.
@@ -1111,7 +1168,7 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             highlights_dict.clear()
 
 
-        print(f"\nFinihshed getting data for highlights_dict")
+        print(f"\nFinished getting data for highlights_dict")
 
 
     print("\n****** Finished looping through all layers ******")
