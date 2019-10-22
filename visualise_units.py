@@ -1,3 +1,5 @@
+import os
+
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
@@ -6,12 +8,8 @@ import pickle
 import numpy as np
 import ptitprince as pt
 from itertools import zip_longest
-import os
-import sys
 
-sys.path.append('/home/nm13850/Documents/PhD/python_v2/Nick_functions')
 from nick_dict_tools import load_dict, focussed_dict_print, print_nested_round_floats
-from nick_data_tools import load_x_data, load_y_data, load_hid_acts, nick_to_csv, nick_read_csv
 
 # or, if ptitprince is NOT installed
 # from ptitprince import PtitPrince as pt
@@ -19,11 +17,13 @@ from nick_data_tools import load_x_data, load_y_data, load_hid_acts, nick_to_csv
 """based on raincloud_item_change_21022019.py"""
 
 
-def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_measure='c_informed', top_layers='all',
+def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', coi_measure='c_informed', top_layers='all',
                      selected_units=False,
-                     plots_dir = 'simple_rain_plots',
+                     plots_dir='simple_rain_plots',
                      plot_fails=False,
+                     plot_class_change=False,
                      normed_acts=False,
+                     layer_act_dist=False,
                      verbose=False, test_run=False,
                      ):
     """
@@ -42,23 +42,33 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
     :param sel_dict_path:  path to selectivity dict
     :param lesion_dict_path: path to lesion dict
     :param plot_type: all classes or OneVsAll.  if n_cats > 10, should automatically revert to oneVsAll.
-    :param COI_measure: measure to use when choosing which class should be the COI.  Either the best performing sel
+    :param coi_measure: measure to use when choosing which class should be the coi.  Either the best performing sel
             measures (c_informed, c_ROC) or max class drop from lesioning.
     :param top_layers: if int, it will just do the top n mayers (excluding output).  If not int, will do all layers.
     :param selected_units: default is to test all units on all layers.  But If I just want individual units, I should be
-                    able to input a tuple for each unit (layer_name, unit number)
-    :param :
+                    able to input a dict with layer names as keys and a list for each unit on that layer.
+                    e.g., to just get unit 216 from 'fc_1' use selected_units={'fc_1': [216]}.
+    :param plots_dir: where to save plots
+    :param plot_fails: If False, just plots correct items, if true, plots items that failed after lesioning in RED
+    :param plot_class_change: if True, plots proportion of items correct per class.
+    :param normed_acts: if False use actual activation values, if True, normalize activations 0-1
+    :param layer_act_dist: plot the distribution of all activations on a given layer.
+                                This should already have been done in GHA
+    :param verbose: how much to print to screen
+    :param test_run: if True, just plot two units from two layers, if False, plot all (or selected units)
 
-
-    :return: print and save plots
+    returns nothings, just saves the plots
     """
 
     print("\n**** running visualise_units()****")
 
-    print("which units?: {}".format(selected_units))
-    print(type(selected_units))
-    if type(selected_units) is dict:
-        print("dict found")
+    if not selected_units:
+        print(f"selected_units?: {selected_units}\n"
+              "running ALL layers and units")
+    else:
+        print(focussed_dict_print(selected_units, 'selected_units'))
+    # if type(selected_units) is dict:
+    #     print("dict found")
 
     # # lesion dict
     lesion_dict = load_dict(lesion_dict_path)
@@ -69,18 +79,30 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
     lesion_path = lesion_info['lesion_path']
     lesion_highlighs = lesion_info["lesion_highlights"]
     key_lesion_layers_list = list(lesion_highlighs.keys())
+
     # # remove unnecesary items from key layers list
     if 'highlights' in key_lesion_layers_list:
         key_lesion_layers_list.remove('highlights')
-    if 'output' in key_lesion_layers_list:
-        key_lesion_layers_list.remove('output')
-    if 'Output' in key_lesion_layers_list:
-        key_lesion_layers_list.remove('Output')
+    # if 'output' in key_lesion_layers_list:
+    #     key_lesion_layers_list.remove('output')
+    # if 'Output' in key_lesion_layers_list:
+    #     key_lesion_layers_list.remove('Output')
+
+    # # remove output layers from key layers list
+    if any("utput" in s for s in key_lesion_layers_list):
+        output_layers = [s for s in key_lesion_layers_list if "utput" in s]
+        output_idx = []
+        for out_layer in output_layers:
+            output_idx.append(key_lesion_layers_list.index(out_layer))
+        min_out_idx = min(output_idx)
+        key_lesion_layers_list = key_lesion_layers_list[:min_out_idx]
+
+    class_labels = list(lesion_dict['data_info']['cat_names'].values())
 
     # # sel_dict
     sel_dict = load_dict(sel_dict_path)
     if key_lesion_layers_list[0] in sel_dict['sel_info']:
-        print('\n found old sel dict layout')
+        print('\nfound old sel dict layout')
         key_gha_sel_layers_list = list(sel_dict['sel_info'].keys())
         old_sel_dict = True
         # sel_info = sel_dict['sel_info']
@@ -88,7 +110,7 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
         # csb_list = list(sel_info[key_lesion_layers_list[0]][0]['class_sel_basics'].keys())
         # sel_measures_list = short_sel_measures_list + csb_list
     else:
-        print('\n found NEW sel dict layout')
+        print('\nfound NEW sel dict layout')
         old_sel_dict = False
         sel_info = load_dict(sel_dict['sel_info']['sel_per_unit_pickle_name'])
         # sel_measures_list = list(sel_info[key_lesion_layers_list[0]][0].keys())
@@ -96,29 +118,44 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
         # print(sel_info.keys())
 
     # # get key_gha_sel_layers_list
-    # key_gha_sel_layers_list = list(sel_dict['sel_info'].keys())
-    # # remove unnecesary items from key layers list
-    if 'sel_analysis_info' in key_gha_sel_layers_list:
-        key_gha_sel_layers_list.remove('sel_analysis_info')
-    if 'output' in key_gha_sel_layers_list:
-        output_idx = key_gha_sel_layers_list.index('output')
-        key_gha_sel_layers_list = key_gha_sel_layers_list[:output_idx]
-    if 'Output' in key_gha_sel_layers_list:
-        output_idx = key_gha_sel_layers_list.index('Output')
-        key_gha_sel_layers_list = key_gha_sel_layers_list[:output_idx]
+    # # # remove unnecesary items from key layers list
+    # if 'sel_analysis_info' in key_gha_sel_layers_list:
+    #     key_gha_sel_layers_list.remove('sel_analysis_info')
+    # if 'output' in key_gha_sel_layers_list:
+    #     output_idx = key_gha_sel_layers_list.index('output')
+    #     key_gha_sel_layers_list = key_gha_sel_layers_list[:output_idx]
+    # if 'Output' in key_gha_sel_layers_list:
+    #     output_idx = key_gha_sel_layers_list.index('Output')
+    #     key_gha_sel_layers_list = key_gha_sel_layers_list[:output_idx]
+
+    # # remove output layers from key layers list
+    if any("utput" in s for s in key_gha_sel_layers_list):
+        output_layers = [s for s in key_gha_sel_layers_list if "utput" in s]
+        output_idx = []
+        for out_layer in output_layers:
+            output_idx.append(key_gha_sel_layers_list.index(out_layer))
+        min_out_idx = min(output_idx)
+        key_gha_sel_layers_list = key_gha_sel_layers_list[:min_out_idx]
+        # key_layers_df = key_layers_df.loc[~key_layers_df['name'].isin(output_layers)]
 
     # # put together lists of 1. sel_gha_layers, 2. key_lesion_layers_list.
     n_activation_layers = sum("activation" in layers for layers in key_gha_sel_layers_list)
     n_lesion_layers = len(key_lesion_layers_list)
 
     if n_activation_layers == n_lesion_layers:
+        # # for models where activation and conv (or dense) are separate layers
         n_layers = n_activation_layers
         activation_layers = [layers for layers in key_gha_sel_layers_list if "activation" in layers]
         link_layers_dict = dict(zip(reversed(activation_layers), reversed(key_lesion_layers_list)))
-    else:
-        print("n_activation_layers: {}\n{}".format(n_activation_layers, key_gha_sel_layers_list))
-        print("n_lesion_layers: {}\n{}".format(n_lesion_layers, key_lesion_layers_list))
 
+    elif n_activation_layers == 0:
+        print("\nno separate activation layers found - use key_lesion_layers_list")
+        n_layers = len(key_lesion_layers_list)
+        link_layers_dict = dict(zip(reversed(key_lesion_layers_list), reversed(key_lesion_layers_list)))
+
+    else:
+        print(f"n_activation_layers: {n_activation_layers}\n{key_gha_sel_layers_list}")
+        print("n_lesion_layers: {n_lesion_layers}\n{key_lesion_layers_list}")
         raise TypeError('should be same number of activation layers and lesioned layers')
 
     if verbose is True:
@@ -135,10 +172,10 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
     n_cats = sel_dict['data_info']["n_cats"]
 
     if use_dataset in sel_dict['data_info']:
-        n_items = sel_dict["data_info"][use_dataset]["n_items"]
+        # n_items = sel_dict["data_info"][use_dataset]["n_items"]
         items_per_cat = sel_dict["data_info"][use_dataset]["items_per_cat"]
     else:
-        n_items = sel_dict["data_info"]["n_items"]
+        # n_items = sel_dict["data_info"]["n_items"]
         items_per_cat = sel_dict["data_info"]["items_per_cat"]
     if type(items_per_cat) is int:
         items_per_cat = dict(zip(list(range(n_cats)), [items_per_cat] * n_cats))
@@ -151,7 +188,7 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
 
     if sel_dict['GHA_info']['gha_incorrect'] == 'False':
         # # only gha for correct items
-        n_items = sel_dict['GHA_info']['scores_dict']['n_correct']
+        # n_items = sel_dict['GHA_info']['scores_dict']['n_correct']
         items_per_cat = sel_dict['GHA_info']['scores_dict']['corr_per_cat_dict']
 
     # # load hid acts dict called hid_acts.pickle
@@ -171,27 +208,30 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
         hid_acts_path = os.path.join(gha_path, hid_acts_pickle_name)
     else:
         hid_act_items = 'all'
-        if sel_dict['GHA_info']['gha_incorrect'] == False:
+        if not sel_dict['GHA_info']['gha_incorrect']:
             hid_act_items = 'correct'
 
-        gha_folder = '{}_{}_gha'.format(hid_act_items, use_dataset)
+        gha_folder = f'{hid_act_items}_{use_dataset}_gha'
         hid_acts_path = os.path.join(exp_cond_path, gha_folder, hid_acts_pickle_name)
     with open(hid_acts_path, 'rb') as pkl:
         hid_acts_dict = pickle.load(pkl)
     print("\nopened hid_acts.pickle")
 
-    # # # visualizing distribution of activations as sanity check
-    # for k, v in hid_acts_dict.items():
-    #     print("\nPlotting distribution of layer acts")
-    #     print(hid_acts_dict[k]['layer_name'])
-    #     hid_acts = hid_acts_dict[k]['2d_acts']
-    #     print(np.shape(hid_acts))
-    #     sns.distplot(np.ravel(hid_acts))
-    #     plt.title(str(hid_acts_dict[k]['layer_name']))
-    #     dist_plot_name = "{}_{}_layer_act_distplot.png".format(output_filename, hid_acts_dict[k]['layer_name'])
-    #     plt.savefig(os.path.join(lesion_path, dist_plot_name))
-    #     # plt.show()
-    #     plt.close()
+    # # # visualizing distribution of activations
+    # if layer_act_dist:
+    #     print("\nPlotting the distributions of activations for each layer")
+    #     for k, v in hid_acts_dict.items():
+    #         print("\nPlotting distribution of layer acts")
+    #         layer_act_dist_dir = 'layer_act_dist'
+    #         print(hid_acts_dict[k]['layer_name'])
+    #         hid_acts = hid_acts_dict[k]['2d_acts']
+    #         print(np.shape(hid_acts))
+    #         sns.distplot(np.ravel(hid_acts))
+    #         plt.title(str(hid_acts_dict[k]['layer_name']))
+    #         dist_plot_name = "{}_{}_layer_act_distplot.png".format(output_filename, hid_acts_dict[k]['layer_name'])
+    #         plt.savefig(os.path.join(plots_dir, layer_act_dist_dir, dist_plot_name))
+    #         # plt.show()
+    #         plt.close()
 
     # # dict to get the hid_acts_dict key for each layer based on its name
     get_hid_acts_number_dict = dict()
@@ -203,14 +243,21 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
     # # where to save files
     save_plots_name = plots_dir
     if plot_type is "OneVsAll":
-        save_plots_name = '{}/{}'.format(plots_dir, COI_measure)
-    save_plots_path = os.path.join(lesion_path, save_plots_name)
-    if test_run is True:
+        save_plots_name = f'{plots_dir}/{coi_measure}'
+    save_plots_dir = lesion_dict['GHA_info']['gha_path']
+    save_plots_path = os.path.join(save_plots_dir, save_plots_name)
+    if test_run:
         save_plots_path = os.path.join(save_plots_path, 'test')
     if not os.path.exists(save_plots_path):
         os.makedirs(save_plots_path)
     os.chdir(save_plots_path)
-    print("\ncurrent wd: {}".format(os.getcwd()))
+    print(f"\ncurrent wd: {os.getcwd()}")
+
+    if layer_act_dist:
+        layer_act_dist_path = os.path.join(save_plots_path, 'layer_act_dist')
+        if not os.path.exists(layer_act_dist_path):
+            os.makedirs(layer_act_dist_path)
+
 
     print("\n\n**********************"
           "\nlooping through layers"
@@ -218,7 +265,7 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
 
     for layer_index, (gha_layer_name, lesion_layer_name) in enumerate(link_layers_dict.items()):
 
-        if test_run == True:
+        if test_run:
             if layer_index > 2:
                 continue
 
@@ -228,15 +275,17 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
                     continue
 
 
-        print("which units?: {}".format(selected_units))
-        if selected_units != 'all':
+        # print(f"\nwhich units?: {selected_units}")
+        # if selected_units != 'all':
+        if selected_units is not False:
             if gha_layer_name not in list(selected_units.keys()):
-                print("skipping layer")
+                print(f"\nselected_units only, skipping layer {gha_layer_name}")
                 continue
             else:
-                print("{} in {}".format(gha_layer_name, list(selected_units.keys())))
+                print(f"\nselected_units only, from {gha_layer_name}")
+                # print(f"\t{gha_layer_name} in {list(selected_units.keys())}")
                 this_layer_units = selected_units[gha_layer_name]
-                print("just get these units: {}".format(this_layer_units))
+                print(f"\trunning units: {this_layer_units}")
 
         gha_layer_number = get_hid_acts_number_dict[gha_layer_name]
         layer_dict = hid_acts_dict[gha_layer_number]
@@ -245,6 +294,19 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
             raise TypeError("gha_layer_name (from link_layers_dict) and layer_dict['layer_name'] should match! ")
         hid_acts_array = layer_dict['2d_acts']
         hid_acts_df = pd.DataFrame(hid_acts_array, dtype=float)
+
+        # # visualizing distribution of activations
+        if layer_act_dist:
+            hid_acts = layer_dict['2d_acts']
+            print(f"\nPlotting distribution of activations {np.shape(hid_acts)}")
+            sns.distplot(np.ravel(hid_acts))
+            plt.title(f"{str(layer_dict['layer_name'])} activation distribution")
+            dist_plot_name = "{}_{}_layer_act_distplot.png".format(output_filename, layer_dict['layer_name'])
+            plt.savefig(os.path.join(layer_act_dist_path, dist_plot_name))
+            if test_run:
+                plt.show()
+            plt.close()
+
 
         # # load item change details
         """# # four possible states
@@ -255,83 +317,96 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
         4.  0 (wrong)       1 (correct)     2
 
         """
-        item_change_df = pd.read_csv("{}/{}_{}_item_change.csv".format(lesion_path, output_filename, lesion_layer_name),
+        item_change_df = pd.read_csv(f"{lesion_path}/{output_filename}_{lesion_layer_name}_item_change.csv",
                                      header=0, dtype=int, index_col=0)
 
-        prop_change_df = pd.read_csv('{}/{}_{}_prop_change.csv'.format(lesion_path, output_filename, lesion_layer_name),
+        prop_change_df = pd.read_csv(f'{lesion_path}/{output_filename}_{lesion_layer_name}_prop_change.csv',
                                      header=0,
                                      # dtype=float,
                                      index_col=0)
 
-        if verbose == True:
+        if verbose:
             print("\n*******************************************"
-                  "\n{}. gha layer {}: {} \tlesion layer: {}"
-                  "\n*******************************************".format(layer_index, gha_layer_number,
-                                                                         gha_layer_name, lesion_layer_name))
+                  f"\n{layer_index}. gha layer {gha_layer_number}: {gha_layer_name} \tlesion layer: {lesion_layer_name}"
+                  "\n*******************************************")
             # focussed_dict_print(hid_acts_dict[layer_index])
-            print("\n\thid_acts {} shape: {}".format(gha_layer_name, hid_acts_df.shape))
-            print(
-                "\tloaded: {}_{}_item_change.csv: {}".format(output_filename, lesion_layer_name, item_change_df.shape))
+            print(f"\n\thid_acts {gha_layer_name} shape: {hid_acts_df.shape}")
+            print(f"\tloaded: {output_filename}_{lesion_layer_name}_item_change.csv: {item_change_df.shape}")
 
         units_per_layer = len(hid_acts_df.columns)
 
         print("\n\n\t**** loop through units ****")
         for unit_index, unit in enumerate(hid_acts_df.columns):
 
-            if test_run == True:
+            if test_run:
                 if unit_index > 2:
                     continue
 
-            if selected_units != 'all':
+            # if selected_units != 'all':
+            if selected_units is not False:
                 if unit not in this_layer_units:
-                    print("skipping this unit")
+                    # print(f"skipping unit {gha_layer_name} {unit}")
                     continue
                 else:
-                    print('running this unit')
+                    print(f"\nrunning unit {gha_layer_name} {unit}")
 
-            lesion_layer_and_unit = "{}.{}".format(lesion_layer_name, unit)
+            # # check unit is in sel_per_unit_dict
+            if unit in sel_info[gha_layer_name].keys():
+                if verbose:
+                    print("found unit in dict")
+            else:
+                print("unit not in dict\n!!!!!DEAD RELU!!!!!!!!\n...on to the next unit\n")
+                continue
 
-            print("\n\n*************\nrunning layer {} of {} ({}): unit {} of {}\n************".format(
-                layer_index, n_layers, gha_layer_name, unit, units_per_layer))
+            lesion_layer_and_unit = f"{lesion_layer_name}.{unit}"
+            output_layer_and_unit = f"{lesion_layer_name}_{unit}"
+
+            print("\n\n*************\n"
+                  f"running layer {layer_index} of {n_layers} ({gha_layer_name}): unit {unit} of {units_per_layer}\n"
+                  "************")
 
             # # make new df with just [item, hid_acts*, class, item_change*] *for this unit
             unit_df = item_change_df[["item", "class", lesion_layer_and_unit]].copy()
             # print(hid_acts_df)
             this_unit_hid_acts = hid_acts_df.loc[:, unit]
 
+
             # # check for dead relus
             if sum(np.ravel(this_unit_hid_acts)) == 0.0:
                 print("\n\n!!!!!DEAD RELU!!!!!!!!...on to the next unit\n")
                 continue
 
+            if verbose:
+                print(f"\tnot a dead unit, hid acts sum: {sum(np.ravel(this_unit_hid_acts)):.2f}")
+
             unit_df.insert(loc=1, column='hid_acts', value=this_unit_hid_acts)
             unit_df = unit_df.rename(index=str, columns={lesion_layer_and_unit: 'item_change'})
 
             if verbose is True:
-                print("\n\tall items - unit_df: ", unit_df.shape)
+                print(f"\n\tall items - unit_df: {unit_df.shape}")
 
             # # remove rows where network failed originally and after lesioning this unit - uninteresting
             old_df_length = len(unit_df)
             unit_df = unit_df.loc[unit_df['item_change'] != 0]
             if verbose is True:
                 n_fail_fail = old_df_length - len(unit_df)
-                print("\n\t{} fail-fail items removed - new shape unit_df: {}".format(n_fail_fail, unit_df.shape))
+                print(f"\n\t{n_fail_fail} fail-fail items removed - new shape unit_df: {unit_df.shape}")
 
             # # get items per class based on their occurences in the dataframe.
             # # this includes fail-pass, pass-pass and pass-fail - but not fail-fail
-            no_fail_fail_IPC = unit_df['class'].value_counts(sort=False)
+            no_fail_fail_ipc = unit_df['class'].value_counts(sort=False)
 
-            df_IPC = dict()
+            df_ipc = dict()
             for i in range(n_cats):
-                df_IPC[i] = no_fail_fail_IPC[i]
+                df_ipc[i] = no_fail_fail_ipc[i]
 
             # # # calculate the proportion of items that failed.
             # # # this is not the same as total_unit_change (which takes into account fail-pass as well as pass-fail)
-            # df_IPC_total = sum(df_IPC.values())
+            # df_ipc_total = sum(df_ipc.values())
             # l_failed_df = unit_df[(unit_df['item_change'] == -1)]
             # l_failed_count = len(l_failed_df)
             #
-            # print("\tdf_IPC_total: {}".format(df_IPC_total))
+            # print("\tdf_ipc_total: {}".format(df_ipc_total))
             # print("\tl_failed_count: {}".format(l_failed_count))
 
             # # getting max_class_drop
@@ -340,9 +415,9 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
             max_class_drop_col = max_class_drop_col.drop(labels=['total'])
             max_class_drop_val = max_class_drop_col.min()
             max_drop_class = max_class_drop_col.idxmin()
-            print("\n\tmax_class_drop_val: {}".format(max_class_drop_val))
-            print("\tmax_drop_class: {}".format(max_drop_class))
-            print("\ttotal_unit_change: {}".format(total_unit_change))
+            print(f"\n\tmax_class_drop_val: {max_class_drop_val}\n"
+                  f"\tmax_drop_class: {max_drop_class}\n"
+                  f"\ttotal_unit_change: {total_unit_change}")
 
             # # getting best sel measure (max_informed)
             main_sel_name = 'informedness'
@@ -356,33 +431,32 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
                 main_sel_val = sel_info[gha_layer_name][unit]['max']['max_informed']
                 main_sel_class = int(sel_info[gha_layer_name][unit]['max']['max_informed_c'])
 
-            print("\tmain_sel_val: {}".format(main_sel_val))
-            print("\tmain_sel_class: {}".format(main_sel_class))
+            print(f"\tmain_sel_val: {main_sel_val}")
+            print(f"\tmain_sel_class: {main_sel_class}")
 
-            # # COI stands for Class Of Interest
-            # # if doing oneVsAll I need to have a COI measure. (e.g., clas with max informed 'c_informed')
+            # # coi stands for Class Of Interest
+            # # if doing oneVsAll I need to have a coi measure. (e.g., clas with max informed 'c_informed')
             if plot_type is "OneVsAll":
 
-                # # get COI
-                if COI_measure == 'max_class_drop':
-                    COI = max_drop_class
-                elif COI_measure == 'c_informed':
-                    COI = main_sel_class
+                # # get coi
+                if coi_measure == 'max_class_drop':
+                    coi = max_drop_class
+                elif coi_measure == 'c_informed':
+                    coi = main_sel_class
                 else:
-                    COI = int(sel_dict['sel_info'][gha_layer_name][unit]['max'][COI_measure])
-                print("\n\tCOI: {}  ({})".format(COI, COI_measure))
+                    coi = int(sel_dict['sel_info'][gha_layer_name][unit]['max'][coi_measure])
+                print(f"\n\tcoi: {coi}  ({coi_measure})")
 
-                # # get new class labels based on COI, OneVsAll
+                # # get new class labels based on coi, OneVsAll
                 all_classes_col = unit_df['class'].astype(int)
 
-                OneVsAll_class_list = [1 if x is COI else 0 for x in all_classes_col]
-                print("\tall_classes_col: {}  OneVsAll_class_list: {}".format(len(all_classes_col),
-                                                                              len(OneVsAll_class_list)))
+                one_v_all_class_list = [1 if x is coi else 0 for x in all_classes_col]
+                print(f"\tall_classes_col: {len(all_classes_col)}  one_v_all_class_list: {len(one_v_all_class_list)}")
 
                 if 'OneVsAll' not in list(unit_df):
                     print("\tadding 'OneVsAll'")
                     print("\treplacing all classes with 'OneVsAll'class column")
-                    unit_df['class'] = OneVsAll_class_list
+                    unit_df['class'] = one_v_all_class_list
 
 
             min_act = unit_df['hid_acts'].min()
@@ -390,10 +464,8 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
             if normed_acts:
                 if min_act >= 0.0:
                     print("\nnormalising activations")
-
                     this_unit_normed_acts = np.divide(unit_df['hid_acts'], unit_df['hid_acts'].max())
                     unit_df['normed'] = this_unit_normed_acts
-
                     print(unit_df.head())
                 else:
                     print("\ncan not do normed acts on this unit")
@@ -401,71 +473,54 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
 
 
             # # # did any items fail that were previously at zero
-            print("\n\tsmallest activation on this layer was {}".format(min_act))
+            print(f"\n\tsmallest activation on this layer was {min_act}")
             l_failed_df = unit_df[(unit_df['item_change'] == -1)]
             l_failed_df = l_failed_df.sort_values(by=['hid_acts'])
 
             min_failed_act = l_failed_df['hid_acts'].min()
-            print("\n\tsmallest activation of items that failed after lesioning was {}".format(min_failed_act))
+            print(f"\n\tsmallest activation of items that failed after lesioning was {min_failed_act}")
             if min_failed_act == 0.0:
                 fail_zero_df = l_failed_df.loc[l_failed_df['hid_acts'] == 0.0]
                 fail_zero_count = len(fail_zero_df.index)
-                print("\n\tfail_zero_df: {} items\n\t{}".format(fail_zero_count, fail_zero_df.head()))
-                fail_zero_df.to_csv("{}_{}_{}_fail_zero_df.csv".format(output_filename, gha_layer_name, unit),
-                                    index=False)
-
-
-
-
+                print(f"\n\tfail_zero_df: {fail_zero_count} items\n\t{fail_zero_df.head()}")
+                fail_zero_df.to_csv(f"{output_filename}_{gha_layer_name}_{unit}_fail_zero_df.csv", index=False)
 
 
             # # make plot of class changes
-            if plot_fails is True:
+            # if plot_fails is True:
+            if plot_class_change:
                 class_prop_change = prop_change_df.iloc[:-1, unit].to_list()
-                print("\n\tclass_prop_change: ", class_prop_change)
+                print(f"\n\tclass_prop_change: {class_prop_change}")
 
-                min_class_prop_change = min(class_prop_change)
-                max_class_prop_change = max(class_prop_change)
-                print("min: {}\nmax: {}".format(min_class_prop_change, max_class_prop_change))
-
+                # change scale if there are big changes
                 class_change_x_min = -.5
-                if min_class_prop_change < class_change_x_min:
-                    class_change_x_min = min_class_prop_change
+                if min(class_prop_change) < class_change_x_min:
+                    class_change_x_min = min(class_prop_change)
 
                 class_change_x_max = .1
-                if max_class_prop_change > class_change_x_max:
-                    class_change_x_max = max_class_prop_change
+                if max(class_prop_change) > class_change_x_max:
+                    class_change_x_max = max(class_prop_change)
 
-                class_labels = list(lesion_dict['data_info']['cat_names'].values())
-                # class_change_x_labels = list(range(n_cats))
-
-                # class_change_curve = sns.barplot(x=class_change_x_labels, y=class_prop_change)
                 class_change_curve = sns.barplot(x=class_prop_change, y=class_labels, orient='h')
-
-                # class_change_curve.axhline(0, color="k", clip_on=False)
                 class_change_curve.set_xlim([class_change_x_min, class_change_x_max])
-
                 class_change_curve.axvline(0, color="k", clip_on=False)
-
                 plt.subplots_adjust(left=0.15)  # just to fit the label 'automobile' on
 
-                print('\nclass_val: ', min(class_prop_change))
-                print('class num: ', class_prop_change.index(min(class_prop_change)))
-                print('class label: ', class_labels[class_prop_change.index(min(class_prop_change))])
+                print(f'\nclass num: {class_prop_change.index(min(class_prop_change))}, '
+                      f'class label: {class_labels[class_prop_change.index(min(class_prop_change))]}, '
+                      f'class_val: {min(class_prop_change):.2f}'
+                      )
 
-                plt.title("{}\n"
-                          "total change: {} max_class ({}): {}".format(lesion_layer_and_unit,
-                                                                       round(total_unit_change, 2),
-                                                        class_labels[class_prop_change.index(min(class_prop_change))],
-                                                                       round(min(class_prop_change), 2)))
-                plt.savefig("{}_{}_class_prop_change.png".format(output_filename, lesion_layer_and_unit))
+                plt.title(f"{lesion_layer_and_unit}\n"
+                          f"total change: {total_unit_change:.2f} "
+                          f"max_class ({class_labels[class_prop_change.index(min(class_prop_change))]}): "
+                          f"{min(class_prop_change):.2f}")
+                plt.savefig(f"{output_filename}_{output_layer_and_unit}_class_prop_change.png")
 
-                if test_run == True:
+                if test_run:
                     plt.show()
 
                 plt.close()
-
-
 
 
 
@@ -475,43 +530,39 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
 
             # # # plot title
             if plot_fails:
-                title = "Layer: {} Unit: {}\nmax_class_drop: {} ({}), total change: {}" \
-                        "\n{}: {} ({})".format(gha_layer_name, unit, round(max_class_drop_val, 2), max_drop_class,
-                                               round(total_unit_change, 2), main_sel_name, round(main_sel_val, 2),
-                                               main_sel_class)
+                title = f"Layer: {gha_layer_name} Unit: {unit}\nmax_class_drop: {max_class_drop_val:.2f} " \
+                        f"({max_drop_class}), total change: {total_unit_change:.2f}\n" \
+                        f"{main_sel_name}: {main_sel_val:.2f} ({main_sel_class})"
 
                 if plot_type == "OneVsAll":
-                    title = "Layer: {} Unit: {} class: {}\nmax_class_drop: {} ({}), total change: {}" \
-                            "\n{}: {} ({})".format(gha_layer_name, unit, COI, round(max_class_drop_val, 2),
-                                                   max_drop_class,
-                                                   round(total_unit_change, 2), main_sel_name, round(main_sel_val, 2),
-                                                   main_sel_class)
+                    title = f"Layer: {gha_layer_name} Unit: {unit} class: {coi}\n" \
+                            f"max_class_drop: {max_class_drop_val:.2f} ({max_drop_class}), " \
+                            f"total change: {total_unit_change:.2f}" \
+                            "\n{main_sel_name}: {main_sel_val:.2f} ({main_sel_class})"
             else:
-                title = "Layer: {} Unit: {}\n{}: {} ({})".format(gha_layer_name, unit,
-                                                                 main_sel_name, round(main_sel_val, 2),
-                                                                 main_sel_class)
+                title = f"Layer: {gha_layer_name} Unit: {unit}\n" \
+                        f"{main_sel_name}: {main_sel_val:.2f} ({main_sel_class})"
 
                 if plot_type == "OneVsAll":
-                    title = "Layer: {} Unit: {} class: {}\n{}: {} ({})".format(gha_layer_name, unit,
-                                                                               main_sel_name, round(main_sel_val, 2),
-                                                                               main_sel_class)
-            print("\ntitle: {}".format(title))
+                    title = f"Layer: {gha_layer_name} Unit: {unit} class: {coi}\n" \
+                            f"{main_sel_name}: {main_sel_val:.2f} ({main_sel_class})"
+            print(f"\ntitle:\n{title}")
 
             # # # load main dataframe
             raincloud_data = unit_df
             # print(raincloud_data.head())
 
             plot_y_vals = "class"
-            # use_this_IPC = items_per_cat
-            use_this_IPC = df_IPC
+            # use_this_ipc = items_per_cat
+            use_this_ipc = df_ipc
 
             if plot_type is "OneVsAll":
                 print("\t\n\n\nUSE OneVsAll mode")
                 n_cats = 2
-                items_per_COI = use_this_IPC[COI]
-                other_items = sum(df_IPC.values()) - items_per_COI
-                use_this_IPC = {0: other_items, 1: items_per_COI}
-                print("\tcoi {}, items_per_cat {}".format(COI, items_per_cat))
+                items_per_coi = use_this_ipc[coi]
+                other_items = sum(df_ipc.values()) - items_per_coi
+                use_this_ipc = {0: other_items, 1: items_per_coi}
+                print(f"\tcoi {coi}, items_per_cat {items_per_cat}")
 
             # # # choose colours
             use_colours = 'tab10'
@@ -532,14 +583,14 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
             # # # # # # # # # # # #
 
             # 1. get biggest class size (for max val of plot)
-            max_class_size = max(use_this_IPC.values())
-            print("\tmax_class_size: {}".format(max_class_size))
+            max_class_size = max(use_this_ipc.values())
+            print(f"\tmax_class_size: {max_class_size}")
 
             # 2. get list or dict of zeros per class
             zeros_dict = {}
             for k in range(n_cats):
                 if plot_type is "OneVsAll":
-                    plot_names = ["all_others", "class_{}".format(COI)]
+                    plot_names = ["all_others", f"class_{coi}"]
                     this_name = plot_names[k]
                     this_class = unit_df.loc[unit_df['OneVsAll'] == k]
                     zero_count = 0 - (this_class['hid_acts'] == 0).sum()
@@ -553,28 +604,25 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
             # zd_classes = list(lesion_dict['data_info']['cat_names'].values())
             zd_zero_count = list(zeros_dict.values())
 
-            if verbose == True:
-                print("\n\tzeros_dict:{}, use_this_IPC:{}".format(zeros_dict.values(), use_this_IPC.values()))
+            if verbose:
+                print(f"\n\tzeros_dict:{zeros_dict.values()}, use_this_ipc:{use_this_ipc.values()}")
 
-            zd_zero_perc = [x / y * 100 if y else 0 for x, y in zip(zeros_dict.values(), use_this_IPC.values())]
+            zd_zero_perc = [x / y * 100 if y else 0 for x, y in zip(zeros_dict.values(), use_this_ipc.values())]
 
-            # todo: put zed back in
             zd_data = {"class": class_labels, "zero_count": zd_zero_count, "zero_perc": zd_zero_perc}
 
             zeros_dict_df = pd.DataFrame.from_dict(data=zd_data)
 
-            zero_plot = sns.catplot(x="zero_perc", y="class",
-                                    data=zeros_dict_df,
-                                    kind="bar",
-                                    orient='h', ax=zeros_axis)
+            # zero_plot
+            sns.catplot(x="zero_perc", y="class", data=zeros_dict_df, kind="bar", orient='h', ax=zeros_axis)
 
             zeros_axis.set_xlabel("% at zero (height reflects n items)")
 
             zeros_axis.set_xlim([-100, 0])
 
             # # set width of bar to reflect class size
-            new_heights = [x / max_class_size for x in use_this_IPC.values()]
-            print("\tuse_this_IPC: {}\n\tnew_heights: {}".format(use_this_IPC, new_heights))
+            new_heights = [x / max_class_size for x in use_this_ipc.values()]
+            print(f"\tuse_this_ipc: {use_this_ipc}\n\tnew_heights: {new_heights}")
 
             # def change_height(zeros_axis, new_value):
             patch_count = 0
@@ -609,9 +657,9 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
             data_class = plot_y_vals  # class
             orientation = "h"  # orientation
 
-            cloud_plot = pt.half_violinplot(data=raincloud_data, bw=.1, linewidth=.5, cut=0., width=1, inner=None,
-                                            orient=orientation, x=data_values, y=data_class,
-                                            scale="count")  # scale="area"
+            # cloud_plot
+            pt.half_violinplot(data=raincloud_data, bw=.1, linewidth=.5, cut=0., width=1, inner=None,
+                               orient=orientation, x=data_values, y=data_class, scale="count")  # scale="area"
 
             """# # rain_drops - plot 3 separate plots so that they are interesting items are ontop of pass-pass
             # # zorder is order in which items are printed
@@ -620,9 +668,6 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
             # # 2 ('green') failed in full model but passed in lesioning"""
             fail_palette = {1: "silver", -1: "red", 2: "green", 0: "orange"}
 
-            # todo: try jitter = True rather than 1?
-            # todo: could put these three into one plot sepatated by Hue, then have dodge=True to stop them overlapping
-
 
             # # separate rain drops for pass pass,
             pass_pass_df = unit_df[(unit_df['item_change'] == 1)]
@@ -630,30 +675,34 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
                                             size=2, orient=orientation)  # , hue='item_change', palette=fail_palette)
 
             if plot_fails is True:
+
+                '''I'm not using this atm, but if I want to plot items that originally failed and later passed'''
                 # # separate raindrop for fail pass
-                fail_pass_df = unit_df[(unit_df['item_change'] == 2)]
+                # fail_pass_df = unit_df[(unit_df['item_change'] == 2)]
                 # if not fail_pass_df.empty:
-                    # fail_pass_drops = sns.stripplot(data=fail_pass_df, x=data_values, y=data_class, jitter=1, zorder=3,
-                    #                                 size=4, orient=orientation, hue='item_change', palette=fail_palette,
-                    #                                 edgecolor='gray', linewidth=.4, marker='s', label='')
+                #     fail_pass_drops = sns.stripplot(data=fail_pass_df, x=data_values, y=data_class, jitter=1,
+                #                                     zorder=3, size=4, orient=orientation, hue='item_change',
+                #                                     palette=fail_palette, edgecolor='gray', linewidth=.4, marker='s',
+                #                                     label='')
 
                 # # separate raindrops for pass fail
                 if not l_failed_df.empty:
-                    pass_fail_drops = sns.stripplot(data=l_failed_df, x=data_values, y=data_class, jitter=1, zorder=4,
-                                                    size=4, orient=orientation, hue='item_change', palette=fail_palette,
-                                                    edgecolor='white', linewidth=.4, marker='s')
+                    # pass_fail_drops
+                    sns.stripplot(data=l_failed_df, x=data_values, y=data_class, jitter=1, zorder=4, size=4,
+                                  orient=orientation, hue='item_change', palette=fail_palette, edgecolor='white',
+                                  linewidth=.4, marker='s')
 
-            box_plot = sns.boxplot(data=raincloud_data, color="gray", orient=orientation, width=.15, x=data_values,
-                                   y=data_class, zorder=2,
-                                   showbox=False,
-                                   # boxprops={'facecolor': 'none', "zorder": 2},
-                                   showfliers=False, showcaps=False,
-                                   whiskerprops={'linewidth': .01, "zorder": 2}, saturation=1,
-                                   # showwhiskers=False,
-                                   medianprops={'linewidth': .01, "zorder": 2},
-                                   showmeans=True,
-                                   meanprops={"marker": "*", "markerfacecolor": "white", "markeredgecolor": "black"}
-                                   )
+            # box_plot
+            sns.boxplot(data=raincloud_data, color="gray", orient=orientation, width=.15, x=data_values,
+                        y=data_class, zorder=2, showbox=False,
+                        # boxprops={'facecolor': 'none', "zorder": 2},
+                        showfliers=False, showcaps=False,
+                        whiskerprops={'linewidth': .01, "zorder": 2}, saturation=1,
+                        # showwhiskers=False,
+                        medianprops={'linewidth': .01, "zorder": 2},
+                        showmeans=True,
+                        meanprops={"marker": "*", "markerfacecolor": "white", "markeredgecolor": "black"}
+                        )
 
             # # Finalize the figure
             rain_axis.set_xlabel("Unit activations")
@@ -664,7 +713,8 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
             new_legend_text = ['l_failed']
 
             leg = pass_pass_drops.axes.get_legend()
-            if leg:  # in here because leg is None if no items changed when this unit was lesioned
+            if leg:
+                # in here because leg is None if no items changed when this unit was lesioned
                 for t, l in zip(leg.texts, new_legend_text):
                     t.set_text(l)
 
@@ -692,8 +742,6 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
             else:
                 min_x_val = min_activation
 
-
-
             rain_axis.set_xlim([min_x_val, max_x_val])
             rain_axis.get_shared_y_axes().join(zeros_axis, rain_axis)
             fig.subplots_adjust(wspace=0)
@@ -704,7 +752,7 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
             plt.axvline(x=min_x_val, linestyle="-", color='black', )
 
             # # add marker for max informedness
-            if 'info' in COI_measure:
+            if 'info' in coi_measure:
                 if old_sel_dict:
                     normed_info_thr = sel_dict['sel_info'][gha_layer_name][unit]['max']['thr_informed']
                 else:
@@ -716,21 +764,21 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
                 else:
                     # unnormalise it
                     best_info_thr = normed_info_thr * max(this_unit_hid_acts)
-                print("\tbest_info_thr: {}".format(best_info_thr))
+                print(f"\tbest_info_thr: {best_info_thr}")
                 plt.axvline(x=best_info_thr, linestyle="--", color='grey')
 
             # sns.despine(right=True)
 
             if plot_type is "OneVsAll":
-                plt.savefig("{}_{}_{}_cat{}_raincloud.png".format(output_filename, gha_layer_name, unit, COI))
+                plt.savefig(f"{output_filename}_{gha_layer_name}_{unit}_cat{coi}_raincloud.png")
 
             else:
-                plt.savefig("{}_{}_{}_raincloud.png".format(output_filename, gha_layer_name, unit))
+                plt.savefig(f"{output_filename}_{gha_layer_name}_{unit}_raincloud.png")
 
-            if test_run == True:
+            if test_run:
                 plt.show()
 
-            print("\n\tplot finished")
+            print("\n\tplot finished\n")
 
             # # clear for next round
             plt.close()
@@ -740,39 +788,3 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', COI_m
 
 ####################################################################################
 # print("\n!\n!\n!TEST RUN FROM BOTTOM OF SCRIPT")
-#
-# lesion_dict_path = '/home/nm13850/Documents/PhD/python_v2/experiments/CIFAR10_models/' \
-#                    'CIFAR10_models_c4p2_adam_bn/all_test_set_gha/lesion/CIFAR10_models_c4p2_adam_bn_lesion_dict.pickle'
-# sel_dict_path = '/home/nm13850/Documents/PhD/python_v2/experiments/CIFAR10_models/' \
-#                 'CIFAR10_models_c4p2_adam_bn/all_test_set_gha/correct_sel/CIFAR10_models_c4p2_adam_bn_sel_dict.pickle'
-#
-# # plot_this = {'activation_30': [63, 68, 100, 101, 124],
-# #              'activation_31': [31, 82, 92, 313, 363, 442, 452]}
-#
-# plot_this = {
-#              'activation_25': [0, 10],
-#              'activation_26': [0, 2],
-#              'activation_27': [26, 38, 15],
-#              'activation_28': [0, 12, 63, 110],
-#              'activation_29': [0, 21, 84],
-#              'activation_30': [0, 31, 34, 63, 68, 100, 101, 124],
-#              'activation_31': [0, 31, 82, 92, 206, 313, 334, 363, 402, 442, 452],
-#              }
-#
-# raincloud_w_fail(sel_dict_path=sel_dict_path,
-#                  lesion_dict_path=lesion_dict_path,
-#                  plot_type='classes',
-#                  COI_measure='CCMAs_c',  # 'c_ROC'
-#                  selected_units=plot_this,
-#                  plots_dir='niceplots/with_fails',
-#                  plot_fails=True,
-#                  normed_acts=True,
-#                  verbose=True,
-#                  test_run=True
-#                  )
-
-# sel_dict_path, lesion_dict_path, plot_type='classes', COI_measure='c_informed', top_layers='all',
-#                      selected_units=False,
-#                      plots_dir = 'simple_rain_plots',
-#                      plot_fails=False,
-#                      verbose=False, test_run=False
