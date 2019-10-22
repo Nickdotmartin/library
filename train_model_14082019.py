@@ -1,17 +1,22 @@
 import csv
 import datetime
-import json
 import os.path
+import json
 import sys
+import pickle
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import tensorflow as tf
+
+from tensorflow.keras.optimizers import Adam, SGD, RMSprop
 from keras.preprocessing.image import ImageDataGenerator
 from keras.utils.np_utils import to_categorical
-from sklearn.model_selection import train_test_split
-from tensorflow.keras.optimizers import Adam, SGD, RMSprop
 from tensorflow.python.keras.callbacks import TensorBoard
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
 
 sys.path.append('/home/nm13850/Documents/PhD/python_v2/Nick_functions')
 from nick_dict_tools import load_dict, focussed_dict_print, print_nested_round_floats
@@ -29,8 +34,8 @@ from rnns import lstm_1, lstm_2, lstm_4
 # todo: have levels of verbosity, e.g., if verbose > 1:
 
 
-# print("tf: ", tf.version.VERSION)
-# print("keras: ", tf.keras.__version__)
+print("tf: ", tf.version.VERSION)
+print("keras: ", tf.keras.__version__)
 
 
 def train_model(exp_name,
