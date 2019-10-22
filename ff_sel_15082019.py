@@ -14,14 +14,6 @@ from nick_dict_tools import load_dict, focussed_dict_print, print_nested_round_f
 from nick_data_tools import nick_read_csv
 
 
-# todo: change ROC to include class0!!!
-
-
-
-
-
-
-
 def nick_roc_stuff(class_list, hid_acts, this_class, class_a_size, not_a_size, verbose=False):
     """
     compute fpr, tpr, thr
