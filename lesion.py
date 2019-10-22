@@ -11,7 +11,6 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.applications.vgg16 import preprocess_input
 from tensorflow.keras.applications.vgg16 import VGG16
 
-sys.path.append('/home/nm13850/Documents/PhD/python_v2/Nick_functions')
 from nick_dict_tools import load_dict, focussed_dict_print, print_nested_round_floats
 from nick_data_tools import load_x_data, load_y_data, load_hid_acts, nick_to_csv, nick_read_csv
 from nick_network_tools import get_scores, VGG_get_scores

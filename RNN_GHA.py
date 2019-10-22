@@ -9,7 +9,7 @@ from keras.utils import to_categorical
 # from tensorflow.keras.applications.vgg16 import VGG16
 from tensorflow.keras.models import load_model
 
-from hdf_tools_29082019 import hdf_pred_scores, hdf_gha
+from hdf_tools import hdf_pred_scores, hdf_gha
 from nick_dict_tools import load_dict, focussed_dict_print, print_nested_round_floats
 
 

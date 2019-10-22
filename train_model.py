@@ -18,7 +18,6 @@ from tensorflow.python.keras.callbacks import TensorBoard
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
-sys.path.append('/home/nm13850/Documents/PhD/python_v2/Nick_functions')
 from nick_dict_tools import load_dict, focussed_dict_print, print_nested_round_floats
 from nick_data_tools import load_x_data, load_y_data
 from nick_network_tools import get_model_dict, get_scores
