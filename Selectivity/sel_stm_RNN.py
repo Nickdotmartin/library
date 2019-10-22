@@ -5,6 +5,10 @@ from sklearn.metrics import roc_curve, auc
 from sklearn.preprocessing import label_binarize
 from keras.utils import to_categorical
 
+
+
+# todo: this is just a test idea, use this to update RNN_sel
+
 # # # PART 1 # # #
 GHA_dict_filename = "test_vocab_30_seq3_test_Y_GHA_dict"
 GHA_dict = json.loads(open("{}.txt".format(GHA_dict_filename)).read())
