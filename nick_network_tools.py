@@ -35,6 +35,7 @@ def get_model_dict(compiled_model, verbose=False):
     hid_act_layers = 0
     hid_dense_layers = 0
     hid_conv_layers = 0
+    hid_rec_layer = 0
     hid_UPL = []
     hid_FPL = []
 
@@ -96,7 +97,7 @@ def get_model_dict(compiled_model, verbose=False):
     out_conv_layers = 0
     out_UPL = []
     out_FPL = []
-    for layer in range(all_layers-2, all_layers):
+    for layer in range(all_layers-output_layers, all_layers):
         if verbose is True:
             print("\nModel layer {}\n{}".format(layer, model_config['layers'][layer]))
 
