@@ -1,12 +1,12 @@
 import datetime
-
 import h5py
-import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
+import numpy as np
 import seaborn as sns
-from tensorflow.keras.applications.vgg16 import preprocess_input
+import matplotlib.pyplot as plt
+
 from tensorflow.keras.models import Model
+from tensorflow.keras.applications.vgg16 import preprocess_input
 
 from nick_dict_tools import focussed_dict_print
 
@@ -51,7 +51,7 @@ def h5py_data_batches(data_hdf_path='/home/nm13850/Documents/PhD/python_v2/datas
                       ):
 
     """
-    Script to load batches of data from hdf5 file.  Either just x_data, or x and y_data.
+    Script to load bacthes of data from hdf5 file.  Either just x_data, or x and y_data.
     :param data_hdf_path: path to hdf5 file
     :param total_items: all items in dataset
     :param batch_size:
