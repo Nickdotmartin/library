@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import more_itertools
-from tools.dict import load_dict, focussed_dict_print
+from tools.dicts import load_dict, focussed_dict_print
 
 
 
@@ -287,6 +287,9 @@ def get_test_scores(model, data_dict, test_label_seqs,
 
     print("\n**** get_test_scores() ****")
 
+    # # idiot check
+    print(f"batch_size: {batch_size}")
+
     # # load x and y data from vocab dict.
     vocab_dict = load_dict(os.path.join(data_dict['data_path'], data_dict['vocab_dict']))
 
@@ -387,28 +390,27 @@ def get_test_scores(model, data_dict, test_label_seqs,
 
     return scores_dict
 
-# #####################
+####################
 # print("\nTesting get_test_scores")
-# data_dict = load_dict('/home/nm13850/Documents/PhD/python_v2/'
-#                                                        'datasets/RNN/bowers14_rep/'
-#                                                        'vocab_30_load_dict.txt')
+# data_dict = load_dict('/home/nm13850/Documents/PhD/python_v2/datasets/'
+#                       'RNN/bowers14_rep/vocab_30_data_load_dict.txt')
 # vocab_dict = load_dict(os.path.join(data_dict['data_path'], data_dict['vocab_dict']))
 #
 # n_cats = 30
 # timesteps = 3
 # serial_recall = False
 # x_data_type = 'dist_letter_X'
-# end_seq_cue = True
-# batch_size = 4
+# end_seq_cue = False
+# batch_size = 16
 # verbose=True
 #
 # from tensorflow.keras.models import load_model
 # model = load_model("/home/nm13850/Documents/PhD/python_v2/experiments/"
-#                    "STM_RNN/STM_RNN_test_Bowers14_v30_15102019/"
-#                    "STM_RNN_test_Bowers14_v30_15102019_model.hdf5")
+#                    "STM_RNN/STM_RNN_test_v30_free_recall/"
+#                    "STM_RNN_test_v30_free_recall_model.hdf5")
 #
-# test_label_seqs = np.array([[0, 2, 3], [5, 3, 6], [0, 4, 2], [11, 12, 13]])
-#
+# # test_label_seqs = np.array([[0, 2, 3], [5, 3, 6], [0, 4, 2], [11, 12, 13]])
+# #
 # test_label_seqs = get_label_seqs(n_labels=n_cats, seq_len=timesteps,
 #                                  serial_recall=serial_recall, n_seqs=100)
 #
@@ -417,7 +419,7 @@ def get_test_scores(model, data_dict, test_label_seqs,
 #                 serial_recall=serial_recall,
 #                 x_data_type=x_data_type,
 #                 end_seq_cue=end_seq_cue,
-#                 batch_size=batch_size,
+#                 # batch_size=batch_size,
 #                 verbose=verbose)
 #
 # # print(test_score_dict)

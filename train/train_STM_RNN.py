@@ -7,7 +7,7 @@ import numpy as np
 
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam, SGD, RMSprop
-# from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.python.keras.callbacks import TensorBoard
 
 from keras.preprocessing.image import ImageDataGenerator
@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
-from tools.dict import load_dict, focussed_dict_print, print_nested_round_floats
+from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
 from tools.data import load_x_data, load_y_data
 from tools.network import get_model_dict, get_scores
 from tools.RNN_STM import generate_STM_RNN_seqs, get_label_seqs, get_test_scores
@@ -173,8 +173,6 @@ def train_model(exp_name,
 
     n_items='unknown'
 
-    # sequences can only include repeated items [1, 3, 3, 5] in serial recall.
-    repeat_items = serial_recall
 
     # fix random seed for reproducability during development - not for simulations
     seed = 7
@@ -209,14 +207,13 @@ def train_model(exp_name,
         print("model_dir not recognised")
 
 
+    # # idiot check
+    print(f"batch_size: {batch_size}")
 
     # loss
     loss_func = 'binary_crossentropy'
     if serial_recall:
         loss_func = 'categorical_crossentropy'
-
-        # todo: different model with softmax for serial recall (is this what jeff did in Bowers16?
-
 
 
     # optimizer
@@ -244,6 +241,9 @@ def train_model(exp_name,
     print_nested_round_floats(model_info, 'model_info')
     tf.compat.v1.keras.utils.plot_model(model, to_file=f'{model_name}_diag.png', show_shapes=True)
 
+    # # idiot check
+    print(f"batch_size: {batch_size}")
+
 
     # # call backs and training parameters
     checkpoint_path = f'{output_filename}_model.hdf5'
@@ -258,9 +258,9 @@ def train_model(exp_name,
                                                       save_best_only=True, save_weights_only=False, mode='auto',
                                                       load_weights_on_restart=True)
 
-
     # patience_for_loss_change: wait this long to see if loss improves
     patience_for_loss_change = int(max_epochs / 50)
+
     # early_stop_plateau - if there is no imporovement
     early_stop_plateau = tf.keras.callbacks.EarlyStopping(monitor='loss', min_delta=min_loss_change,
                                                           patience=patience_for_loss_change,
@@ -319,6 +319,9 @@ def train_model(exp_name,
         else:
             # # use generator
             print("Using data generator")
+            # # idiot check
+            print(f"batch_size: {batch_size}")
+
             generate_data = generate_STM_RNN_seqs(data_dict=data_dict,
                                                   seq_len=timesteps,
                                                   batch_size=batch_size,
@@ -398,6 +401,10 @@ def train_model(exp_name,
                                      serial_recall=serial_recall, n_seqs=100)
 
     # # call get test accracy(serial_recall,
+    # # idiot check
+    print(f"batch_size: {batch_size}")
+    print(f"model_info: {model_info}")
+
     scores_dict = get_test_scores(model=model, data_dict=data_dict, test_label_seqs=test_label_seqs,
                                   serial_recall=serial_recall,
                                   x_data_type=x_data_type,
