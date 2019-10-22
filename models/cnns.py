@@ -45,7 +45,7 @@ class con6_pool3_fc1:
 	def build(width, height, depth, classes, batch_norm=True, dropout=True):
 		# initialize the model along with the input shape to be
 		# "channels last" and the channels dimension itself
-		model = Sequential()
+		model = Sequential(layers=6, name="con6_pool3_fc1")
 		inputShape = (height, width, depth)
 		chanDim = -1
 
@@ -122,7 +122,7 @@ class con4_pool2_fc1:
 	def build(width, height, depth, classes, batch_norm=True, dropout=True):
 		# initialize the model along with the input shape to be
 		# "channels last" and the channels dimension itself
-		model = Sequential()
+		model = Sequential(layers=4, name="con4_pool2_fc1")
 		inputShape = (height, width, depth)
 		chanDim = -1
 
@@ -177,7 +177,7 @@ class con2_pool2_fc1:
 	def build(width, height, depth, classes, batch_norm=True, dropout=True):
 		# initialize the model along with the input shape to be
 		# "channels last" and the channels dimension itself
-		model = Sequential()
+		model = Sequential(layers=2, name="con2_pool2_fc1")
 		inputShape = (height, width, depth)
 		chanDim = -1
 
@@ -236,7 +236,7 @@ class con4_pool2_fc1_reluconv:
 	def build(width, height, depth, classes, batch_norm=True, dropout=True):
 		# initialize the model along with the input shape to be
 		# "channels last" and the channels dimension itself
-		model = Sequential()
+		model = Sequential(layers=2, name="con4_pool2_fc1_reluconv")
 		inputShape = (height, width, depth)
 		chanDim = -1
 
@@ -290,7 +290,7 @@ class con4_pool2_fc1_noise_layer:
 	def build(width, height, depth, classes, batch_norm=True, dropout=True):
 		# initialize the model along with the input shape to be
 		# "channels last" and the channels dimension itself
-		model = Sequential()
+		model = Sequential(layers=4, name="con4_pool2_fc1_noise_layer")
 		inputShape = (height, width, depth)
 		chanDim = -1
 

@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from matplotlib import gridspec
 import ptitprince as pt
 
-from tools.dict import load_dict, focussed_dict_print, print_nested_round_floats
+from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
 
 # or, if ptitprince is NOT installed
 # from ptitprince import PtitPrince as pt

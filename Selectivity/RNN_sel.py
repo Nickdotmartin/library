@@ -12,7 +12,7 @@ from scipy.stats.stats import pearsonr
 from sklearn.metrics import roc_curve, auc
 
 from tools.hdf import hdf_df_string_clean
-from tools.dict import load_dict, focussed_dict_print
+from tools.dicts import load_dict, focussed_dict_print
 
 '''This script uses shelve instead of pickle for sel_p_unit dict.
 

@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from tensorflow.keras.models import load_model
 from tensorflow.keras.models import Model
 
-from tools.dict import load_dict, focussed_dict_print, print_nested_round_floats
+from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
 from tools.data import load_x_data, load_y_data, get_dset_path
 from tools.network import get_scores
 

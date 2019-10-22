@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from tensorflow.keras.models import Model
 from tensorflow.keras.applications.vgg16 import preprocess_input
 
-from tools.dict import focussed_dict_print
+from tools.dicts import focussed_dict_print
 
 tools_date = int(datetime.datetime.now().strftime("%y%m%d"))
 tools_time = int(datetime.datetime.now().strftime("%H%M"))

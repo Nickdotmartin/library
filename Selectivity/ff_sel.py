@@ -9,7 +9,7 @@ import pickle
 from sklearn.metrics import roc_curve, auc
 from scipy.stats.stats import pearsonr
 
-from tools.dict import load_dict, focussed_dict_print
+from tools.dicts import load_dict, focussed_dict_print
 from tools.data import nick_read_csv
 
 

@@ -3,7 +3,7 @@ import os.path
 import numpy as np
 import pandas as pd
 
-from tools.dict import load_dict
+from tools.dicts import load_dict
 
 
 def nick_to_csv(df, path):

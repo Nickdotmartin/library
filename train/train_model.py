@@ -15,9 +15,9 @@ from tensorflow.python.keras.callbacks import TensorBoard
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
-from nick_dict_tools import load_dict, focussed_dict_print, print_nested_round_floats
-from nick_data_tools import load_x_data, load_y_data
-from nick_network_tools import get_model_dict, get_scores
+from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
+from tools.data import load_x_data, load_y_data
+from tools.network import get_model_dict, get_scores
 
 from mlps import fc1, fc2, fc4
 from models.cnns import con6_pool3_fc1, con2_pool2_fc1, con4_pool2_fc1, \

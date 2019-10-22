@@ -9,7 +9,7 @@ import pickle
 from tensorflow.keras.models import load_model
 from tensorflow.keras.applications.vgg16 import VGG16
 
-from tools.dict import load_dict, focussed_dict_print, print_nested_round_floats
+from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
 from tools.data import load_x_data, load_y_data, nick_to_csv, nick_read_csv
 from tools.hdf import hdf_pred_scores
 

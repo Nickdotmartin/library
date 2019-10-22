@@ -9,7 +9,7 @@ from keras.utils import to_categorical
 from tensorflow.keras.models import load_model
 
 from tools.hdf import hdf_pred_scores, hdf_gha
-from tools.dict import load_dict, focussed_dict_print, print_nested_round_floats
+from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
 
 
 def kernel_to_2d(layer_activation_4d, reduce_type='max', verbose=False):

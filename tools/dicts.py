@@ -181,6 +181,9 @@ def load_dict(dict_name):
             print("loaded: {}".format(dict_name))
             json_dict = True
 
+    else:
+        print("Dict not found, check name and path")
+
     if json_dict is True:
         loaded_dict = json_key_to_int(loaded_dict)
 
