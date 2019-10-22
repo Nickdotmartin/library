@@ -30,7 +30,7 @@ def print_nested_round_floats(dict_to_print, dict_title='focussed_dict_print'):
     1. indents nested layers (upto a depth of 4)
     2. rounds floats to 2dp."""
 
-    print("\n** {} **".format(dict_title))
+    print(f"\n** {dict_title} **")
 
 
     for key, value in dict_to_print.items():
