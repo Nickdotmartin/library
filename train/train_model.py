@@ -241,7 +241,7 @@ def train_model(exp_name,
             depth = 1
 
         model = model_dict[model_name].build(width=width, height=height, depth=depth, classes=n_cats,
-                                               batch_norm=use_batch_norm, dropout=use_dropout)
+                                             batch_norm=use_batch_norm, dropout=use_dropout)
 
 
     elif 'rnn' in model_dir:
@@ -253,8 +253,15 @@ def train_model(exp_name,
                       'LSTMn': LSTMn,
                       'Seq2Seq': Seq2Seq}
 
+        # todo: add these variables
+        n_layers = 1
+        units_per_layer = 100
+        serial_recall = True
+        act_func = "tanh"
+        y_1hot = True
+
         model = model_dict[model_name].build(features=x_size, classes=n_cats, timesteps=timesteps,
-                                             batch_size=batch_size, n_layers=hid_layers,
+                                             batch_size=batch_size, n_layers=n_layers,
                                              serial_recall=serial_recall,
                                              units_per_layer=units_per_layer, act_func=act_func,
                                              y_1hot=serial_recall,
@@ -306,6 +313,9 @@ def train_model(exp_name,
 
     # patience_for_loss_change: wait this long to see if loss improves
     patience_for_loss_change = int(max_epochs / 50)
+    if patience_for_loss_change < 5:
+        patience_for_loss_change = 5
+
     # early_stop_plateau - if there is no imporovement
     early_stop_plateau = tf.keras.callbacks.EarlyStopping(monitor='loss', min_delta=min_loss_change,
                                                           patience=patience_for_loss_change,

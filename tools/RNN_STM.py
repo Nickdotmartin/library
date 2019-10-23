@@ -1,6 +1,8 @@
 import os
 import numpy as np
 import more_itertools
+from tensorflow.keras.models import Model
+
 from tools.dicts import load_dict, focussed_dict_print
 
 
@@ -287,9 +289,6 @@ def get_test_scores(model, data_dict, test_label_seqs,
 
     print("\n**** get_test_scores() ****")
 
-    # # idiot check
-    print(f"batch_size: {batch_size}")
-
     # # load x and y data from vocab dict.
     vocab_dict = load_dict(os.path.join(data_dict['data_path'], data_dict['vocab_dict']))
 
@@ -343,13 +342,16 @@ def get_test_scores(model, data_dict, test_label_seqs,
                 these_pred_labels = np.ravel(these_pred_labels).tolist()
             all_pred_labels.append(these_pred_labels)
 
-    if verbose:
-        print(f"\nlabels_test: {np.shape(labels_test)}\n{labels_test}")
-        print(f"\nall_pred_labels: {np.shape(all_pred_labels)}\n{all_pred_labels}")
+    # if verbose:
+    #     print(f"\nlabels_test: {np.shape(labels_test)}"
+    #           # f"\n{labels_test}"
+    #           f"\nall_pred_labels: {np.shape(all_pred_labels)}"
+    #           # f"\n{all_pred_labels}"
+    #           )
 
-        print("sanity check - first item")
-        pred_round = [np.round(i, 2) for i in pred_y_values[0]]
-        print(f"\n\n\nlabels_test: {labels_test[0]}\nall_pred_labels: {all_pred_labels[0]}\npred_round: {pred_round}\n\n\n")
+        # print("sanity check - first item")
+        # pred_round = [np.round(i, 2) for i in pred_y_values[0]]
+        # print(f"\n\n\nlabels_test: {labels_test[0]}\nall_pred_labels: {all_pred_labels[0]}\npred_round: {pred_round}\n\n\n")
 
     print("\nIoU acc")
     iou_scores = []
@@ -372,7 +374,7 @@ def get_test_scores(model, data_dict, test_label_seqs,
             #       f"union: len({len(union)}):  {union}\n"
             #       f"IoU: {IoU}\niou_scores: {iou_scores}")
 
-            print(f"\n{seq}: pred: {pred_labels} true: {true_labels} len(intersection): {len(intersection)} IoU: {IoU}")
+            print(f"{seq}: pred: {pred_labels} true: {true_labels} len(intersection): {len(intersection)} IoU: {IoU}")
 
     # get the average of all IoUs (per seq/batch etc
     mean_IoU = sum(iou_scores) / len(iou_scores)
@@ -423,3 +425,65 @@ def get_test_scores(model, data_dict, test_label_seqs,
 #                 verbose=verbose)
 #
 # # print(test_score_dict)
+
+# # get test scores.
+def get_layer_acts(model, layer_name, data_dict, test_label_seqs,
+                   serial_recall=False,
+                   x_data_type='dist_letter_X',
+                   end_seq_cue=False,
+                   batch_size=16,
+                   verbose=True):
+    """
+    Get test hidden activations for the model for test_labels.
+
+    1. First get x and y data from get_x_and_Y_data_from_seq
+    2. predictions to get layer activations
+
+
+
+    :param model: trained model
+    :param layer_name: name of layer to get activations from
+    :param data_dict: dict with relevant info including link to vocab dict
+    :param test_label_seqs: sequence of labels to test on
+    :param serial_recall: Type of recall
+    :param x_data_type: how to convert labels to input data
+    :param end_seq_cue: whether extra input unit is added
+    :param batch_size: batch to predict at once
+    :param verbose:
+
+    :return: np.array of activations
+    """
+
+    print(f"\n**** get_layer_acts({layer_name}) ****")
+
+
+    # # load x and y data from vocab dict.
+    vocab_dict = load_dict(os.path.join(data_dict['data_path'], data_dict['vocab_dict']))
+
+    # with test_label_seqs get x and y data from get_x_and_Y_data_from_seq
+    x_test = []
+    y_test = []
+    for this_seq in test_label_seqs:
+        get_x, get_y = get_X_and_Y_data_from_seq(vocab_dict=vocab_dict,
+                                                 seq_line=this_seq,
+                                                 serial_recall=serial_recall,
+                                                 end_seq_cue=end_seq_cue)
+        x_test.append(get_x)
+        y_test.append(get_y)
+
+    x_test = np.array(x_test)
+    y_test = np.array(y_test)
+
+    if verbose:
+        print(f"\nx_test: {np.shape(x_test)}\ny_test: {np.shape(y_test)}\n"
+              f"test_label_seqs: {np.shape(test_label_seqs)}")
+
+    # # make new model
+    gha_model = Model(inputs=model.input, outputs=model.get_layer(layer_name).output)
+    layer_activations = gha_model.predict(x_test, batch_size=batch_size, verbose=verbose)
+
+    if verbose:
+        print(f"layer_activations: {np.shape(layer_activations)}")
+
+    return layer_activations
+

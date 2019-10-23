@@ -2,14 +2,15 @@ import csv
 import datetime
 import os.path
 import pickle
-
 import numpy as np
 import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 from keras.utils import to_categorical
-from tensorflow.keras.models import load_model
+from tensorflow.keras.models import load_model, Model
 
-from tools.hdf import hdf_pred_scores, hdf_gha
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
+from tools.RNN_STM import get_label_seqs, get_test_scores, get_layer_acts
 
 
 def kernel_to_2d(layer_activation_4d, reduce_type='max', verbose=False):
@@ -62,16 +63,14 @@ def kernel_to_2d(layer_activation_4d, reduce_type='max', verbose=False):
 
 ######################
 # @profile
-def ff_gha(sim_dict_path,
-           # get_classes=("Conv2D", "Dense", "Activation"),
-           gha_incorrect=True,
-           use_dataset='train_set',
-           save_2d_layers=True,
-           save_4d_layers=False,
-           exp_root='/home/nm13850/Documents/PhD/python_v2/experiments/',
-           verbose=False,
-           test_run=False
-           ):
+def rnn_gha(sim_dict_path,
+            gha_incorrect=True,
+            use_dataset='train_set',
+            get_layer_list=None,
+            exp_root='/home/nm13850/Documents/PhD/python_v2/experiments/',
+            verbose=False,
+            test_run=False
+            ):
     """
     gets activations from hidden units.
 
@@ -86,8 +85,7 @@ def ff_gha(sim_dict_path,
             I've changed this to just use certain layer names rather than layer classes.
     :param gha_incorrect: GHA for ALL items (True) or just correct items (False)
     :param use_dataset: GHA for train/test data
-    :param save_2d_layers: get 1 value per kernel for conv/pool layers
-    :param save_4d_layers: keep original shape of conv/pool layers (for other analysis maybe?)
+    :param get_layer_list: if None, gha all layers, else list of layer names to gha
     :param exp_root: root to save experiments
     :param verbose:
     :param test_run: Set test = True to just do one unit per layer
@@ -119,28 +117,38 @@ def ff_gha(sim_dict_path,
 
 
     # # # load datasets
-    n_items = sim_dict['data_info']["n_items"]
-    n_cats = sim_dict['data_info']["n_cats"]
-    hdf5_path = sim_dict['topic_info']["dataset_path"]
+    data_dict = sim_dict['data_info']
+    if use_dataset is 'generator':
+        vocab_dict = load_dict(os.path.join(data_dict["data_path"],
+                                            data_dict["vocab_dict"]))
+        n_cats = data_dict["n_cats"]
+        x_data_path = sim_dict['training_info']['x_data_path']
+        y_data_path = sim_dict['training_info']['y_data_path']
+        n_items = 'unknown'
 
-    x_data_path = hdf5_path
-    y_data_path = '/home/nm13850/Documents/PhD/python_v2/datasets/' \
-                  'objects/ILSVRC2012/imagenet_hdf5/y_df.csv'
+    else:
+        # load data from somewhere
+        n_items = data_dict["n_items"]
+        n_cats = data_dict["n_cats"]
+        hdf5_path = sim_dict['topic_info']["dataset_path"]
 
-    # todo: get right data
-    seq_data = pd.read_csv(sim_dict['data_info']["seqs"], header=None, names=['seq1', 'seq2', 'seq3'])
-    print(f"\nseq_data: {seq_data.shape}\n{seq_data.head()}")
+        x_data_path = hdf5_path
+        y_data_path = '/home/nm13850/Documents/PhD/python_v2/datasets/' \
+                      'objects/ILSVRC2012/imagenet_hdf5/y_df.csv'
 
-    X_data = np.load(sim_dict['data_info']["X_data"])
-    print("\nshape of X_data: {}".format(np.shape(X_data)))
+        seq_data = pd.read_csv(data_dict["seqs"], header=None, names=['seq1', 'seq2', 'seq3'])
+        print(f"\nseq_data: {seq_data.shape}\n{seq_data.head()}")
 
-    Y_labels = np.loadtxt(sim_dict['data_info']["Y_labels"], delimiter=',').astype('int8')
-    print(f"\nY_labels:\n{Y_labels}")
-    print(np.shape(Y_labels))
+        X_data = np.load(data_dict["X_data"])
+        print("\nshape of X_data: {}".format(np.shape(X_data)))
 
-    Y_data = to_categorical(Y_labels, num_classes=30)
-    print(f"\nY_data:\n{Y_data}")
-    print(np.shape(Y_data))
+        Y_labels = np.loadtxt(data_dict["Y_labels"], delimiter=',').astype('int8')
+        print(f"\nY_labels:\n{Y_labels}")
+        print(np.shape(Y_labels))
+
+        Y_data = to_categorical(Y_labels, num_classes=30)
+        print(f"\nY_data:\n{Y_data}")
+        print(np.shape(Y_data))
 
     # # # data preprocessing
     # # # if network is cnn but data is 2d (e.g., MNIST)
@@ -151,12 +159,16 @@ def ff_gha(sim_dict_path,
     #         print(f"\nRESHAPING x_data to: {np.shape(x_data)}")
 
     # # other details
-    hid_units = sim_dict['model_info']["hid_units"]
-    optimizer = sim_dict['model_info']["optimizer"]
-    batch_size = sim_dict['training_info']['batch_size']
-    timesteps = sim_dict['model_info']["timesteps"]
-    input_dim = sim_dict['model_info']["input_dim"]
-    output_dim = sim_dict['model_info']["output_dim"]
+    hid_units = sim_dict['model_info']['layers']['hid_layers']['hid_totals']["analysable"]
+    optimizer = sim_dict['model_info']["overview"]["optimizer"]
+    loss_func = sim_dict['model_info']["overview"]["loss_func"]
+    batch_size = sim_dict['model_info']["overview"]["batch_size"]
+    timesteps = sim_dict['model_info']["overview"]["timesteps"]
+    serial_recall = sim_dict['model_info']["overview"]["serial_recall"]
+    x_data_type = sim_dict['model_info']["overview"]["x_data_type"]
+    end_seq_cue = sim_dict['model_info']["overview"]["end_seq_cue"]
+    input_dim = data_dict["X_size"]
+    output_dim = data_dict["n_cats"]
 
     # Output files
     output_filename = sim_dict["topic_info"]["output_filename"]
@@ -166,13 +178,11 @@ def ff_gha(sim_dict_path,
 
     # # # # PART 2 # # #
     print("\n**** THE MODEL ****")
-    # model_name = sim_dict['model_info']['overview']['trained_model']
-    # loaded_model = VGG16(weights='imagenet')
-    model_from = sim_dict['model_info']['model_trained']
-    h5_model = load_model(model_from)
-    loaded_model = h5_model
+    model_name = sim_dict['model_info']['overview']['trained_model']
+    loaded_model = load_model(model_name)
     model_details = loaded_model.get_config()
-    print_nested_round_floats(model_details)
+    # print_nested_round_floats(model_details)
+    focussed_dict_print(model_details, 'model_details')
 
     n_layers = len(model_details['layers'])
     model_dict = dict()
@@ -213,10 +223,14 @@ def ff_gha(sim_dict_path,
                                       columns=['layer', 'name', 'class', 'act_func',
                                                'units', 'filters', 'size', 'strides', 'rate'], )
 
-    # # just classes of layers specified in get_layer_list (used to be get classes, not using layer names)
-    # TODO: change this, key layers == all layer.  OR IF KEY LAYERS NOT FOUND, use all layers
-    get_layers_dict = sim_dict['model_info']['VGG16_GHA_layer_dict']
-    get_layer_list = [get_layers_dict[key]['name'] for key in get_layers_dict]
+    print(f"\nmodel_df\n{model_df}")
+
+    # # make new df with just layers of interest
+    if get_layer_list is None:
+        key_layers_df = model_df
+        get_layer_list = model_df['name'].tolist()
+
+
     key_layers_df = model_df.loc[model_df['name'].isin(get_layer_list)]
 
     key_layers_df.reset_index(inplace=True)
@@ -228,7 +242,7 @@ def ff_gha(sim_dict_path,
     # # add zeros to rows with no units or filters
     key_layers_df.loc[:, 'n_units_filts'] = key_layers_df.units.fillna(0) + key_layers_df.filters.fillna(0)
 
-    print(f"\nkey_layers_df:\n{key_layers_df}")
+    # print(f"\nkey_layers_df:\n{key_layers_df}")
 
     key_layers_df.loc[:, "n_units_filts"] = key_layers_df["n_units_filts"].astype(int)
 
@@ -244,7 +258,6 @@ def ff_gha(sim_dict_path,
     hid_act_items = 'all'
     if not gha_incorrect:
         hid_act_items = 'correct'
-
     gha_folder = f'{hid_act_items}_{use_dataset}_gha'
 
     if test_run:
@@ -254,36 +267,35 @@ def ff_gha(sim_dict_path,
     if not os.path.exists(gha_path):
         os.makedirs(gha_path)
     os.chdir(gha_path)
-    print(f"saving hid_acts to: {gha_path}")
+    print(f"\nsaving hid_acts to: {gha_path}")
+
+
 
     # # # PART 3 get_scores() # # #
-    # todo: is this a better way to get these score?
-    """
-    loaded_model.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
-    # # evaluate the model
-    scores = loaded_model.evaluate(X_data, Y_data)
-    gha_acc = scores[1]
-    print(f'{loaded_model.metrics_names[1]}: {scores[1]}')
-    """
-    print("\ngetting predicted outputs with hdf_pred_scores()")
+    loaded_model.compile(loss=loss_func, optimizer=optimizer, metrics=['accuracy'])
 
-    item_correct_df, scores_dict, incorrect_items = hdf_pred_scores(model=loaded_model,
-                                                                    output_filename=output_filename,
-                                                                    test_run=test_run,
-                                                                    verbose=verbose)
+    test_label_seqs = get_label_seqs(n_labels=n_cats, seq_len=timesteps,
+                                     serial_recall=serial_recall, n_seqs=10*batch_size)
 
-    if verbose:
-        focussed_dict_print(scores_dict, 'Scores_dict')
+    test_label_name = f"{output_filename}_{np.shape(test_label_seqs)[0]}_test_label_seqs.npy"
+    print(f"test_label_name: {test_label_name}")
+    np.save(test_label_name, test_label_seqs)
 
+    scores_dict = get_test_scores(model=loaded_model, data_dict=data_dict,
+                                  test_label_seqs=test_label_seqs,
+                                  serial_recall=serial_recall,
+                                  x_data_type=x_data_type,
+                                  end_seq_cue=end_seq_cue,
+                                  batch_size=batch_size,
+                                  verbose=verbose)
 
-
-
+    mean_IoU = scores_dict['mean_IoU']
+    prop_seq_corr = scores_dict['prop_seq_corr']
 
 
     # # PART 5
     print("\n**** Get Hidden unit activations ****")
-    hid_act_2d_dict = dict()  # # to use to get 2d hid acts (e.g., means from 4d layers)
-    hid_act_any_d_dict = dict()  # # to use to get all hid acts (e.g., both 2d and 4d layers)
+    hid_acts_dict = dict()
 
     # # loop through key layers df
     gha_key_layers = []
@@ -293,47 +305,70 @@ def ff_gha(sim_dict_path,
                 continue
 
         layer_number, layer_name, layer_class = row['layer'], row['name'], row['class']
-        print(f"\n{layer_number}. name {layer_name} class {layer_class}")
+        print(f"\n{layer_number}. name: {layer_name}; class: {layer_class}")
 
         # if layer_class not in get_classes:  # no longer using this - skip class types not in list
         if layer_name not in get_layer_list:  # skip layers/classes not in list
             continue
 
         else:
-            # print('getting layer')
-            # todo: write new function to go here.
-            hid_acts_dict = hdf_gha(model=loaded_model,
-                                    layer_name=layer_name,
-                                    layer_class=layer_class,
-                                    layer_number=index,
-                                    output_filename=output_filename,
-                                    gha_incorrect=gha_incorrect,
-                                    test_run=test_run,
-                                    verbose=verbose
-                                    )
+            # record hid acts
+            layer_activations = get_layer_acts(model=loaded_model,
+                                               layer_name=layer_name,
+                                               data_dict=data_dict,
+                                               test_label_seqs=test_label_seqs,
+                                               serial_recall=serial_recall,
+                                               x_data_type=x_data_type,
+                                               end_seq_cue=end_seq_cue,
+                                               batch_size=batch_size,
+                                               verbose=verbose
+                                               )
 
-            hid_act_2d_dict[index] = hid_acts_dict
+            layer_acts_shape = np.shape(layer_activations)
+
+            converted_to_2d = False  # set to True if 4d acts have been converted to 2d
+            if len(layer_acts_shape) == 2:
+                hid_acts = layer_activations
+
+            elif len(layer_acts_shape) == 3:
+                if not serial_recall:
+                    ValueError(f"layer_acts_shape: {layer_acts_shape}"
+                               f"\n3d expected only for serial recall")
+                else:
+                    hid_acts = layer_activations
+
+            # elif len(layer_acts_shape) == 4:  # # call mean_act_conv
+            #     hid_acts = kernel_to_2d(layer_activations, verbose=True)
+            #     layer_acts_shape = np.shape(hid_acts)
+            #     converted_to_2d = True
+
+            else:
+                ValueError(f"Unexpected number of dimensions for layer activations {layer_acts_shape}")
 
 
-    print("\n**** saving info to summary page and dictionary ****")
-    hid_act_filenames = {'2d': None, 'any_d': None}
+            hid_acts_dict[index] = {'layer_name': layer_name, 'layer_class': layer_class,
+                                    "layer_shape": layer_acts_shape, 'hid_acts': hid_acts}
 
-    # # # keep these as some analysis scripts will call them for something?
-    # todo: check if I actually need these
-    if save_2d_layers:
-        dict_2d_save_name = f'{output_filename}_hid_act_2d.pickle'
+            if converted_to_2d:
+                hid_acts_dict[index]['converted_to_2d'] = True
+
+            print(f"\nlayer {index}. layer_acts_shape: {layer_acts_shape}\n")
+
+            # # save distplot for sanity check
+            sns.distplot(np.ravel(hid_acts))
+            plt.title(str(layer_name))
+            plt.savefig(f"{layer_name}_act_distplot.png")
+            plt.close()
+
+
+        print("\n**** saving info to summary page and dictionary ****")
+
+        hid_act_filenames = {'2d': None, 'any_d': None}
+        dict_2d_save_name = f'{output_filename}_hid_act.pickle'
         with open(dict_2d_save_name, "wb") as pkl:  # 'wb' mean 'w'rite the file in 'b'inary mode
-            pickle.dump(hid_act_2d_dict, pkl)
-        # np.save(dict_2d_save_name, hid_act_2d_dict)
+            pickle.dump(hid_acts_dict, pkl)
+        # np.save(dict_2d_save_name, hid_acts_dict)
         hid_act_filenames['2d'] = dict_2d_save_name
-
-    if save_4d_layers:
-        dict_4dsave_name = f'{output_filename}_hid_act_any_d.pickle'
-        with open(dict_4dsave_name, "wb") as pkl:  # 'wb' mean 'w'rite the file in 'b'inary mode
-            pickle.dump(hid_act_any_d_dict, pkl)
-        # np.save(dict_4dsave_name, hid_act_any_d_dict)
-        hid_act_filenames['any_d'] = dict_4dsave_name
-
 
 
     cond = sim_dict["topic_info"]["cond"]
@@ -349,8 +384,8 @@ def ff_gha(sim_dict_path,
     gha_date = int(datetime.datetime.now().strftime("%y%m%d"))
     gha_time = int(datetime.datetime.now().strftime("%H%M"))
 
-    gha_acc = scores_dict['gha_acc']
-    n_cats_correct = scores_dict['n_cats_correct']
+    # gha_acc = scores_dict['gha_acc']
+    # n_cats_correct = scores_dict['n_cats_correct']
 
     # # GHA_info_dict
     gha_dict_name = f"{output_filename}_GHA_dict.pickle"
@@ -371,7 +406,6 @@ def ff_gha(sim_dict_path,
                              'key_n_units_fils': key_n_units_fils,
                              "gha_date": gha_date, "gha_time": gha_time,
                              "scores_dict": scores_dict,
-                             "model_dict": model_dict
                              }
                 }
 
@@ -379,7 +413,6 @@ def ff_gha(sim_dict_path,
         pickle.dump(gha_dict, pickle_out)
 
     if verbose:
-        # focussed_dict_print(gha_dict, 'gha_dict', ['GHA_info', "scores_dict"])
         focussed_dict_print(gha_dict, 'gha_dict', ['GHA_info'])
 
 
@@ -397,7 +430,7 @@ def ff_gha(sim_dict_path,
     print(f"\nadded to list for selectivity analysis: {gha_dict_name[:-7]}")
 
     gha_info = [cond, run, output_filename, n_layers, hid_units, dataset, use_dataset,
-                gha_incorrect, n_cats, trained_for, end_accuracy, gha_acc, n_cats_correct,
+                gha_incorrect, n_cats, trained_for, end_accuracy, mean_IoU, prop_seq_corr,
                 test_run, gha_date, gha_time]
 
     # # check if gha_summary.csv exists
@@ -414,7 +447,7 @@ def ff_gha(sim_dict_path,
         gha_summary = open(exp_name + "_GHA_summary.csv", 'w')
         mywriter = csv.writer(gha_summary)
         summary_headers = ["cond", "run", 'filename', "n_layers", "hid_units", "dataset", "GHA_on",
-                           'incorrect', "n_cats", "trained_for", "train_acc", "gha_acc", 'n_cats_correct'
+                           'incorrect', "n_cats", "trained_for", "train_acc", "mean_IoU", "prop_seq_corr",
                            "test_run", "gha_date", "gha_time"]
 
         mywriter.writerow(summary_headers)
@@ -439,8 +472,6 @@ def ff_gha(sim_dict_path,
 #                                           'VGG_end_aug/vgg_imagenet_sim_dict.pickle',
 #                             gha_incorrect=True,
 #                             use_dataset='val_set',
-#                             save_2d_layers=True,
-#                             save_4d_layers=False,
 #                             exp_root='/home/nm13850/Documents/PhD/python_v2/experiments/',
 #                             verbose=True,
 #                             test_run=True

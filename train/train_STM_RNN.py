@@ -166,12 +166,13 @@ def train_model(exp_name,
         # print(f"labels_load: {np.shape(labels_load)}")
         x_train = x_load
         y_train = y_load
+
+        n_items = np.shape(x_train)[0]
     else:
         # # if generator is true
         x_data_path = 'RNN_STM_tools/generate_STM_RNN_seqs'
         y_data_path = 'RNN_STM_tools/generate_STM_RNN_seqs'
-
-    n_items='unknown'
+        n_items='unknown'
 
 
     # # save path
@@ -207,9 +208,6 @@ def train_model(exp_name,
         print("model_dir not recognised")
 
 
-    # # idiot check
-    print(f"batch_size: {batch_size}")
-
     # loss
     loss_func = 'binary_crossentropy'
     if serial_recall:
@@ -241,10 +239,6 @@ def train_model(exp_name,
     print_nested_round_floats(model_info, 'model_info')
     tf.compat.v1.keras.utils.plot_model(model, to_file=f'{model_name}_diag.png', show_shapes=True)
 
-    # # idiot check
-    print(f"batch_size: {batch_size}")
-
-
     # # call backs and training parameters
     checkpoint_path = f'{output_filename}_model.hdf5'
 
@@ -260,6 +254,8 @@ def train_model(exp_name,
 
     # patience_for_loss_change: wait this long to see if loss improves
     patience_for_loss_change = int(max_epochs / 50)
+    if patience_for_loss_change < 5:
+        patience_for_loss_change = 5
 
     # early_stop_plateau - if there is no imporovement
     early_stop_plateau = tf.keras.callbacks.EarlyStopping(monitor='loss', min_delta=min_loss_change,
@@ -319,8 +315,6 @@ def train_model(exp_name,
         else:
             # # use generator
             print("Using data generator")
-            # # idiot check
-            print(f"batch_size: {batch_size}")
 
             generate_data = generate_STM_RNN_seqs(data_dict=data_dict,
                                                   seq_len=timesteps,
@@ -380,14 +374,11 @@ def train_model(exp_name,
 
 
     # # # # PART 3 get_scores() # # #
-
     """accuracy can be two things
     1. What proportion of all sequences are entirely correct
     2. what is the average proportion of each sequence that is correct
     e.g., might get none of the sequences correct but on average get 50% of each sequence correct
     """
-
-
     # if "test_label_seqs" in list(data_dict.keys()):
     #     if type(data_dict["test_label_seqs"]) is "numpy.ndarray":
     #         test_label_seqs = data_dict["test_label_seqs"]
@@ -402,10 +393,6 @@ def train_model(exp_name,
                                      serial_recall=serial_recall, n_seqs=10*batch_size)
 
     # # call get test accracy(serial_recall,
-    # # idiot check
-    print(f"batch_size: {batch_size}")
-    print(f"model_info: {model_info}")
-
     scores_dict = get_test_scores(model=model, data_dict=data_dict, test_label_seqs=test_label_seqs,
                                   serial_recall=serial_recall,
                                   x_data_type=x_data_type,
@@ -430,6 +417,7 @@ def train_model(exp_name,
                               "end_seq_cue": end_seq_cue,
                               "use_val_data": use_val_data,
                               "optimizer": use_optimizer,
+                              "loss_func": loss_func,
                               "use_batch_norm": use_batch_norm,
                               "batch_size": batch_size,
                               "augmentation": augmentation,

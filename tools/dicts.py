@@ -150,35 +150,35 @@ def load_dict(dict_name):
     it will check for an exact match for the string, or
     for {}_load_dict - which is the naming convention for dataset dicts"""
 
-    print("\n**** load_dict() ****")
+    # print("\n**** load_dict() ****")
 
     json_dict = False
     if os.path.isfile("{}_load_dict.pickle".format(dict_name)):
         loaded_dict = pickle.load(open(dict_name + "_load_dict.pickle", "rb"))
-        print("loaded: {}_load_dict.pickle".format(dict_name))
+        # print("loaded: {}_load_dict.pickle".format(dict_name))
 
     elif os.path.isfile("{}.pickle".format(dict_name)):
         loaded_dict = pickle.load(open(dict_name + ".pickle", "rb"))
-        print("loaded: {}.pickle".format(dict_name))
+        # print("loaded: {}.pickle".format(dict_name))
 
     elif os.path.isfile("{}_load_dict.txt".format(dict_name)):
         loaded_dict = json.loads(open("{}_load_dict.txt".format(dict_name)).read())
-        print("loaded: {}_load_dict.txt".format(dict_name))
+        # print("loaded: {}_load_dict.txt".format(dict_name))
         json_dict = True
 
     elif os.path.isfile("{}.txt".format(dict_name)):
         loaded_dict = json.loads(open("{}.txt".format(dict_name)).read())
-        print("loaded: {}.txt".format(dict_name))
+        # print("loaded: {}.txt".format(dict_name))
         json_dict = True
 
     elif os.path.isfile("{}".format(dict_name)):
         if dict_name[-7:] == '.pickle':
             loaded_dict = pickle.load(open(dict_name, "rb"))
-            print("loaded: {}".format(dict_name))
+            # print("loaded: {}".format(dict_name))
 
         elif dict_name[-4:] == '.txt':
             loaded_dict = json.loads(open(dict_name).read())
-            print("loaded: {}".format(dict_name))
+            # print("loaded: {}".format(dict_name))
             json_dict = True
 
     else:
