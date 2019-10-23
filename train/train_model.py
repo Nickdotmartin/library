@@ -23,7 +23,7 @@ from tools.network import get_model_dict, get_scores
 from mlps import fc1, fc2, fc4
 from models.cnns import con6_pool3_fc1, con2_pool2_fc1, con4_pool2_fc1, \
     con4_pool2_fc1_reluconv, con4_pool2_fc1_noise_layer
-from models.rnns import SimpleRNNn, GRUn, LSTMn
+from models.rnns import Bowers14rnn, SimpleRNNn, GRUn, LSTMn, Seq2Seq
 
 
 '''following coding tips session with Ben'''
@@ -227,47 +227,38 @@ def train_model(exp_name,
 
     elif model_dir in ['cnn', 'cnns']:
         print("loading a cnn model")
+
+        model_dict = {'con6_pool3_fc1': con6_pool3_fc1,
+                      'con4_pool2_fc1': con4_pool2_fc1,
+                      'con2_pool2_fc1': con2_pool2_fc1,
+                      'con4_pool2_fc1_reluconv': con4_pool2_fc1_reluconv,
+                      'con4_pool2_fc1_noise_layer': con4_pool2_fc1_noise_layer}
+
         units_per_layer = None
         width, height = data_dict['image_dim']
         depth = 3
         if grey_image:
             depth = 1
 
-        if model_name == 'con6_pool3_fc1':
-            build_model = con6_pool3_fc1.build(width=width, height=height, depth=depth, classes=n_cats,
+        model = model_dict[model_name].build(width=width, height=height, depth=depth, classes=n_cats,
                                                batch_norm=use_batch_norm, dropout=use_dropout)
-        elif model_name == 'con4_pool2_fc1':
-            build_model = con4_pool2_fc1.build(width=width, height=height, depth=depth, classes=n_cats,
-                                               batch_norm=use_batch_norm, dropout=use_dropout)
-        elif model_name == 'con2_pool2_fc1':
-            build_model = con2_pool2_fc1.build(width=width, height=height, depth=depth, classes=n_cats,
-                                               batch_norm=use_batch_norm, dropout=use_dropout)
-        elif model_name == 'con4_pool2_fc1_reluconv':
-            build_model = con4_pool2_fc1_reluconv.build(width=width, height=height, depth=depth, classes=n_cats,
-                                                        batch_norm=use_batch_norm, dropout=use_dropout)
-        elif model_name == 'con4_pool2_fc1_noise_layer':
-            build_model = con4_pool2_fc1_noise_layer.build(width=width, height=height, depth=depth, classes=n_cats,
-                                                           batch_norm=use_batch_norm, dropout=use_dropout)
-        else:
-            raise TypeError("Model name not recognised")
 
 
-    elif model_dir in ['rnn', 'rnns']:
+    elif 'rnn' in model_dir:
         print("loading a recurrent model")
         augmentation = False
+        model_dict = {'Bowers14rnn': Bowers14rnn,
+                      'SimpleRNNn': SimpleRNNn,
+                      'GRUn': GRUn,
+                      'LSTMn': LSTMn,
+                      'Seq2Seq': Seq2Seq}
 
-        units_per_layer = 32
-        features = data_dict['X_size']
-
-        if model_name == 'lstm_4':
-            build_model = lstm_4.build(features=features, classes=n_cats, timesteps=timesteps,
-                                       units_per_layer=units_per_layer, batch_norm=use_batch_norm, dropout=use_dropout)
-        if model_name == 'lstm_2':
-            build_model = lstm_2.build(features=features, classes=n_cats, timesteps=timesteps,
-                                       units_per_layer=units_per_layer, batch_norm=use_batch_norm, dropout=use_dropout)
-        if model_name == 'lstm_1':
-            build_model = lstm_1.build(features=features, classes=n_cats, timesteps=timesteps,
-                                       units_per_layer=units_per_layer, batch_norm=use_batch_norm, dropout=use_dropout)
+        model = model_dict[model_name].build(features=x_size, classes=n_cats, timesteps=timesteps,
+                                             batch_size=batch_size, n_layers=hid_layers,
+                                             serial_recall=serial_recall,
+                                             units_per_layer=units_per_layer, act_func=act_func,
+                                             y_1hot=serial_recall,
+                                             dropout=use_dropout)
     else:
         print("model_dir not recognised")
 
