@@ -37,7 +37,7 @@ class Bowers14rnn:
 
         :return:
         """
-        model = Sequential(layers=n_layers, name="Bowers14rnn")
+        model = Sequential(name="Bowers14rnn")
 
         model.add(SimpleRNN(units=units_per_layer,
                             # input_shape=(timesteps, features),
@@ -77,7 +77,7 @@ class SimpleRNNn:
 
         :return: model
         """
-        model = Sequential(layers=n_layers, name="SimpleRNNn")
+        model = Sequential(name="SimpleRNNn")
 
         layer_seqs = True
         l_input_width = units_per_layer

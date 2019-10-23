@@ -2,14 +2,13 @@ import csv
 import datetime
 import json
 import os
-
+import git
 import numpy as np
 
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam, SGD, RMSprop
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.python.keras.callbacks import TensorBoard
-
 from keras.preprocessing.image import ImageDataGenerator
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
@@ -19,7 +18,6 @@ from tools.dicts import load_dict, focussed_dict_print, print_nested_round_float
 from tools.data import load_x_data, load_y_data
 from tools.network import get_model_dict, get_scores
 from tools.RNN_STM import generate_STM_RNN_seqs, get_label_seqs, get_test_scores
-
 from models.rnns import Bowers14rnn, SimpleRNNn, GRUn, LSTMn, Seq2Seq
 
 
@@ -60,7 +58,9 @@ def train_model(exp_name,
                 use_val_data=True,
                 timesteps=1,
                 exp_root='/home/nm13850/Documents/PhD/python_v2/experiments/',
-                verbose=False):
+                verbose=False,
+                test_run=False
+                ):
 
     """
     script to train a recurrent neural network on a Short-term memory task.
@@ -174,12 +174,12 @@ def train_model(exp_name,
     n_items='unknown'
 
 
-    # fix random seed for reproducability during development - not for simulations
-    seed = 7
-    np.random.seed(seed)
-
     # # save path
     exp_cond_path = os.path.join(exp_root, exp_name, output_filename)
+
+    if test_run:
+        exp_cond_path = os.path.join(exp_cond_path, 'test')
+
     if not os.path.exists(exp_cond_path):
         os.makedirs(exp_cond_path)
     os.chdir(exp_cond_path)
@@ -356,6 +356,7 @@ def train_model(exp_name,
     ax2.set_xlabel('epoch')
     fig.legend(['train', 'val'], loc='upper left')
     plt.savefig(str(output_filename) + '_training.png')
+    plt.close()
 
 
     # # get best epoch number
@@ -398,7 +399,7 @@ def train_model(exp_name,
     # else:
     #     # # get labels for 100 sequences
     test_label_seqs = get_label_seqs(n_labels=n_cats, seq_len=timesteps,
-                                     serial_recall=serial_recall, n_seqs=100)
+                                     serial_recall=serial_recall, n_seqs=10*batch_size)
 
     # # call get test accracy(serial_recall,
     # # idiot check
@@ -440,6 +441,8 @@ def train_model(exp_name,
                               'timesteps': timesteps}
 
 
+    repo = git.Repo('/home/nm13850/Documents/PhD/code/library')
+
     # # simulation_info_dict
     sim_dict = {"topic_info": {"output_filename": output_filename, "cond": cond, "run": run,
                                "data_dict_path": data_dict_path, "model_path": model_path,
@@ -453,7 +456,9 @@ def train_model(exp_name,
                                   'scores': scores_dict,
                                   "trained_date": trained_date, "trained_time": trained_time,
                                   'x_data_path': x_data_path, 'y_data_path': y_data_path,
-                                  'tensorboard_path': tensorboard_path}
+                                  'tensorboard_path': tensorboard_path,
+                                  'commit': repo.head.object.hexsha,
+                                  }
                 }
 
     sim_dict_name = f"{output_filename}_sim_dict.txt"
@@ -479,19 +484,17 @@ def train_model(exp_name,
     training_info = [output_filename, cond, run,
                      dset_name, x_size, n_cats, timesteps, n_items,
                      model_dir, model_name,
-                     model_info['layers']['totals']['all_layers'],
                      model_info['layers']['totals']['hid_layers'],
-
-                     model_info['layers']['hid_layers']['hid_totals']['act_layers'],
-                     model_info['layers']['hid_layers']['hid_totals']['dense_layers'],
                      str_upl,
-                     model_info['layers']['hid_layers']['hid_totals']['conv_layers'],
-                     str_fpl,
                      model_info['layers']['hid_layers']['hid_totals']['analysable'],
+                     x_data_type,
+                     act_func,
+                     serial_recall,
                      use_optimizer, use_batch_norm, use_dropout, batch_size, augmentation, grey_image,
                      use_val_data, loss_target, min_loss_change,
                      max_epochs, trained_for, end_acc, end_loss, end_val_acc, end_val_loss,
-                     checkpoint_path, trained_date, trained_time,
+                     checkpoint_path, trained_date, trained_time, mean_IoU, prop_seq_corr,
+
                      ]
 
 
@@ -504,13 +507,17 @@ def train_model(exp_name,
 
         headers = ["file", "cond", "run",
                    "dataset", "x_size", "n_cats", 'timesteps', "n_items",
-                   "model_type", "model", "all_layers", 'hid_layers',
-                   "act_layers",
-                   "dense_layers", "UPL", "conv_layers", "FPL", "analysable",
+                   "model_type", "model",
+                   'hid_layers',
+                   "UPL",
+                   "analysable",
+                   "x_data_type",
+                   "act_func",
+                   "serial_recall",
                    "optimizer", "batch_norm", "dropout", "batch_size", "aug", "grey_image",
                    "val_data", "loss_target", "min_loss_change",
                    "max_epochs", "trained_for", "end_acc", "end_loss", "end_val_acc", "end_val_loss",
-                   "model_file", "date", "time"]
+                   "model_file", "date", "time", "mean_IoU", "prop_seq_corr"]
 
         training_overview = open(f"{exp_name}_training_summary.csv", 'w')
         mywriter = csv.writer(training_overview)

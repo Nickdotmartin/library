@@ -2,6 +2,7 @@ import csv
 import datetime
 import os.path
 import json
+import git
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -45,7 +46,9 @@ def train_model(exp_name,
                 use_val_data=True,
                 timesteps=1,
                 exp_root='/home/nm13850/Documents/PhD/python_v2/experiments/',
-                verbose=False):
+                verbose=False,
+                test_run=False,
+                ):
 
     """
     script to train a neural network on a task
@@ -168,8 +171,9 @@ def train_model(exp_name,
     n_items = len(y_train)
 
     # fix random seed for reproducability during development - not for simulations
-    seed = 7
-    np.random.seed(seed)
+    if test_run:
+        seed = 7
+        np.random.seed(seed)
 
     # # data preprocessing
     x_size = data_dict["X_size"]
@@ -195,6 +199,9 @@ def train_model(exp_name,
 
     # # save path
     exp_cond_path = os.path.join(exp_root, exp_name, output_filename)
+    if test_run:
+        exp_cond_path = os.path.join(exp_cond_path, 'test')
+
     if not os.path.exists(exp_cond_path):
         os.makedirs(exp_cond_path)
     os.chdir(exp_cond_path)
@@ -202,6 +209,7 @@ def train_model(exp_name,
 
 
     # # The Model
+    # todo: change how models are loaded, use dicts, see train_STM_RNN
     if model_dir in ['mlp', 'mlps']:
         print("\nloading an mlp model")
         augmentation = False
@@ -438,6 +446,9 @@ def train_model(exp_name,
                               "min_loss_change": min_loss_change, "max_epochs": max_epochs, 'timesteps': timesteps}
 
 
+    repo = git.Repo('/home/nm13850/Documents/PhD/code/library')
+
+
     # # simulation_info_dict
     sim_dict = {"topic_info": {"output_filename": output_filename, "cond": cond, "run": run,
                                "data_dict_path": data_dict_path, "model_path": model_path,
@@ -451,7 +462,9 @@ def train_model(exp_name,
                                   "end_val_acc": end_val_acc, "end_val_loss": end_val_loss,
                                   "trained_date": trained_date, "trained_time": trained_time,
                                   'x_data_path': x_data_path, 'y_data_path': y_data_path,
-                                  'tensorboard_path': tensorboard_path}
+                                  'tensorboard_path': tensorboard_path,
+                                  'commit': repo.head.object.hexsha,
+                                  }
                 }
 
     sim_dict_name = f"{output_filename}_sim_dict.txt"
