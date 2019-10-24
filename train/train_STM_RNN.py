@@ -192,13 +192,13 @@ def train_model(exp_name,
         print("loading a recurrent model")
         augmentation = False
 
-        model_dict = {'Bowers14rnn': Bowers14rnn,
+        models_dict = {'Bowers14rnn': Bowers14rnn,
                       'SimpleRNNn': SimpleRNNn,
                       'GRUn': GRUn,
                       'LSTMn': LSTMn,
                       'Seq2Seq': Seq2Seq}
 
-        model = model_dict[model_name].build(features=x_size, classes=n_cats, timesteps=timesteps,
+        model = models_dict[model_name].build(features=x_size, classes=n_cats, timesteps=timesteps,
                                              batch_size=batch_size, n_layers=hid_layers,
                                              serial_recall=serial_recall, 
                                              units_per_layer=units_per_layer, act_func=act_func,

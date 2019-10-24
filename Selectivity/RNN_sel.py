@@ -11,8 +11,9 @@ import pandas as pd
 from scipy.stats.stats import pearsonr
 from sklearn.metrics import roc_curve, auc
 
-from tools.hdf import hdf_df_string_clean
 from tools.dicts import load_dict, focussed_dict_print
+from tools.RNN_STM import get_X_and_Y_data_from_seq
+
 
 '''This script uses shelve instead of pickle for sel_p_unit dict.
 
@@ -338,7 +339,6 @@ def sel_unit_max(all_sel_dict, verbose=False):
 
 # @profile
 def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
-           layer_classes=("Conv2D", "Dense", "Activation"),
            verbose=False, test_run=False):
     """
     Analyse hidden unit activations.
@@ -356,7 +356,6 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     :param correct_items_only: Whether selectivity considered incorrect items
     :param all_classes: Whether to test for selectivity of all classes or a subset
                         (e.g., most active classes)
-    :param layer_classes: Which layers to analyse
     :param verbose: how much to print to screen
     :param test_run: if True, only do subset, e.g., 3 units from 3 layers
 
@@ -393,36 +392,81 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     output_filename = gha_dict["topic_info"]["output_filename"]
     print(f"\noutput_filename: {output_filename}")
 
-    hdf_name = f'{output_filename}_gha.h5'
+    # get other info from dict
+    n_cats = gha_dict["data_info"]["n_cats"]
+    vocab_dict = load_dict(os.path.join(gha_dict['data_info']["data_path"],
+                                        gha_dict['data_info']["vocab_dict"]))
+
+    hid_units = gha_dict['model_info']['layers']['hid_layers']['hid_totals']["analysable"]
+    optimizer = gha_dict['model_info']["overview"]["optimizer"]
+    loss_func = gha_dict['model_info']["overview"]["loss_func"]
+    batch_size = gha_dict['model_info']["overview"]["batch_size"]
+    timesteps = gha_dict['model_info']["overview"]["timesteps"]
+    serial_recall = gha_dict['model_info']["overview"]["serial_recall"]
+    x_data_type = gha_dict['model_info']["overview"]["x_data_type"]
+    end_seq_cue = gha_dict['model_info']["overview"]["end_seq_cue"]
+    act_func = gha_dict['model_info']["overview"]["act_func"]
+
+    hid_acts_pickle = gha_dict["GHA_info"]["hid_act_files"]['2d']
+    n_seqs = gha_dict['GHA_info']['scores_dict']['n_seqs']
+    n_seq_corr = gha_dict['GHA_info']['scores_dict']['n_seq_corr']
+    n_incorrect = n_seqs - n_seq_corr
+    test_label_seq_name = gha_dict['GHA_info']['y_data_path']
+    seqs_corr = gha_dict['GHA_info']['scores_dict']['seq_corr_list']
+
 
     # # # load item_correct (y_data)
-    # todo: check this is correct y label data
-    # todo: add letter labels and/or word labels.
-    y_scores_df = pd.read_hdf(hdf_name, key='item_correct_df', more='r')
-    y_scores_df = hdf_df_string_clean(y_scores_df)
-    # use y_df for analysis
-    y_df = y_scores_df
 
-    # get other info from dict
-    hid_acts_pickle = gha_dict["GHA_info"]["hid_act_files"]['2d']
-    n_cats = gha_dict["data_info"]["n_cats"]
-    all_items = gha_dict['GHA_info']['scores_dict']['n_items']
-    n_correct = gha_dict['GHA_info']['scores_dict']['n_correct']
-    n_incorrect = all_items - n_correct
-    items_per_cat = gha_dict['GHA_info']['scores_dict']['corr_per_cat_dict']
-    timesteps = gha_dict['model_info']["timesteps"]
+    # gha should save name of this file
+    test_label_seq_name = f"{output_filename}_320_test_label_seqs.npy"
+    test_label_seqs = np.load(test_label_seq_name)
+    if verbose:
+        print(f"test_label_seqs: {np.shape(test_label_seqs)}")
+        print(f"seqs_corr: {np.shape(seqs_corr)}")
 
-    # # get basic COI list
-    if all_classes is True:
-        if type(items_per_cat) is int:
-            classes_of_interest = list(range(n_cats))
-        else:
-            classes_of_interest = list({k: v for (k, v) in items_per_cat.items() if v > 0})
+    # # get 1hot item vectors for 'words' and 3 hot for letters
+    '''Always use serial_recall True. as I want a separate 1hot vector for each item.
+    Always use x_data_type 'local_letter_X' as I want 3hot vectors'''
+    y_letters = []
+    y_words = []
+    for this_seq in test_label_seqs:
+        get_letters, get_words = get_X_and_Y_data_from_seq(vocab_dict=vocab_dict,
+                                                           seq_line=this_seq,
+                                                           serial_recall=True,
+                                                           end_seq_cue=False,
+                                                           x_data_type='local_letter_X')
+        y_letters.append(get_letters)
+        y_words.append(get_words)
 
-        if len(classes_of_interest) == n_cats:
-            print(f"\nall {n_cats} classes have some correct items")
-        else:
-            print(f"\nclasses_of_interest (all classes with correct items):\n{classes_of_interest}")
+    y_letters = np.array(y_letters)
+    y_words = np.array(y_words)
+    if verbose:
+        print(f"\ny_letters: {type(y_letters)}  {np.shape(y_letters)}")
+        print(f"y_letters[0]:\n{y_letters[0]}")
+        print(f"\ny_words: {type(y_words)}  {np.shape(y_words)}")
+        print(f"y_words[0]:\n{y_words[0]}")
+        print(f"test_label_seqs[0]: {test_label_seqs[0]}")
+
+
+
+    y_df_headers = [f"ts{i}" for i in range(timesteps)]
+    print(f"y_df_headers: {y_df_headers}")
+    y_scores_df = pd.DataFrame(data=test_label_seqs, columns=y_df_headers)
+    y_scores_df['full_model'] = seqs_corr
+    print(f"y_scores_df:\n{y_scores_df.head}")
+
+    # # # get basic COI list
+    # if all_classes is True:
+    #     if type(items_per_cat) is int:
+    #         classes_of_interest = list(range(n_cats))
+    #     else:
+    #         classes_of_interest = list({k: v for (k, v) in items_per_cat.items() if v > 0})
+    #
+    #     if len(classes_of_interest) == n_cats:
+    #         print(f"\nall {n_cats} classes have some correct items")
+    #     else:
+    #         print(f"\nclasses_of_interest (all classes with correct items):\n{classes_of_interest}")
+
 
     # # # get values for correct/incorrect items (1/0 or True/False)
     full_model_values = y_scores_df.full_model.unique()
@@ -491,20 +535,21 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         #       f"hid_acts_dict.keys(): {hid_acts_dict.keys()}")
 
     # # get output activations for class correlation
+    # can only use this for serial recall task
     last_layer_num = hid_acts_keys_list[-1]
     last_layer_name = hid_acts_dict[last_layer_num]['layer_name']
 
-    with h5py.File(hdf_name, 'r') as my_hdf:
-        output_layer_acts = my_hdf['hid_acts_2d'][last_layer_name]
-        output_layer_df = pd.DataFrame(output_layer_acts)
-
-    if correct_items_only:
-        if gha_incorrect:
-            output_layer_df['full_model'] = y_scores_df['full_model']
-            output_layer_df = output_layer_df.loc[output_layer_df['full_model'] == 1]
-            output_layer_df = output_layer_df.drop(['full_model'], axis=1)
-            print(f"\nremoving {n_incorrect} incorrect responses from output_layer_df: "
-                  f"{output_layer_df.shape}\n")
+    # with h5py.File(hdf_name, 'r') as my_hdf:
+    #     output_layer_acts = my_hdf['hid_acts_2d'][last_layer_name]
+    #     output_layer_df = pd.DataFrame(output_layer_acts)
+    #
+    # if correct_items_only:
+    #     if gha_incorrect:
+    #         output_layer_df['full_model'] = y_scores_df['full_model']
+    #         output_layer_df = output_layer_df.loc[output_layer_df['full_model'] == 1]
+    #         output_layer_df = output_layer_df.drop(['full_model'], axis=1)
+    #         print(f"\nremoving {n_incorrect} incorrect responses from output_layer_df: "
+    #               f"{output_layer_df.shape}\n")
 
     # # close hid act dict to save memory space?
     # hid_acts_dict = dict()
@@ -555,13 +600,8 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         highlights_dict = {"roc_auc": [['value', 'class', 'layer', 'unit']],
                            "ave_prec": [['value', 'class', 'layer', 'unit']],
                            "pr_auc": [['value', 'class', 'layer', 'unit']],
-                           # "nz_ave_prec": [['value', 'class', 'layer', 'unit']],
-                           # "nz_pr_auc": [['value', 'class', 'layer', 'unit']],
-                           # "tcs_recall": [['value', 'class', 'thr', 'items', 'layer', 'unit']],
                            "max_informed": [['value', 'class', 'count', 'thr', 'sens', 'spec',
-                                             'prec',
-                                             # 'f1',
-                                             'layer', 'unit']],
+                                             'prec', 'layer', 'unit']],
                            "ccma": [['value', 'class', 'layer', 'unit']],
                            "zhou_prec": [['value', 'class', 'thr', 'selects', 'layer', 'unit']],
                            "corr_coef": [['value', 'class', 'p', 'layer', 'unit']],
@@ -580,7 +620,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     # # loop through dict/layers
     print("\n*** looping through layers ***")
 
-    n_layers = len(gha_dict['GHA_info']['model_dict'])
+    n_layers = len(gha_dict['model_info']['config'])
 
     if test_run:
         layer_counter = 0
@@ -590,13 +630,9 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         layer_dict = hid_acts_dict[layer_number]
         layer_name = layer_dict['layer_name']
 
-        # todo: get act func
+        # todo: get act func for this layer from model config
 
         print(f"\nlayer {layer_number}: {layer_name}")
-
-        if layer_dict['layer_class'] not in layer_classes:
-            print(f"\tskip this layer!: {layer_dict['layer_class']} not in {layer_classes}")
-            continue  # skip this layer
 
         # # don't run sel on output layer
         if layer_number == last_layer_num:
@@ -689,18 +725,12 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             unit_dict = {'roc_auc': {},
                          'ave_prec': {},
                          'pr_auc': {},
-                         # 'nz_ave_prec': {},
-                         # 'nz_pr_auc': {},
-                         # 'tcs_items': {},
-                         # 'tcs_thr': {},
-                         # 'tcs_recall': {},
                          'max_informed': {},
                          'max_info_count': {},
                          'max_info_thr': {},
                          'max_info_sens': {},
                          'max_info_spec': {},
                          'max_info_prec': {},
-                         # 'max_info_f1': {},
                          'ccma': {},
                          'zhou_prec': {},
                          'zhou_selects': {},
@@ -840,11 +870,11 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                     # print(output_layer_df.head())
                     # print(output_layer_df.iloc[:, this_cat])
 
-                    class_corr = class_correlation(this_unit_acts=this_unit_acts_df[act_values],
-                                                   output_acts=output_layer_df[this_cat],
-                                                   verbose=verbose)
-                    unit_dict["corr_coef"][this_cat] = class_corr['coef']
-                    unit_dict["corr_p"][this_cat] = class_corr['p']
+                    # class_corr = class_correlation(this_unit_acts=this_unit_acts_df[act_values],
+                    #                                output_acts=output_layer_df[this_cat],
+                    #                                verbose=verbose)
+                    # unit_dict["corr_coef"][this_cat] = class_corr['coef']
+                    # unit_dict["corr_p"][this_cat] = class_corr['p']
 
                     # del output_layer_df
 
@@ -978,25 +1008,6 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
             print(f"layer_top_3_df\n{layer_top_3_df}")
             print(f"layer_top_3_df.loc[{measure}]\n{layer_top_3_df[measure]}")
-
-            # if measure == 'tcs_recall':
-            #     print('tcs_recall')  # "tcs_recall": [['value', 'class', 'thr', 'items', 'layer', 'unit']],
-            #     for i in range(2):
-            #         top_val = layer_top_3_df[measure].iloc[i]
-            #         if len(list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])) > 1:
-            #             top_class = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, f'{measure}_c'])[i]
-            #             thr = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'tcs_thr'])[i]
-            #             items = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'tcs_items'])[i]
-            #             top_unit_name = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])[i]
-            #         else:
-            #             top_class = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, f'{measure}_c'].item()
-            #             thr = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'tcs_thr'].item()
-            #             items = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'tcs_items'].item()
-            #             top_unit_name = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'].item()
-            #
-            #         new_row = [top_val, top_class, thr, items, layer_name, top_unit_name]
-            #         # print(f"new_row\n{new_row}")
-            #         # highlights_dict[measure].append(new_row)
 
             if measure == 'max_informed':
                 print('max_informed')
@@ -1252,7 +1263,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                                "sel_per_unit_name": sel_per_unit_db_name,
                                'sel_highlights_list_dict_name': sel_highlights_list_dict_name,
                                "correct_items_only": correct_items_only,
-                               "all_classes": all_classes, "layer_classes": layer_classes,
+                               "all_classes": all_classes,
                                "sel_date": int(datetime.datetime.now().strftime("%y%m%d")),
                                "sel_time": int(datetime.datetime.now().strftime("%H%M")),
                                }
