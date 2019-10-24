@@ -355,6 +355,7 @@ def get_test_scores(model, data_dict, test_label_seqs,
 
     print("\nIoU acc")
     iou_scores = []
+    seq_corr_list = []
     for seq in range(n_seqs):
 
         true_labels = labels_test[seq, :]
@@ -369,22 +370,28 @@ def get_test_scores(model, data_dict, test_label_seqs,
         IoU = len(intersection) / len(union)
         iou_scores.append(IoU)
 
-        if verbose:
-            # print(f"\n{seq}\nintersection: len({len(intersection)}): {intersection}\n"
-            #       f"union: len({len(union)}):  {union}\n"
-            #       f"IoU: {IoU}\niou_scores: {iou_scores}")
+        if IoU == 1.0:
+            seq_corr_list.append(int(1))
+        else:
+            seq_corr_list.append(int(0))
 
+        if verbose:
             print(f"{seq}: pred: {pred_labels} true: {true_labels} len(intersection): {len(intersection)} IoU: {IoU}")
 
     # get the average of all IoUs (per seq/batch etc
     mean_IoU = sum(iou_scores) / len(iou_scores)
 
     # # get prop of seqs where IoU == 1.0
-    prop_seq_corr = iou_scores.count(1.0) / len(iou_scores)
+    n_seq_corr = sum(seq_corr_list)
+    print(f"n_seq_corr: {n_seq_corr}")
+    print(f"len(seq_corr_list): {len(seq_corr_list)}")
+    prop_seq_corr = n_seq_corr / len(seq_corr_list)
 
     scores_dict = {"n_seqs": n_seqs,
                    "mean_IoU": mean_IoU,
                    "prop_seq_corr": prop_seq_corr,
+                   "n_seq_corr": n_seq_corr,
+                   "seq_corr_list": seq_corr_list
                    }
 
     if verbose:

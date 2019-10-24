@@ -167,6 +167,7 @@ def rnn_gha(sim_dict_path,
     serial_recall = sim_dict['model_info']["overview"]["serial_recall"]
     x_data_type = sim_dict['model_info']["overview"]["x_data_type"]
     end_seq_cue = sim_dict['model_info']["overview"]["end_seq_cue"]
+    act_func = sim_dict['model_info']["overview"]["act_func"]
     input_dim = data_dict["X_size"]
     output_dim = data_dict["n_cats"]
 
@@ -430,7 +431,12 @@ def rnn_gha(sim_dict_path,
     print(f"\nadded to list for selectivity analysis: {gha_dict_name[:-7]}")
 
     gha_info = [cond, run, output_filename, n_layers, hid_units, dataset, use_dataset,
-                gha_incorrect, n_cats, trained_for, end_accuracy, mean_IoU, prop_seq_corr,
+                gha_incorrect, n_cats,
+                timesteps,
+                x_data_type,
+                act_func,
+                serial_recall,
+                trained_for, end_accuracy, mean_IoU, prop_seq_corr,
                 test_run, gha_date, gha_time]
 
     # # check if gha_summary.csv exists
@@ -447,7 +453,12 @@ def rnn_gha(sim_dict_path,
         gha_summary = open(exp_name + "_GHA_summary.csv", 'w')
         mywriter = csv.writer(gha_summary)
         summary_headers = ["cond", "run", 'filename', "n_layers", "hid_units", "dataset", "GHA_on",
-                           'incorrect', "n_cats", "trained_for", "train_acc", "mean_IoU", "prop_seq_corr",
+                           'incorrect', "n_cats",
+                           "timesteps",
+                           "x_data_type",
+                           "act_func",
+                           "serial_recall",
+                           "trained_for", "train_acc", "mean_IoU", "prop_seq_corr",
                            "test_run", "gha_date", "gha_time"]
 
         mywriter.writerow(summary_headers)

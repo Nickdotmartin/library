@@ -77,27 +77,6 @@ def nick_roc_stuff(class_list, hid_acts, this_class, class_a_size, not_a_size,
         ave_prec = np.sum(my_ave_prec_vals_dict)
         pr_auc = auc(recall_dict, precision_dict)
 
-        # # no longer need TCS or NZ_AP, NZ_pr
-        # # # to sort out noZero scores
-        # nz_ave_prec = np.sum(my_ave_prec_vals_dict[:-1])
-        # if len(recall_dict[:-1]) > 1:
-        #     nz_pr_auc = auc(recall_dict[:-1], precision_dict[:-1])
-        # else:
-        #     nz_pr_auc = 0.0
-        #
-        # # top_class_sel
-        # top_class_sel_rows = precision_dict.count(1)
-        # # todo: revisit this or remove it.  Should I be setting tcs_thr to 1 for most classes?
-        # top_roc_stuff_dict = 'None'
-        # if top_class_sel_rows > 0:
-        #     top_class_sel_recall = recall_dict[top_class_sel_rows]
-        #     top_class_sel_recall_thr = thr[top_class_sel_rows]
-        #     top_class_sel_items = int(tp_count_dict[top_class_sel_rows])
-        # else:
-        #     top_class_sel_recall = 0
-        #     top_class_sel_recall_thr = 1
-        #     top_class_sel_items = 0
-
         # # Informedness
         get_informed_dict = [a + (1 - b) - 1 for a, b in zip(tpr, fpr)]
         max_informed = max(get_informed_dict)
@@ -109,40 +88,21 @@ def nick_roc_stuff(class_list, hid_acts, this_class, class_a_size, not_a_size,
         max_info_spec = 1 - fpr[max_informed_count]
         max_informed_prec = precision_dict[max_informed_count]
 
-        # # no longer need max_info f1
-        # if max_informed_prec + max_info_sens == 0.0:
-        #     max_info_f1 = 0.0
-        # else:
-        #     max_info_f1 = 2 * (max_informed_prec * max_info_sens) / (max_informed_prec + max_info_sens)
-        # if np.isnan(max_info_f1):
-        #     max_info_f1 = 0.0
-        # if np.isfinite(max_info_f1):
-        #     max_info_f1 = 0.0
-        # if type(max_info_f1) is not float:
-        #     max_info_f1 = 0.0
-
 
     else:  # if there are not items in this class
-        roc_auc = ave_prec = pr_auc = nz_ave_prec = nz_pr_auc = 0
-        top_class_sel_items = top_class_sel_recall_thr = top_class_sel_recall = 0
+        roc_auc = ave_prec = pr_auc = 0
         max_informed = max_informed_count = max_informed_thr = 0
-        max_info_sens = max_info_spec = max_informed_prec = max_info_f1 = 0
+        max_info_sens = max_info_spec = max_informed_prec = 0
 
     roc_sel_dict = {'roc_auc': roc_auc,
                     'ave_prec': ave_prec,
                     'pr_auc': pr_auc,
-                    # 'nz_ave_prec': nz_ave_prec,
-                    # 'nz_pr_auc': nz_pr_auc,
-                    # 'tcs_items': top_class_sel_items,
-                    # 'tcs_thr': top_class_sel_recall_thr,
-                    # 'tcs_recall': top_class_sel_recall,
                     'max_informed': max_informed,
                     'max_info_count': max_informed_count,
                     'max_info_thr': max_informed_thr,
                     'max_info_sens': max_info_sens,
                     'max_info_spec': max_info_spec,
                     'max_info_prec': max_informed_prec,
-                    # 'max_info_f1': max_info_f1,
                     }
 
     return roc_sel_dict
@@ -323,12 +283,6 @@ def sel_unit_max(all_sel_dict, verbose=False):
         max_sel_dict[measure] = max_val
         max_sel_dict[measure_c_name] = max_class
 
-    # # edit items (where max should be based on main sel value, e.g., not  max threshold).
-    # remove unnecessary items
-    # max_sel_dict['tcs_thr'] = copy_sel_dict['tcs_thr'][max_sel_dict["tcs_recall_c"]]
-    # del max_sel_dict['tcs_thr_c']
-    # max_sel_dict['tcs_items'] = copy_sel_dict['tcs_items'][max_sel_dict["tcs_recall_c"]]
-    # del max_sel_dict['tcs_items_c']
 
     max_sel_dict['max_info_count'] = copy_sel_dict['max_info_count'][max_sel_dict["max_informed_c"]]
     del max_sel_dict['max_info_count_c']
@@ -340,9 +294,6 @@ def sel_unit_max(all_sel_dict, verbose=False):
     del max_sel_dict['max_info_spec_c']
     max_sel_dict['max_info_prec'] = copy_sel_dict['max_info_prec'][max_sel_dict["max_informed_c"]]
     del max_sel_dict['max_info_prec_c']
-    # max_sel_dict['max_info_f1'] = copy_sel_dict['max_info_f1'][max_sel_dict["max_informed_c"]]
-    # del max_sel_dict['max_info_f1_c']
-
     max_sel_dict['zhou_selects'] = copy_sel_dict['zhou_selects'][max_sel_dict["zhou_prec_c"]]
     del max_sel_dict['zhou_selects_c']
     max_sel_dict['zhou_thr'] = copy_sel_dict['zhou_thr'][max_sel_dict["zhou_prec_c"]]
@@ -386,7 +337,7 @@ def sel_unit_max(all_sel_dict, verbose=False):
 ####################################################################################################
 
 # @profile
-def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
+def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
            layer_classes=("Conv2D", "Dense", "Activation"),
            verbose=False, test_run=False):
     """
@@ -425,7 +376,6 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
     """
 
-    # todo: add act_func as a param, can be updated if necessary.
 
     print("\n**** running ff_sel() ****")
 
