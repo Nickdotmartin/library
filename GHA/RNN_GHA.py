@@ -181,6 +181,8 @@ def rnn_gha(sim_dict_path,
     print("\n**** THE MODEL ****")
     model_name = sim_dict['model_info']['overview']['trained_model']
     loaded_model = load_model(model_name)
+    loaded_model.trainable = False
+
     model_details = loaded_model.get_config()
     # print_nested_round_floats(model_details)
     focussed_dict_print(model_details, 'model_details')
@@ -189,9 +191,10 @@ def rnn_gha(sim_dict_path,
     model_dict = dict()
 
     # # turn off "trainable" and get useful info
+
     for layer in range(n_layers):
         # set to not train
-        model_details['layers'][layer]['config']['trainable'] = 'False'
+        # model_details['layers'][layer]['config']['trainable'] = 'False'
 
         if verbose:
             print(f"Model layer {layer}: {model_details['layers'][layer]}")
@@ -271,6 +274,18 @@ def rnn_gha(sim_dict_path,
     print(f"\nsaving hid_acts to: {gha_path}")
 
 
+    # # # get hid acts for each timestep even if output is free-recall
+    # print("\nchanging layer attribute: return_sequnces")
+    # for layer in loaded_model.layers:
+    #     # set to return sequences = True
+    #     # model_details['layers'][layer]['config']['return_sequences'] = True
+    #     if hasattr(layer, 'return_sequences'):
+    #         layer.return_sequences = True
+    #
+    #         print(layer.name, layer.return_sequences)
+
+        # if verbose:
+        #     print(f"Model layer {layer}: {model_details['layers'][layer]}")
 
     # # # PART 3 get_scores() # # #
     loaded_model.compile(loss=loss_func, optimizer=optimizer, metrics=['accuracy'])
@@ -327,16 +342,18 @@ def rnn_gha(sim_dict_path,
 
             layer_acts_shape = np.shape(layer_activations)
 
+            print(f"\nlen(layer_acts_shape): {len(layer_acts_shape)}")
+
             converted_to_2d = False  # set to True if 4d acts have been converted to 2d
             if len(layer_acts_shape) == 2:
                 hid_acts = layer_activations
 
             elif len(layer_acts_shape) == 3:
-                if not serial_recall:
-                    ValueError(f"layer_acts_shape: {layer_acts_shape}"
-                               f"\n3d expected only for serial recall")
-                else:
-                    hid_acts = layer_activations
+                # if not serial_recall:
+                #     ValueError(f"layer_acts_shape: {layer_acts_shape}"
+                #                f"\n3d expected only for serial recall")
+                # else:
+                hid_acts = layer_activations
 
             # elif len(layer_acts_shape) == 4:  # # call mean_act_conv
             #     hid_acts = kernel_to_2d(layer_activations, verbose=True)

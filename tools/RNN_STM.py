@@ -1,9 +1,10 @@
 import os
 import numpy as np
 import more_itertools
-from tensorflow.keras.models import Model
+from tensorflow.keras.models import load_model, Model
 
-from tools.dicts import load_dict, focussed_dict_print
+from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
+from tools.network import get_model_dict
 
 
 
@@ -443,10 +444,12 @@ def get_layer_acts(model, layer_name, data_dict, test_label_seqs,
     """
     Get test hidden activations for the model for test_labels.
 
+    The layer being recorded from will ALWAYS have return_sequences=True,
+    so that I can record activations fro each timestep.
+
     1. First get x and y data from get_x_and_Y_data_from_seq
-    2. predictions to get layer activations
-
-
+    2. change return_sequences=True, if necessary
+    3. predictions to get layer activations
 
     :param model: trained model
     :param layer_name: name of layer to get activations from
@@ -458,7 +461,7 @@ def get_layer_acts(model, layer_name, data_dict, test_label_seqs,
     :param batch_size: batch to predict at once
     :param verbose:
 
-    :return: np.array of activations
+    :return: np.array of activations at each timestep
     """
 
     print(f"\n**** get_layer_acts({layer_name}) ****")
@@ -487,10 +490,83 @@ def get_layer_acts(model, layer_name, data_dict, test_label_seqs,
 
     # # make new model
     gha_model = Model(inputs=model.input, outputs=model.get_layer(layer_name).output)
+
+    # # get model dict for loaded model
+    gha_model_config = gha_model.get_config()
+
+    # # get hid acts for each timestep even if output is free-recall
+    # print("\nchanging layer attribute: return_sequnces")
+    # print(f"target layer_name: {layer_name}")
+    for layer in gha_model.layers:
+        # set to return sequences = True
+        # print(f"this layer name: {layer.name}")
+        if layer.name == layer_name:
+            # print("layer matches")
+            try:
+                layer.return_sequences = True
+                # print(layer.name, layer.return_sequences)
+            except AttributeError:
+                print(f"can't change return seqs on {layer.name}")
+
+    # # get dict for updated model
+    gha_model_config = gha_model.get_config()
+    # focussed_dict_print(gha_model_config)
+
+    # # I have to reload the model from the dict for the changes to actually take place!
+    gha_model = Model.from_config(gha_model_config)
+
     layer_activations = gha_model.predict(x_test, batch_size=batch_size, verbose=verbose)
 
     if verbose:
         print(f"layer_activations: {np.shape(layer_activations)}")
 
     return layer_activations
+
+# ####################
+# print("\nTesting get_layer_acts")
+# free_model_dict = {"model_path": '/home/nm13850/Documents/PhD/python_v2/experiments/'
+#                                  'STM_RNN/STM_RNN_test_v30_free_recall/test/'
+#                                  'STM_RNN_test_v30_free_recall_model.hdf5',
+#                    'layer_name': 'hid0',
+#                    'test_label_seqs_name': '/home/nm13850/Documents/PhD/python_v2/experiments/'
+#                                            'STM_RNN/STM_RNN_test_v30_free_recall/test/all_generator_gha/test/'
+#                                            'STM_RNN_test_v30_free_recall_320_test_label_seqs.npy',
+#                    'sim_dict_path': '/home/nm13850/Documents/PhD/python_v2/experiments/'
+#                                     'STM_RNN/STM_RNN_test_v30_free_recall/test/'
+#                                     'STM_RNN_test_v30_free_recall_sim_dict.txt'
+#                    }
+# seri_model_dict = {"model_path": '/home/nm13850/Documents/PhD/python_v2/experiments/'
+#                                  'STM_RNN/STM_RNN_test_v30_serial_recall/test/'
+#                                  'STM_RNN_test_v30_serial_recall_model.hdf5',
+#                    'layer_name': 'hid0',
+#                    'test_label_seqs_name': '/home/nm13850/Documents/PhD/python_v2/experiments/'
+#                                            'STM_RNN/STM_RNN_test_v30_serial_recall/test/all_generator_gha/test/'
+#                                            'STM_RNN_test_v30_serial_recall_320_test_label_seqs.npy',
+#                    'sim_dict_path': '/home/nm13850/Documents/PhD/python_v2/experiments/'
+#                                     'STM_RNN/STM_RNN_test_v30_serial_recall/test/'
+#                                     'STM_RNN_test_v30_serial_recall_sim_dict.txt'
+#                    }
+#
+# test_dict = free_model_dict
+# sim_dict = load_dict(test_dict['sim_dict_path'])
+# data_dict = sim_dict['data_info']
+# loaded_model = load_model(test_dict['model_path'])
+# test_label_seqs = np.load(test_dict['test_label_seqs_name'])
+#
+# serial_recall = sim_dict['model_info']['overview']['serial_recall']
+# x_data_type = sim_dict['model_info']['overview']['x_data_type']
+# end_seq_cue = sim_dict['model_info']['overview']['end_seq_cue']
+# batch_size = sim_dict['model_info']['overview']['batch_size']
+#
+# test_get_layer_acts = get_layer_acts(model=loaded_model,
+#                                      layer_name='hid0',
+#                                      data_dict=data_dict,
+#                                      test_label_seqs=test_label_seqs,
+#                                      serial_recall=serial_recall,
+#                                      x_data_type=x_data_type,
+#                                      end_seq_cue=end_seq_cue,
+#                                      batch_size=batch_size,
+#                                      verbose=True)
+#
+# print(f"end\nlayer_acts: {np.shape(test_get_layer_acts)}")
 
