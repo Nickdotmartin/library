@@ -425,6 +425,15 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
     """
 
+    # todo: split this into two functions.
+    #  1. loop thru model pickle. (to be developed here but
+    #  then moved to tools and used else wherer) Can be used with other dicts
+    #  to loop through probably (gha, visualization, lesioning etc
+    #  2. get unit sel.
+    #  the output of 2 is saved to dict by 1. dict now keeps its name.
+    #  1. can have a separate hd5 version or add thsat as a funtion for saving.
+    # Set save to file regularity by data size.
+
     # todo: add act_func as a param, can be updated if necessary.
 
     print("\n**** running ff_sel() ****")
@@ -658,6 +667,13 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             if layer_counter > 3:
                 print(f"\tskip this layer!: test_run, only running subset of layers")
                 continue
+
+        # todo: write results script which will take the input dict/csv,
+        #  put it into a pandas df, have versions for sort by order of x variable,
+        #  select top n, etc.  use that to then output a list of units to visualise.
+        #  Can add call visualise unit
+
+
 
         # # check if layer totals have already been done for sel_p_unit_dict and highlights dict
         sel_p_u_layer_done = False
