@@ -8,7 +8,7 @@ import shelve
 import h5py
 import numpy as np
 import pandas as pd
-from scipy.stats.stats import pearsonr
+from scipy.stats.stats import pearsonr, rankdata
 from sklearn.metrics import roc_curve, auc
 
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
@@ -345,24 +345,28 @@ def sel_unit_max(all_sel_dict, verbose=False):
     return max_sel_dict
 
 
-def new_sel_dict_layout(sel_dict, all_or_max='all'):
+def new_sel_dict_layout(sel_dict, all_or_max='max'):
     """
-    Original dict layout: layer, unit, ts, measure, classes
+    for 'all' (sel_per_unit_dict) there are 5 layers:
+        Original dict layout: layer, unit, ts, measure, classes
+        New layout: measure, layer, unit, ts, classes
 
-    new layout: measure, layer, unit, ts, classes
+    for 'max' (max_sel_p_unit_dict) there are 4 layers:
+        Original dict layout: layer, unit, ts, measure
+        New layout: measure, layer, unit, ts
 
-    :param all_sel_dict:
-    :return: new_all_sel_dict
+    :param sel_dict:
+    :return: new_sel_dict
     """
 
     new_dict = dict()
     layer_list = list(sel_dict.keys())
     unit_list = list(sel_dict[layer_list[0]].keys())
     timestep_list = list(sel_dict[layer_list[0]][0].keys())
-    sel_measure_list = list(sel_dict[layer_list[0]][0][0].keys())
+    sel_measure_list = list(sel_dict[layer_list[0]][0]['ts0'].keys())
 
     if all_or_max is 'all':
-        class_list = list(sel_dict[layer_list[0]][0][0][sel_measure_list[0]].keys())
+        class_list = list(sel_dict[layer_list[0]][0]['ts0'][sel_measure_list[0]].keys())
 
     for measure in sel_measure_list:
         new_dict[measure] = dict()
@@ -796,8 +800,9 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         layer_name = unit_gha["layer_name"]
         unit_index = unit_gha["unit_index"]
         timestep = unit_gha["timestep"]
+        ts_name = f"ts{timestep}"
         item_act_label_array = unit_gha["item_act_label_array"]
-        IPC_words = IPC_dict['word_p_class_p_ts'][f'ts{timestep}']
+        IPC_words = IPC_dict['word_p_class_p_ts'][ts_name]
 
         # #  make df
         this_unit_acts = pd.DataFrame(data=item_act_label_array, columns=['item', 'activation', 'label'])
@@ -933,8 +938,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
         # # which class was the highest for each measure
         max_sel_p_unit_dict = sel_unit_max(this_dict, verbose=verbose)
-        # unit_dict['max'] = max_sel_p_unit_dict
-        # max_sel_dict[unit] = max_sel_p_unit_dict
+
 
 
         # # # # once sel analysis has been done for this hid_act array
@@ -956,15 +960,14 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             max_sel_dict[layer_name][unit_index] = max_sel_p_unit_dict
 
         else:  # # if sequence data
-            # # add timestep to sel_p_unit dict
+            # # add timestep to max sel_p_unit dict
             if timestep not in list(all_sel_dict[layer_name][unit_index].keys()):
-                all_sel_dict[layer_name][unit_index][timestep] = dict()
-                max_sel_dict[layer_name][unit_index][timestep] = dict()
+                all_sel_dict[layer_name][unit_index][ts_name] = dict()
+                max_sel_dict[layer_name][unit_index][ts_name] = dict()
 
             # # add this timestep to all_sel_dict
-            all_sel_dict[layer_name][unit_index][timestep] = this_dict
-            print(max_sel_dict)
-            max_sel_dict[layer_name][unit_index][timestep] = max_sel_p_unit_dict
+            all_sel_dict[layer_name][unit_index][ts_name] = this_dict
+            max_sel_dict[layer_name][unit_index][ts_name] = max_sel_p_unit_dict
 
 
 
@@ -989,8 +992,8 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     new_all_sel_dict = new_sel_dict_layout(all_sel_dict, 'all')
     new_max_sel_dict = new_sel_dict_layout(max_sel_dict, 'max')
     dict_layout = 'new'
-
-    # todo: save these new layout dicts.  perhaps include
+    #
+    # # todo: Do I need these new dict layouts?  I think not
 
     if verbose:
         focussed_dict_print(all_sel_dict, 'all_sel_dict')
@@ -1053,76 +1056,311 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
 
 
-free_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/' \
+
+###############################
+
+def get_sel_summaries(max_sel_dict_path, verbose=False):
+    """
+    max sel dict is a nested dict [layers][units][timesteps][measures] = floats
+
+    1. make sel_df: multi-indexed for layer, units, ts as rows.  Cols are all sel measures
+    save this
+
+
+    use sel_df to get mean and max sel scores for whole model
+     - have simplified means version to use as summary df.
+
+
+    2. should have ability to call and at later date get mean and max (using xs) for:
+        - each layer (all ts)
+        - each timestep (all layers)
+
+    3. Should make highlights dict with the layer, unit, ts of the 3 highest per measure
+        - should include units where sel-class is the same for all timesteps.
+
+    4. add placeholder to plot hist of sel scores for a given measure (or measures)
+
+        1.
+
+
+    :param max_sel_dict_path:
+    :return:
+    """
+
+    # todo: save csvs, pickle dicts
+    '''return
+	summary vals and headers for csv
+
+save csv:
+sel_df : master df all layers, units, timesteps, all measures
+model mean-max df: mean and max vals for all measures and layers and ts
+
+save dicts
+hl_df_dict - dataframe per measure
+
+hl_units_dict - nested map to hl units. 
+	lists timestep-invariant measures at relevent units
+	lists high-scoring measures at relevant unit/timesteps'''
+
+    # # use max_sel_dict_path to get exp_cond_gha_path, sel_dict_name,
+    exp_cond_gha_path, sel_dict_name = os.path.split(max_sel_dict_path)
+    os.chdir(exp_cond_gha_path)
+    current_wd = os.getcwd()
+
+    sel_dict = load_dict(max_sel_dict_path)
+
+    # # sel_p_unit_layout
+    '''print("\nORIG max_sel_p_unit dict")
+    print(f"\nFirst nest is Layers: {len(list(sel_dict.keys()))} keys.\n{list(sel_dict.keys())}"
+          f"\neach with value is a dict.")
+    second_layer = sel_dict[list(sel_dict.keys())[0]]
+    print(f"\nsecond nest is Units: {len(list(second_layer.keys()))} keys.\n{list(second_layer.keys())}"
+          f"\neach with value is a dict.")
+    third_layer = second_layer[list(second_layer.keys())[0]]
+    print(f"\nThird nest is Timesteps: {len(list(third_layer.keys()))} keys.\n{list(third_layer.keys())}"
+          f"\neach with value is a dict.")
+    fourth_layer = third_layer[list(third_layer.keys())[0]]
+    print(f"\nfourth nest is measures: {len(list(fourth_layer.keys()))} keys.\n{list(fourth_layer.keys())}"
+          f"\neach with value is a single item.  {fourth_layer[list(fourth_layer.keys())[0]]}\n")'''
+
+    '''get list of sel measures,
+    remove measures where I haven't recorded associated class-label (drop_these_measures)
+    remove class-with-highest-sel which are items ending in "_c"'''
+    all_sel_measures_list = list(sel_dict[list(sel_dict.keys())[0]][0]['ts0'].keys())
+
+    drop_these_measures = ['max_info_count', 'max_info_thr', 'max_info_sens',
+                           'max_info_spec', 'max_info_prec', 'zhou_selects', 'zhou_thr']
+    sel_measures_list = [measure for measure in all_sel_measures_list if measure not in drop_these_measures]
+    sel_measures_list = [measure for measure in sel_measures_list if measure[-2:] != '_c']
+    if verbose:
+        print(f"{len(sel_measures_list)} items in sel_measures_list.\n{sel_measures_list}")
+
+
+    '''reform nested dict before attempting to make df
+    https://stackoverflow.com/questions/30384581/nested-dictionary-to-multiindex-pandas-dataframe-3-level
+    '''
+    reform_nested_sel_dict = {(level1_key, level2_key, level3_key): values
+                              for level1_key, level2_dict in sel_dict.items()
+                              for level2_key, level3_dict in level2_dict.items()
+                              for level3_key, values      in level3_dict.items()}
+
+    sel_df = pd.DataFrame(reform_nested_sel_dict).T
+    sel_df_index_names = ['Layer', 'Unit', 'Timestep']
+    sel_df.index.set_names(sel_df_index_names, inplace=True)
+
+    # # convert class ('_c') cols to int
+    class_cols_list = [measure for measure in all_sel_measures_list if measure[-2:] == '_c']
+    class_cols_dict = {i: 'int32' for i in class_cols_list}
+    sel_df = sel_df.astype(class_cols_dict)
+
+
+    if verbose:
+        print(f"sel_df:\n{sel_df}")
+
+
+    '''use sel_df.xs (cross-section) to select info in multi-indexed dataframes'''
+    # layer_df = sel_df.xs('hid2', level='Layer')
+    # unit_df = sel_df.xs(1, level='Unit')
+    # ts_df = sel_df.xs('ts2', level='Timestep')
+    # layer_unit_df = sel_df.xs(('hid2', 2), level=('Layer', 'Unit'))
+    # layer_ts_df = sel_df.xs(('hid2', 'ts2'), level=('Layer', 'Timestep'))
+    # unit_ts_df = sel_df.xs((2, 'ts2'), level=('Unit', 'Timestep'))
+    # print(unit_ts_df)
+
+
+    '''
+    summary stats
+    
+    from max_sel_dict:
+    1. use sel_df to get mean and max sel scores for whole model
+     - have simplified means version to use as summary df.
+        
+        
+    2. should have ability to call and at later date get mean and max (using xs) for:
+        - each layer (all ts)
+        - each timestep (all layers)
+        
+    3. Should make highlights dict with the layer, unit, ts of the 3 highest per measure
+        - should include units where sel-class is the same for all timesteps.
+        
+    4. add placeholder to plot hist of sel scores for a given measure (or measures)'''
+
+    '''dicts should be nested
+    means: whole_model, n_layers, n_timesteps'''
+
+    '''1. get means and max for the whole model'''
+    sel_measures_df = sel_df[sel_measures_list]
+    sel_means_s = sel_measures_df.mean().rename('model_means')
+    sel_max_s = sel_measures_df.max().rename('model_max')
+
+
+    '''1. get values for summary csv'''
+    mi_mean = sel_means_s.loc['max_informed']
+    mi_max = sel_max_s.loc['max_informed']
+    ccma_mean = sel_means_s.loc['ccma']
+    ccma_max = sel_max_s.loc['ccma']
+    prec_mean = sel_means_s.loc['zhou_prec']
+    prec_max = sel_max_s.loc['zhou_prec']
+    means_mean = sel_means_s.loc['means']
+    means_max = sel_max_s.loc['means']
+
+    for_summary_headers = ["mi_mean", "mi_max", "ccma_mean", "ccma_max",
+                           "prec_mean", "prec_max", "means_mean", "means_max"]
+
+    for_summary_vals = [mi_mean, mi_max, ccma_mean, ccma_max,
+                        prec_mean, prec_max, means_mean, means_max]
+
+
+    '''2. get mean and max per layer'''
+
+    layer_names_list = sorted(list(set(sel_df._get_label_or_level_values('Layer'))))
+    units_names_list = sorted(list(set(sel_df._get_label_or_level_values('Unit'))))
+    ts_names_list = sorted(list(set(sel_df._get_label_or_level_values('Timestep'))))
+
+    looped_arrays = [sel_means_s, sel_max_s]
+
+    if len(layer_names_list) > 1:
+        for this_layer in layer_names_list:
+            # # select relevant rows from list
+            layer_measure_df = sel_measures_df.xs(this_layer, level='Layer')
+
+            # # get means and max vales series
+            sel_means_s = sel_measures_df.mean().rename(f'{this_layer}_means')
+            sel_max_s = sel_measures_df.max().rename(f'{this_layer}_max')
+
+            looped_arrays.append(sel_means_s)
+            looped_arrays.append(sel_max_s)
+
+
+
+
+    '''2. get mean and max per timestep'''
+    ts_names_list = sorted(list(set(sel_df._get_label_or_level_values('Timestep'))))
+    # looped_arrays = []
+
+    for this_ts in ts_names_list:
+        # # select relevant rows from list
+        ts_measure_df = sel_measures_df.xs(this_ts, level='Timestep')
+
+        # # get means and max vales series
+        sel_means_s = sel_measures_df.mean().rename(f'{this_ts}_means')
+        sel_max_s = sel_measures_df.max().rename(f'{this_ts}_max')
+
+        looped_arrays.append(sel_means_s)
+        looped_arrays.append(sel_max_s)
+
+    model_mean_max_df = pd.concat(looped_arrays, axis='columns')
+    print(f"model_mean_max_df: \n{model_mean_max_df}")
+    # ts_mean_max_df = pd.concat(looped_arrays, axis='columns')
+    # print(ts_mean_max_df)
+
+    '''3. Should make highlights dict with the layer, unit, ts of the 3 highest per measure'''
+    '''
+    hl_df_dict: keys: measures; values: dataframe
+    
+    hl_units_dict: nested keys: layer, unit, timestep; 
+                values at unit: list of measures where it is timestep invariant
+                values at timesteps: tuple(measure, score, label)
+    '''
+    hl_df_dict = dict()
+    hl_units_dict = dict()
+
+    top_n = 3
+
+    measure = 'roc_auc'
+
+    for measure in sel_measures_list:
+        # # if there are lots of 1.0, keep them all
+        if len(sel_df[sel_df[measure] == 1.0]) > top_n:
+            top_units = sel_df[sel_df[measure] == 1.0]
+        else:
+            # # just take n highest scores
+            top_units = sel_df.nlargest(n=top_n, columns=measure)
+
+        # # reduce df to just keep measure and relevant label
+        m_label = f"{measure}_c"
+        cols_to_keep = [measure, m_label]
+        top_units = top_units[cols_to_keep]
+
+        # # get ranks for scores
+        check_values = top_units.loc[:, measure].to_list()
+        rank_values = rankdata([-1 * i for i in check_values], method='dense')
+        top_units['rank'] = rank_values
+
+        # # append to df_dict
+        hl_df_dict[measure] = top_units
+
+        # # loop through top units to populate unit dict
+        for index, row in top_units.iterrows():
+            # add indices to dict (0: layer, 1: unit, 2: timestep)
+            if row.name[0] not in hl_units_dict.keys():
+                hl_units_dict[row.name[0]] = dict()
+            if row.name[1] not in hl_units_dict[row.name[0]].keys():
+                hl_units_dict[row.name[0]][row.name[1]] = dict()
+            if row.name[2] not in hl_units_dict[row.name[0]][row.name[1]].keys():
+                hl_units_dict[row.name[0]][row.name[1]][row.name[2]] = []
+
+            # # add values to dict (0: measure, 1: label, 2: rank)
+            hl_units_dict[row.name[0]][row.name[1]][row.name[2]].append(
+                (measure, row.values[0], row.values[1], f'rank_{row.values[2]}'))
+
+
+    print_nested_round_floats(hl_units_dict, 'hl_units_dict')
+    # focussed_dict_print(hl_df_dict, 'hl_df_dict')
+
+
+
+    '''3. highlights should include units where sel-class is the same for all timesteps.'''
+
+    for layer in layer_names_list:
+        for unit in units_names_list:
+            # # get array for this layer, unit - all timesteps
+            layer_unit_df = sel_df.xs((layer, unit), level=('Layer', 'Unit'))
+            for measure in sel_measures_list:
+                # # get max sel label for these timesteps
+                check_classes = layer_unit_df.loc[:, f'{measure}_c'].to_list()
+                # # if there is only 1 label
+                if len(set(check_classes)) == 1:
+                    # # add indices to dict
+                    if layer not in hl_units_dict.keys():
+                        hl_units_dict[layer] = dict()
+                    if unit not in hl_units_dict[layer].keys():
+                        hl_units_dict[layer][unit] = dict()
+                    if 'ts_invar' not in hl_units_dict[layer][unit]:
+                        hl_units_dict[layer][unit]['ts_invar'] = []
+
+                    # # add measure name to dict
+                    hl_units_dict[layer][unit]['ts_invar'].append(measure)
+
+
+    print_nested_round_floats(hl_units_dict, 'hl_units_dict')
+
+    return for_summary_headers, for_summary_vals
+
+
+'''# todo: 4. add placeholder to plot hist of sel scores for a given measure (or measures)'''
+
+
+max_free_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/' \
             'STM_RNN_test_v30_free_recall/test/all_generator_gha/test/correct_sel/test/' \
             'STM_RNN_test_v30_free_recall_max_sel_p_unit.pickle'
+# all_free_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/' \
+#             'STM_RNN_test_v30_free_recall/test/all_generator_gha/test/correct_sel/test/' \
+#             'STM_RNN_test_v30_free_recall_sel_per_unit.pickle'
+
+# seri_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/' \
+#             'STM_RNN_test_v30_serial_recall/test/all_generator_gha/test/correct_sel/test/' \
+#             'STM_RNN_test_v30_serial_recall_max_sel_p_unit.pickle'
 # seri_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/' \
 #             'STM_RNN_test_v30_serial_recall/test/all_generator_gha/test/correct_sel/test/' \
 #             'STM_RNN_test_v30_serial_recall_sel_per_unit.pickle'
-# ser_3l_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/' \
-#               'STM_RNN_test_v30_serial_recall_3l/test/all_generator_gha/test/correct_sel/' \
-#               'test/STM_RNN_test_v30_serial_recall_3l_sel_per_unit.pickle'
-#
-sel_dict = load_dict(free_path)
 
-# # sel_p_unit_layout
-# # first keys are layer names
-print("\nfirst keys are layer names")
-print(sel_dict)
-print(sel_dict.keys())
-print(sel_dict['hid0'])
-
-# # second keys are units
-print("\nsecond keys are units")
-print(sel_dict['hid0'].keys())
-print(sel_dict['hid0'][0])
-
-# third keys are timesteps
-print("\nthird keys are timesteps")
-print(sel_dict['hid0'][0].keys())
-print(sel_dict['hid0'][0][0])
-
-# fourth keys are sel_measures
-print("\nfourth keys are sel_measures")
-print(sel_dict['hid0'][0][0].keys())
-print(sel_dict['hid0'][0][0]['roc_auc'])
-
-# # fifth keys are classes
-# print("\nfifth keys are classes")
-# print(all_sel_dict['hid0'][0][0]['roc_auc'].keys())
-# print(all_sel_dict['hid0'][0][0]['roc_auc'][0])
-# print()
+ser_3l_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/' \
+              'STM_RNN_test_v30_serial_recall_3l/test/all_generator_gha/test/correct_sel/' \
+              'test/STM_RNN_test_v30_serial_recall_3l_max_sel_p_unit.pickle'
 
 
-
-
-new_dict = new_sel_dict_layout(sel_dict, 'max')
-
-
-
-# # new_dict layout
-# # first keys are sel_measures
-print("\nfirst keys are sel_measures")
-print(new_dict)
-print(new_dict.keys())
-#
-# second layer is layers
-print("\nsecond keys are layers")
-print(new_dict['roc_auc'].keys())
-
-# # third layer is units
-print("\nthird layer is units")
-print(new_dict['roc_auc']['hid0'].keys())
-
-# # fourth layer is timesteps
-print("\nfourth layer is timesteps")
-print(new_dict['roc_auc']['hid0'][0].keys())
-
-# # fifth keys are classes
-print("\nfifth keys are classes")
-print(new_dict['roc_auc']['hid0'][0][0].keys())
-print(new_dict['roc_auc']['hid0'][0][0][0])
-print()
+sel_stats = get_sel_summaries(ser_3l_path)
 
 
 
@@ -1130,731 +1368,6 @@ print()
 
 
 
-
-
-
-# @profile
-# def old_rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
-#             verbose=False, test_run=False):
-#     """
-#     Analyse hidden unit activations.
-#     1. load dict from study (GHA dict)
-#     2. from dict get x, y, num of items, IPC, hidden activations etc
-#     3. load hidden activations.  Check that items were correct - if not - use correct_y-labels
-#     4. loop through all layers:
-#         loop through all units:
-#             loop through all classes:
-#                 run selectivity measures : CCMA, zn_AP, pr(full), zhou_prec, top_class, informedness
-#                 save dicts with values for all measures
-#                 save dict with top class/value for all measures
-#
-#     :param gha_dict_path: path of the gha dict
-#     :param correct_items_only: Whether selectivity considered incorrect items
-#     :param all_classes: Whether to test for selectivity of all classes or a subset
-#                         (e.g., most active classes)
-#     :param verbose: how much to print to screen
-#     :param test_run: if True, only do subset, e.g., 3 units from 3 layers
-#
-#     :return: master dict: contains 'sel_path' (e.g., dir),
-#                                     'sel_per_unit_pickle_name',
-#                                     'sel_highlights_list_dict_name',
-#
-#         :return: sel_p_unit_dict. dict with all selectivity results in it.
-#             all sel values:                 [layer names][unit number][sel measure][class]
-#             max_sel_p_u values(and class):  [layer names][unit number]['max'][sel measure]
-#             layer means:                    [layer name]['means'][measure]
-#
-#
-#         :return: sel_highlights: keys are sel_measures.
-#                                 Values are DataFrames with the 10 highest scoring units for
-#                                 each sel measure.
-#
-#     """
-#
-    # # todo: split this into three functions.
-    # #  1. loop thru model pickle. (to be developed here but
-    # #  then moved to tools and used else wherer) Can be used with other dicts
-    # #  to loop through probably (gha, visualization, lesioning etc
-    # #  2. get unit sel.
-    # #  the output of 2 is saved to dict by 1. dict now keeps its name.
-    # #  3. make summary and highlights - from all layers/all units, get mean and max per layer
-    # #  and top units for each measure.  Add call to visualise unit
-    #
-    # #  1. can have a separate hd5 version or add thsat as a funtion for saving.
-    # print("\n**** running ff_sel() ****")
-    #
-    # exp_cond_gha_path, gha_dict_name = os.path.split(gha_dict_path)
-    # os.chdir(exp_cond_gha_path)
-    # current_wd = os.getcwd()
-    #
-    # print(f"current_wd: {current_wd}")
-    #
-    # # # part 1. load dict from study (should run with sim, GHA or sel dict)
-    # gha_dict = load_dict(gha_dict_path)
-    # focussed_dict_print(gha_dict, 'gha_dict')
-    #
-    # # Output files
-    # output_filename = gha_dict["topic_info"]["output_filename"]
-    # print(f"\noutput_filename: {output_filename}")
-    #
-    # # get other info from dict
-    # n_cats = gha_dict["data_info"]["n_cats"]
-    # vocab_dict = load_dict(os.path.join(gha_dict['data_info']["data_path"],
-    #                                     gha_dict['data_info']["vocab_dict"]))
-    #
-    # hid_units = gha_dict['model_info']['layers']['hid_layers']['hid_totals']["analysable"]
-    # units_per_layer = gha_dict['model_info']["overview"]["units_per_layer"]
-    # optimizer = gha_dict['model_info']["overview"]["optimizer"]
-    # loss_func = gha_dict['model_info']["overview"]["loss_func"]
-    # batch_size = gha_dict['model_info']["overview"]["batch_size"]
-    # timesteps = gha_dict['model_info']["overview"]["timesteps"]
-    # serial_recall = gha_dict['model_info']["overview"]["serial_recall"]
-    # x_data_type = gha_dict['model_info']["overview"]["x_data_type"]
-    # end_seq_cue = gha_dict['model_info']["overview"]["end_seq_cue"]
-    # n_layers = gha_dict['model_info']['overview']['hid_layers']
-    # act_func = gha_dict['model_info']["overview"]["act_func"]
-    #
-    # hid_acts_pickle = gha_dict["GHA_info"]["hid_act_files"]['2d']
-    # n_seqs = gha_dict['GHA_info']['scores_dict']['n_seqs']
-    # n_seq_corr = gha_dict['GHA_info']['scores_dict']['n_seq_corr']
-    # n_incorrect = n_seqs - n_seq_corr
-    # test_label_seq_name = gha_dict['GHA_info']['y_data_path']
-    # seqs_corr = gha_dict['GHA_info']['scores_dict']['seq_corr_list']
-    #
-    #
-    # # # # load item_correct (y_data)
-    #
-    # # gha should save name of this file
-    # # todo: change this for new gha, load name from above.
-    # test_label_seq_name = f"{output_filename}_320_test_label_seqs.npy"
-    # test_label_seqs = np.load(test_label_seq_name)
-    # if verbose:
-    #     print(f"test_label_seqs: {np.shape(test_label_seqs)}")
-    #     print(f"seqs_corr: {np.shape(seqs_corr)}")
-    #
-    # # # get 1hot item vectors for 'words' and 3 hot for letters
-    # '''Always use serial_recall True. as I want a separate 1hot vector for each item.
-    # Always use x_data_type 'local_letter_X' as I want 3hot vectors'''
-    # y_letters = []
-    # y_words = []
-    # for this_seq in test_label_seqs:
-    #     get_letters, get_words = get_X_and_Y_data_from_seq(vocab_dict=vocab_dict,
-    #                                                        seq_line=this_seq,
-    #                                                        serial_recall=True,
-    #                                                        end_seq_cue=False,
-    #                                                        x_data_type='local_letter_X')
-    #     y_letters.append(get_letters)
-    #     y_words.append(get_words)
-    #
-    # y_letters = np.array(y_letters)
-    # y_words = np.array(y_words)
-    # if verbose:
-    #     print(f"\ny_letters: {type(y_letters)}  {np.shape(y_letters)}")
-    #     print(f"y_letters[0]:\n{y_letters[0]}")
-    #     print(f"\ny_words: {type(y_words)}  {np.shape(y_words)}")
-    #     print(f"y_words[0]:\n{y_words[0]}")
-    #     print(f"\ntest_label_seqs[0]: {test_label_seqs[0]}")
-    #
-    #
-    #
-    # y_df_headers = [f"ts{i}" for i in range(timesteps)]
-    # print(f"y_df_headers: {y_df_headers}")
-    # y_scores_df = pd.DataFrame(data=test_label_seqs, columns=y_df_headers)
-    # y_scores_df['full_model'] = seqs_corr
-    # print(f"y_scores_df:\n{y_scores_df.head}")
-    #
-    # # # # get basic COI list
-    # # if all_classes is True:
-    # #     if type(items_per_cat) is int:
-    # #         classes_of_interest = list(range(n_cats))
-    # #     else:
-    # #         classes_of_interest = list({k: v for (k, v) in items_per_cat.items() if v > 0})
-    # #
-    # #     if len(classes_of_interest) == n_cats:
-    # #         print(f"\nall {n_cats} classes have some correct items")
-    # #     else:
-    # #         print(f"\nclasses_of_interest (all classes with correct items):\n{classes_of_interest}")
-    #
-    #
-    # # # # get values for correct/incorrect items (1/0 or True/False)
-    # full_model_values = y_scores_df.full_model.unique()
-    # if len(full_model_values) != 2:
-    #     print(f"TYPE_ERROR!: what are the scores/acc for items? {full_model_values}")
-    # else:
-    #     correct_item = 1
-    # if 1 not in full_model_values:
-    #     correct_item = True
-    #
-    # # # i need to check whether this analysis should include incorrect items
-    # # therefore only have correct items so remove all incorrect responses from y_correct df
-    # gha_incorrect = gha_dict['GHA_info']['gha_incorrect']
-    #
-    # if gha_incorrect:
-    #     if correct_items_only:
-    #         print("\ngha_incorrect: True (I have incorrect responses)\n"
-    #               "correct_items_only: True (I only want correct responses)")
-    #         print(f"remove {n_incorrect} incorrect from hid_acts & output using y_scores_df.")
-    #         y_correct_df = y_scores_df.loc[y_scores_df['full_model'] == correct_item]
-    #         y_df = y_correct_df
-    #         print("use y_correct for y_df")
-    #     else:
-    #         print("\ngha_incorrect: True (I have incorrect responses)\n"
-    #               "correct_items_only: False (I want incorrect responses)")
-    #         print("no changes needed - don't remove anything from hid_acts, output and "
-    #               "use y scores as y_df")
-    # else:
-    #     if correct_items_only:
-    #         print("\ngha_incorrect: False (I only have correct responses)\n"
-    #               "correct_items_only: True (I only want correct responses)")
-    #         print("no changes needed - don't remove anything from hid_acts or output.  "
-    #               "Use y_correct as y_df")
-    #         y_correct_df = y_scores_df.loc[y_scores_df['full_model'] == correct_item]
-    #         y_df = y_correct_df
-    #     else:
-    #         print("\ngha_incorrect: False (I only have correct responses)\n"
-    #               "correct_items_only: False (I want incorrect responses)")
-    #         print("I can not complete this as desried"
-    #               "change correct_items_only to True"
-    #               "for analysis  - don't remove anything from hid_acts, output and "
-    #               "use y scores as y_df")
-    #         correct_items_only = True
-    #
-    # if verbose is True:
-    #     print(f"\ny_df: {y_df.shape}\n{y_df.head()}")
-    #
-    # # # # open hid_acts.pickle
-    # '''
-    # CAN:T DO CLASS_CORR FOR DIST Y OUTPUT.
-    # 1. get layer number for last layer
-    # 2. get output layer activations (these are held in memory, but could be loaded for each unit)
-    # 3. * add get list of hid act dict keys - loop thought this rather than actual dict.
-    # '''
-    #
-    # print("\n**** opening hid_acts.pickle ****")
-    # with open(hid_acts_pickle, 'rb') as pkl:
-    #     hid_acts_dict = pickle.load(pkl)
-    #
-    # hid_acts_keys_list = list(hid_acts_dict.keys())
-    #
-    # if verbose:
-    #     print(f"hid_acts_pickle: {hid_acts_pickle}")
-    #     focussed_dict_print(hid_acts_dict, 'hid_acts_dict')
-    #     # print(f"hid_acts_pickle: {hid_acts_pickle}\n"
-    #     #       f"hid_acts_dict: {hid_acts_dict}\n"
-    #     #       f"hid_acts_dict.keys(): {hid_acts_dict.keys()}")
-    #
-    # # # get output activations for class correlation
-    # # can only use this for serial recall task
-    # last_layer_num = hid_acts_keys_list[-1]
-    # last_layer_name = hid_acts_dict[last_layer_num]['layer_name']
-    # #
-    # # with h5py.File(hdf_name, 'r') as my_hdf:
-    # #     output_layer_acts = my_hdf['hid_acts_2d'][last_layer_name]
-    # #     output_layer_df = pd.DataFrame(output_layer_acts)
-    # #
-    # # if correct_items_only:
-    # #     if gha_incorrect:
-    # #         output_layer_df['full_model'] = y_scores_df['full_model']
-    # #         output_layer_df = output_layer_df.loc[output_layer_df['full_model'] == 1]
-    # #         output_layer_df = output_layer_df.drop(['full_model'], axis=1)
-    # #         print(f"\nremoving {n_incorrect} incorrect responses from output_layer_df: "
-    # #               f"{output_layer_df.shape}\n")
-    # #
-    # # # close hid act dict to save memory space?
-    # # hid_acts_dict = dict()
-    #
-    # # # where to save files
-    # analyse_items = 'all'
-    # if correct_items_only:
-    #     analyse_items = 'correct'
-    # sel_folder = f'{analyse_items}_sel'
-    # if test_run:
-    #     sel_folder = f'{analyse_items}_sel/test'
-    # sel_path = os.path.join(current_wd, sel_folder)
-    #
-    # if not os.path.exists(sel_path):
-    #     os.makedirs(sel_path)
-    #
-    # # # save output activations
-    # # print(f"output_lyer_df shape: {output_layer_df.shape}")
-    # # print(output_layer_df.head())
-    # # output_layer_df.to_csv(f'{sel_path}/{output_filename}_output_acts.csv', index=False)
-    #
-    # # # sel_p_unit_dict
-    # sel_per_unit_pickle_name = f"{sel_path}/{output_filename}_sel_per_unit.pickle"
-    # if not os.path.isfile(sel_per_unit_pickle_name):
-    #     sel_p_unit_dict = dict()
-    #     # save sel_p_unit_dict here to be opened and appended to
-    #     with open(sel_per_unit_pickle_name, "wb") as pickle_out:
-    #         pickle.dump(sel_p_unit_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
-    #
-    # # # # # sel_p_unit_dict
-    # # sel_per_unit_db_name = f"{sel_path}/{output_filename}_sel_per_unit"
-    # # if not os.path.isfile(sel_per_unit_db_name):
-    # #     # sel_p_unit_dict = dict()
-    # #     # save sel_p_unit_dict here to be opened and appended to
-    # #     with shelve.open(sel_per_unit_db_name, protocol=pickle.HIGHEST_PROTOCOL) as db:
-    # #         db['test_key'] = 'test_value'
-    #
-    # # # # layer_sel_mean_dict
-    # layer_sel_mean_dict = dict()
-    #
-    # # # layer means csv path
-    # layer_means_path = os.path.join(sel_path, f"{output_filename}_layer_means.csv")
-    #
-    # # # highlights_dict
-    # sel_highlights_list_dict_name = f"{sel_path}/{output_filename}_hl_list.pickle"
-    # if not os.path.isfile(sel_highlights_list_dict_name):
-    #     # # save highlights_dict here to be opened and appended to
-    #     highlights_dict = {"roc_auc": [['value', 'class', 'layer', 'unit']],
-    #                        "ave_prec": [['value', 'class', 'layer', 'unit']],
-    #                        "pr_auc": [['value', 'class', 'layer', 'unit']],
-    #                        "max_informed": [['value', 'class', 'count', 'thr', 'sens', 'spec',
-    #                                          'prec', 'layer', 'unit']],
-    #                        "ccma": [['value', 'class', 'layer', 'unit']],
-    #                        "zhou_prec": [['value', 'class', 'thr', 'selects', 'layer', 'unit']],
-    #                        # "corr_coef": [['value', 'class', 'p', 'layer', 'unit']],
-    #                        "means": [['value', 'class', 'sd', 'layer', 'unit']],
-    #                        "nz_count": [['value', 'class', 'layer', 'unit']],
-    #                        "nz_prop": [['value', 'class', 'layer', 'unit']],
-    #                        "nz_prec": [['value', 'class', 'layer', 'unit']],
-    #                        "hi_val_count": [['value', 'class', 'layer', 'unit']],
-    #                        "hi_val_prop": [['value', 'class', 'layer', 'unit']],
-    #                        "hi_val_prec": [['value', 'class', 'layer', 'unit']],
-    #                        }
-    #
-    #     with open(sel_highlights_list_dict_name, "wb") as pickle_out:
-    #         pickle.dump(highlights_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
-    #
-    #
-    # # # get model dict
-    # model_dict = gha_dict['model_info']['config']
-    # if verbose:
-    #     focussed_dict_print(model_dict, 'model_dict')
-    #
-    # # # loop through dict/layers
-    # print("\n*** looping through layers ***")
-    # if test_run:
-    #     layer_counter = 0
-    #
-    # for layer_number in hid_acts_keys_list:
-    #
-    #     layer_dict = hid_acts_dict[layer_number]
-    #     layer_name = layer_dict['layer_name']
-    #
-    #     # todo: get act func for this layer from model config
-    #
-    #     print(f"\nlayer {layer_number}: {layer_name}")
-    #
-    #     # # don't run sel on output layer
-    #     if layer_number == last_layer_num:
-    #         print(f"\tskip output layer!: {layer_number} == {last_layer_num}")
-    #         continue
-    #
-    #     if test_run is True:
-    #         layer_counter = layer_counter + 1
-    #         if layer_counter > 3:
-    #             print(f"\tskip this layer!: test_run, only running subset of layers")
-    #             continue
-    #
-    #     # # check if layer totals have already been done for sel_p_unit_dict and highlights dict
-    #     sel_p_u_layer_done = False
-    #
-    #     with open(sel_per_unit_pickle_name, "rb") as pickle_load:
-    #         sel_p_unit_dict = pickle.load(pickle_load)
-    #         sel_p_unit_keys = sel_p_unit_dict.keys()
-    #
-    #     # with shelve.open(sel_per_unit_db_name) as db:
-    #     #     sel_p_unit_keys = list(db.keys())
-    #     #     print(sel_p_unit_keys)
-    #
-    #     if layer_name in sel_p_unit_keys:
-    #         sel_p_u_layer_done = True
-    #
-    #     highlights_layer_done = False
-    #     with open(sel_highlights_list_dict_name, "rb") as pickle_load:
-    #         # read dict as it is so far
-    #         highlights_dict = pickle.load(pickle_load)
-    #         check_roc = highlights_dict['roc_auc']
-    #     if any(layer_name in sublist for sublist in check_roc):
-    #         highlights_layer_done = True
-    #
-    #     layer_means_csv_done = False
-    #     already_done_means_total = False
-    #     if os.path.isfile(layer_means_path):
-    #         layer_means_csv = pd.read_csv(layer_means_path)
-    #         layer_names = layer_means_csv.loc[:, 'name'].to_list()
-    #         if layer_name in layer_names:
-    #             layer_means_csv_done = True
-    #         if 'Total' in layer_names:
-    #             already_done_means_total = True
-    #
-    #     layer_done = [sel_p_u_layer_done, highlights_layer_done, layer_means_csv_done]
-    #
-    #     if layer_done == [True, True, True]:
-    #         print(f"\tdocs layer has already been completed\n"
-    #               f"\t(sel_p_u_layer_done, highlights_layer_done, layer_means_csv_done)")
-    #         continue
-    #     else:
-    #         print(f"\tNot yet completed this layer\n"
-    #               f"\tsel_p_u_layer_done: {sel_p_u_layer_done}\n"
-    #               f"\thighlights_layer_done: {highlights_layer_done}\n"
-    #               f"\tlayer_means_csv_done: {layer_means_csv_done}")
-    #
-    #     # layer_number = key
-    #     act_func = gha_dict['model_info']['layers']['hid_layers'][layer_number]['act_func']
-    #
-    #     layer_name = layer_dict['layer_name']
-    #     hid_acts_array = layer_dict['hid_acts']
-    #
-    #
-    #     print(f"\nnp.shape(hid_acts_array) (n_seqs, timesteps, units_per_layer): "
-    #           f"{np.shape(hid_acts_array)}")
-    #
-    #     # # remove incorrect responses from np
-    #     if correct_items_only:
-    #         if gha_incorrect:
-    #             print(f"\nremoving {n_incorrect} incorrect responses from "
-    #                   f"hid_acts_array: {np.shape(hid_acts_array)}")
-    #
-    #             incorrect_items = []
-    #             for index in range(len(seqs_corr)):
-    #                 if seqs_corr[index] == 0:
-    #                     incorrect_items.append(index)
-    #             # print(f"incorrect_items: {np.shape(incorrect_items)}\n{incorrect_items}")
-    #
-    #             mask = np.ones(shape=len(seqs_corr), dtype=bool)
-    #             mask[incorrect_items] = False
-    #
-    #             # print(f"mask: {mask}")
-    #
-    #             hid_acts_array = hid_acts_array[mask]
-    #
-    #             test_label_seqs = test_label_seqs[mask]
-    #
-    #             print(f"(cleaned)\nnp.shape(hid_acts_array) (n_seqs_corr, timesteps, units_per_layer): "
-    #                   f"{np.shape(hid_acts_array)}"
-    #                   f"\ntest_label_seqs: {np.shape(test_label_seqs)}")
-    #
-    #
-    #
-    #
-    #
-    #     # hid_acts_df = pd.DataFrame(hid_acts_array)
-    #     # print(f"\nloaded hidden_activation_file: {hid_acts_pickle}, {np.shape(hid_acts_df)}")
-    #     # units_per_layer = len(hid_acts_df.columns)
-    #
-    #     # with h5py.File(hdf_name, 'r') as gha_data:
-    #     #     hid_acts_array = gha_data['hid_acts_2d'][layer_name]
-    #     #     hid_acts_df = pd.DataFrame(hid_acts_array)
-    #     #
-    #     # print(f"\nloaded hidden_activation_file: {hdf_name}, {hid_acts_df.shape}")
-    #     # units_per_layer = len(hid_acts_df.columns)
-    #     #
-    #     # with shelve.open(sel_per_unit_db_name, protocol=pickle.HIGHEST_PROTOCOL) as db:
-    #     #     db[layer_name] = dict()
-    #
-    #     # # # remove incorrect responses from df
-    #     # if correct_items_only:
-    #     #     if gha_incorrect:
-    #     #         print(f"\nremoving {n_incorrect} incorrect responses from "
-    #     #               f"hid_acts_df: {hid_acts_df.shape}")
-    #     #         hid_acts_df['full_model'] = y_scores_df['full_model']
-    #     #         hid_acts_df = hid_acts_df.loc[hid_acts_df['full_model'] == 1]
-    #     #         hid_acts_df = hid_acts_df.drop(['full_model'], axis=1)
-    #     #         print(f"(cleaned) hid_acts_df: {hid_acts_df.shape}\n{hid_acts_df.head()}")
-    #
-    #     layer_dict = dict()
-    #     max_sel_dict = dict()
-    #
-    #     print("\n**** loop through units ****")
-    #     # for unit_index, unit in enumerate(hid_acts_df.columns):
-    #     for i in range(units_per_layer):
-    #
-    #         this_unit = i
-    #         unit_index = i
-    #
-    #         if test_run is True:
-    #             if unit_index > 3:
-    #                 continue
-    #
-    #
-    #         one_unit_all_timesteps = hid_acts_array[:, :, this_unit]
-    #         # print("one unit all timesteps shape: {}".format(np.shape(one_unit_all_timesteps)))
-    #         print(f"np.shape(one_unit_all_timesteps) (seqs, timesteps): {np.shape(one_unit_all_timesteps)}")
-    #
-    #         print(f"\n*************\nrunning layer {layer_number} of {n_layers} ({layer_name}): "
-    #               f"unit {this_unit} of {units_per_layer}\n************")
-    #
-    #
-    #
-    #         # this_unit_just_acts = list(hid_acts_df.loc[:, unit])
-    #
-    #
-    #         # # 1st check its not a dead unit
-    #         # check for dead units, if dead, all details to 0/na/nan/-999 etc
-    #         if np.sum(one_unit_all_timesteps) != 0:
-    #
-    #             print("not dead - sorting activations for analysis")
-    #
-    #             unit_dict = {'roc_auc': {},
-    #                          'ave_prec': {},
-    #                          'pr_auc': {},
-    #                          'max_informed': {},
-    #                          'max_info_count': {},
-    #                          'max_info_thr': {},
-    #                          'max_info_sens': {},
-    #                          'max_info_spec': {},
-    #                          'max_info_prec': {},
-    #                          'ccma': {},
-    #                          'zhou_prec': {},
-    #                          'zhou_selects': {},
-    #                          'zhou_thr': {},
-    #                          # 'corr_coef': {},
-    #                          # 'corr_p': {},
-    #                          }
-    #
-    #             # todo: add timesteps (from line 188 of sel_stm_RNN)
-    #
-    #             for timestep in range(timesteps):
-    #                 print("unit {} step {} (of {})".format(this_unit, timestep, timesteps))
-    #
-    #                 one_unit_one_timestep = one_unit_all_timesteps[:, timestep]
-    #                 print(" - one_unit_one_timestep shape: (n seqs) {}".format(np.shape(one_unit_one_timestep)))
-    #
-    #                 # y_labels_one_timestep_float = combo_data[:, timestep]
-    #                 y_labels_one_timestep_float = test_label_seqs[:, timestep]
-    #
-    #                 y_labels_one_timestep = [int(q) for q in y_labels_one_timestep_float]
-    #                 print(" - y_labels_one_timestep shape: {}".format(np.shape(y_labels_one_timestep)))
-    #                 # print(y_labels_one_timestep)
-    #
-    #                 index = list(range(n_seq_corr))
-    #
-    #                 # insert act values in middle of labels (item, act, cat)
-    #                 this_unit_acts = np.vstack((index, one_unit_one_timestep, y_labels_one_timestep)).T
-    #                 print(" - this_unit_acts shape: {}".format(np.shape(this_unit_acts)))
-    #                 print(f"this_unit_acts: (timestep, hid_acts, y_label)\n{this_unit_acts}")
-    #
-    #
-    #             # # insert act values in middle of labels (item, act, cat)
-    #             # this_unit_acts = y_df.copy()
-    #             #
-    #             # this_unit_acts.insert(2, column='activation', value=this_unit_just_acts, )
-    #             #
-    #             # # # sort by descending hid act values
-    #             # this_unit_acts_df = this_unit_acts.sort_values(by='activation', ascending=False)
-    #             #
-    #             # # # # normalize activations
-    #             # # todo: I don't need to normalize them if they are tanh units?
-    #             #
-    #             # just_act_values = this_unit_acts_df['activation'].tolist()
-    #             # max_act = max(just_act_values)
-    #             # normed_acts = np.true_divide(just_act_values, max_act)
-    #             # this_unit_acts_df.insert(2, column='normed', value=normed_acts)
-    #             #
-    #             # if verbose is True:
-    #             #     print(f"\nthis_unit_acts_df: {this_unit_acts_df.shape}\n"
-    #             #           f"{this_unit_acts_df.head()}")
-    #             #
-    #             # # # get class_sel_basics
-    #             # # todo: add act_func
-    #             # class_sel_basics_dict = class_sel_basics(this_unit_acts_df, items_per_cat,
-    #             #                                          verbose=verbose)
-    #             #
-    #             # if verbose:
-    #             #     focussed_dict_print(class_sel_basics_dict, 'class_sel_basics_dict')
-    #             #
-    #             # # # add class_sel_basics_dict to unit dict
-    #             # for csb_key, csb_value in class_sel_basics_dict.items():
-    #             #     if csb_key == 'total':
-    #             #         continue
-    #             #     if csb_key == 'perplexity':
-    #             #         continue
-    #             #     unit_dict[csb_key] = csb_value
-    #             #
-    #             # classes_of_interest = list(range(n_cats))
-    #             # if all_classes is False:
-    #             #     # # I don't want to use all classes, just ones that are worth testing
-    #             #     classes_of_interest = coi_list(class_sel_basics_dict, verbose=verbose)
-    #             #
-    #             # print('\n**** cycle through classes ****')
-    #             # for this_cat in range(len(classes_of_interest)):
-    #             #
-    #             #     this_class_size = items_per_cat[this_cat]
-    #             #     not_a_size = n_correct - this_class_size
-    #             #
-    #             #     if verbose is True:
-    #             #         print(f"\nclass_{this_cat}: {this_class_size} items, "
-    #             #               f"not_{this_cat}: {not_a_size} items")
-    #             #
-    #             #     # # running selectivity measures
-    #             #
-    #             #     # # ROC_stuff includes:
-    #             #     # roc_auc, ave_prec, pr_auc, nz_ave_prec, nz_pr_auc, top_class_sel, informedness
-    #             #     # todo: add act_func.  If not relu.  don't use normed acts
-    #             #     act_values = 'activation'
-    #             #     if act_func is 'relu':
-    #             #         act_values = 'normed'
-    #             #
-    #             #     roc_stuff_dict = nick_roc_stuff(class_list=this_unit_acts_df['class'],
-    #             #                                     hid_acts=this_unit_acts_df[act_values],
-    #             #                                     this_class=this_cat,
-    #             #                                     class_a_size=this_class_size,
-    #             #                                     not_a_size=not_a_size,
-    #             #                                     verbose=verbose)
-    #             #
-    #             #     # # add class_sel_basics_dict to unit dict
-    #             #     for roc_key, roc_value in roc_stuff_dict.items():
-    #             #         unit_dict[roc_key][this_cat] = roc_value
-    #             #
-    #             #     # # CCMA
-    #             #     class_a = this_unit_acts_df.loc[this_unit_acts_df['class'] == this_cat]
-    #             #     class_a_mean = class_a[act_values].mean()
-    #             #     not_class_a = this_unit_acts_df.loc[this_unit_acts_df['class'] != this_cat]
-    #             #     not_class_a_mean = not_class_a[act_values].mean()
-    #             #     ccma = (class_a_mean - not_class_a_mean) / (class_a_mean + not_class_a_mean)
-    #             #     unit_dict["ccma"][this_cat] = ccma
-    #             #
-    #             #     # # zhou_prec
-    #             #     zhou_cut_off = .005
-    #             #     if n_correct < 20000:
-    #             #         zhou_cut_off = 100 / n_correct
-    #             #     zhou_selects = int(n_correct * zhou_cut_off)
-    #             #     most_active = this_unit_acts_df.iloc[:zhou_selects]
-    #             #     zhou_thr = list(most_active["normed"])[-1]
-    #             #     zhou_prec = sum([1 for i in most_active['class'] if i == this_cat]) / zhou_selects
-    #             #     unit_dict["zhou_prec"][this_cat] = zhou_prec
-    #             #     unit_dict["zhou_selects"][this_cat] = zhou_selects
-    #             #     unit_dict["zhou_thr"][this_cat] = zhou_thr
-    #             #
-    #             #     # # class correlation
-    #             #     # get output activations for class correlation
-    #             #     # output_layer_df = pd.read_csv(f'{sel_path}/{output_filename}_output_acts.csv')
-    #             #     # print(f"output_lyer_df shape: {output_layer_df.shape}")
-    #             #     # print(output_layer_df.head())
-    #             #     # print(output_layer_df.iloc[:, this_cat])
-    #             #
-    #             #     # class_corr = class_correlation(this_unit_acts=this_unit_acts_df[act_values],
-    #             #     #                                output_acts=output_layer_df[this_cat],
-    #             #     #                                verbose=verbose)
-    #             #     # unit_dict["corr_coef"][this_cat] = class_corr['coef']
-    #             #     # unit_dict["corr_p"][this_cat] = class_corr['p']
-    #             #
-    #             #     # del output_layer_df
-    #             #
-    #             # if verbose:
-    #             #     focussed_dict_print(unit_dict, f'unit_dict {unit}')
-    #             #
-    #             # # # # for each sel variable - get the class with the highest values and add to per_unit
-    #             # max_sel_p_unit_dict = sel_unit_max(unit_dict, verbose=verbose)
-    #             # unit_dict['max'] = max_sel_p_unit_dict
-    #             # max_sel_dict[unit] = max_sel_p_unit_dict
-    #             #
-    #             # # # check to see if this unit has any thing for highlights
-    #             # if verbose:
-    #             #     focussed_dict_print(max_sel_p_unit_dict, f'max_sel_p_unit_dict, unit {unit}')
-    #             #
-    #             # # # ADD UNIT DICT TO LAYER
-    #             # # layer_dict[unit] = unit_dict
-    #             #
-    #             # # todo: saving for [layer_name][unit][timestep]
-    #             #
-    #             # with shelve.open(sel_per_unit_db_name, protocol=pickle.HIGHEST_PROTOCOL,
-    #             #                  writeback=True) as db:
-    #             #     db[layer_name][unit] = unit_dict
-    #
-    #         else:
-    #             print("dead unit found")
-    #             unit_dict = 'dead_unit'
-    #
-    #     print(f"********\n"
-    #           f"finished looping through units in {layer_name}\n"
-    #           f"************")
-    #
-    #     # todo: will max sel per unit collapse across timesteps?
-    #     #  or have separate sheets for each timestep?
-    #
-    #
-    #     # # make max per unit csv
-    #     max_sel_csv_name = f'{sel_path}/{output_filename}_{layer_name}_sel_p_unit.csv'
-    #     max_sel_df = pd.DataFrame.from_dict(data=max_sel_dict, orient='index')
-    #     max_sel_df.index.rename('unit', inplace=True)
-    #     max_sel_df.to_csv(max_sel_csv_name)
-    #     print("\n\nmax sel df")
-    #     print(max_sel_df.head())
-    #     # nick_to_csv(max_sel_df, max_sel_csv_name)
-    #
-    #     # # get layer_sel_mean_dict
-    #     # # for each unit, for each measure, the max_value.
-    #     # # add all these up for the layer.
-    #     # focussed_dict_print(max_sel_dict, 'max_sel_dict')
-    #
-    #     # todo: will means collapse across timesteps?
-    #     #  or have separate sheets for each timestep?
-    #
-    #     if unit_dict != 'dead_unit':
-    #         for measure in list(unit_dict.keys()):
-    #             layer_unit_sel_list = []
-    #             if measure == 'max':
-    #                 continue
-    #             for unit, unit_sel_dict in max_sel_dict.items():
-    #                 layer_unit_sel_list.append(unit_sel_dict[measure])
-    #             layer_measure_mean = np.mean(layer_unit_sel_list)
-    #             layer_sel_mean_dict[measure] = layer_measure_mean
-    #
-    #     focussed_dict_print(layer_sel_mean_dict, 'layer_sel_mean_dict')
-    #     # layer_dict['means'] = layer_sel_mean_dict
-    #
-    #     # # append layer dict to model dict
-    #     '''make sure I use the right command to read and write here.'''
-    #     # with open(sel_per_unit_pickle_name, "rb") as pickle_load:
-    #     #     # read dict as it is so far
-    #     #     sel_p_unit_dict = pickle.load(pickle_load)
-    #     #
-    #     # # # save sel_p_unit_dict here
-    #     # with open(sel_per_unit_pickle_name, "wb") as pickle_out:
-    #     #     pickle.dump(sel_p_unit_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
-    #
-    #     # with shelve.open(sel_per_unit_db_name, protocol=pickle.HIGHEST_PROTOCOL, writeback=True) as db:
-    #     #     db[layer_name] = layer_dict
-    #
-    #     with shelve.open(sel_per_unit_db_name, protocol=pickle.HIGHEST_PROTOCOL,
-    #                      writeback=True) as db:
-    #         db[layer_name]['means'] = layer_sel_mean_dict
-    #
-    #     # # # clear layer_dict to save memory
-    #     # layer_dict.clear()
-    #     layer_sel_mean_dict.clear()
-    #
-    #     # # layer means
-    #     layer_means_list = list(layer_sel_mean_dict.values())
-    #     layer_means_list = [layer_name, unit_index + 1] + layer_means_list
-    #
-    #     layer_means_headers = list(layer_sel_mean_dict.keys())
-    #     layer_means_headers = ['name', 'units'] + layer_means_headers
-    #
-    #     # already_done_means_total = False
-    #     if not os.path.isfile(layer_means_path):
-    #         # already_done_means_total = False
-    #         layer_means_csv = open(layer_means_path, 'w')
-    #         mywriter = csv.writer(layer_means_csv)
-    #         mywriter.writerow(layer_means_headers)
-    #         mywriter.writerow(layer_means_list)
-    #         layer_means_csv.close()
-    #         print(f"\ncreating layer_means csv at: {output_filename}")
-    #     else:
-    #         check_it = pd.read_csv(layer_means_path)
-    #         if layer_name not in check_it['name'].to_list():
-    #             layer_means_csv = open(layer_means_path, 'a')
-    #             mywriter = csv.writer(layer_means_csv)
-    #             mywriter.writerow(layer_means_list)
-    #             layer_means_csv.close()
-    #             print(f"\nappending to layer_means csv at: {output_filename}")
-    #         else:
-    #             if check_it['name'].to_list()[-1] == 'Total':
-    #                 print("\nAlready have layer means for this cond")
-    #                 already_done_means_total = True
     #
     #     # todo: write results script which will take the input dict/csv,
     #     #  put it into a pandas df, have versions for sort by order of x variable,
