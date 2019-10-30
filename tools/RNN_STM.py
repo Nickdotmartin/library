@@ -4,7 +4,6 @@ import more_itertools
 from tensorflow.keras.models import load_model, Model
 
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
-from tools.network import get_model_dict
 
 
 
@@ -310,13 +309,17 @@ def get_test_scores(model, data_dict, test_label_seqs,
         x_test.append(get_x)
         y_test.append(get_y)
 
-    x_test = np.array(x_test)
-    y_test = np.array(y_test)
+    x_test = np.array(x_test).astype(np.float32)
+    # x_test = np.dtype(np.int32)
+    y_test = np.array(y_test).astype(np.float32)
+    # y_test = np.dtype(np.int32)
 
     if verbose:
         print(f"\nx_test: {np.shape(x_test)}\ny_test: {np.shape(y_test)}\n"
               f"labels_test: {np.shape(labels_test)}")
 
+    print(f"type(x_test): {type(x_test)}")
+    print(f"type(x_test[0][0][0]): {type(x_test[0][0][0])}")
 
     # # get class labels for predictions
     if serial_recall:
@@ -569,4 +572,99 @@ def get_layer_acts(model, layer_name, data_dict, test_label_seqs,
 #                                      verbose=True)
 #
 # print(f"end\nlayer_acts: {np.shape(test_get_layer_acts)}")
+
+
+def seq_items_per_class(label_seqs, vocab_dict):
+    """
+    Script to calculate number of items per class in a given sequence of items.
+
+    Output is 4 dicts
+    1. Word count overall
+    2. word count per timestep
+
+    3. letter count overall
+    4. letter count per timestep.
+
+    :param label_seqs: Sequence of labels to get IPC for.
+    :param vocab_dict: Vocab dict containing letter codes for words.
+
+    :return: IPC_dict
+    """
+    print("\n****running seq_items_per_class()****")
+
+    # print(f"\nseq_labels: {np.shape(seq_labels)}")
+    # print(f"\nseq_labels:\n{seq_labels}")
+    # focussed_dict_print(vocab_dict, 'vocab_dict')
+
+    # # get variables
+    n_seqs, n_ts = np.shape(label_seqs)
+    ts_labels = [f"ts{i}" for i in range(n_ts)]
+
+    # # 1. word ocurrence in whole seq
+    whole_seq = np.ravel(label_seqs)
+    unique, counts = np.unique(whole_seq, return_counts=True)
+    word_p_class_all = dict(zip(unique, counts))
+    # print(f"\nword_p_class_all\n{word_p_class_all}")
+
+
+    # # 2. word_p_class_p_ts
+    word_p_class_p_ts = dict()
+    for index, ts in enumerate(ts_labels):
+        ts_items = label_seqs[:, index]
+        unique, counts = np.unique(ts_items, return_counts=True)
+        word_p_class_ts = dict(zip(unique, counts))
+        word_p_class_p_ts[ts] = word_p_class_ts
+    # focussed_dict_print(word_p_class_p_ts, 'word_p_class_p_ts')
+
+    # # get array with letters, shape (word_len, n_seqs, n_ts)
+    seq_letters = []
+    for ts in range(n_ts):
+        ts_items = label_seqs[:, ts]
+        ts_letters = []
+        for seq in range(n_seqs):
+            word = ts_items[seq]
+            letter_vector = vocab_dict[word]['letters']
+            ts_letters.append(letter_vector)
+        seq_letters.append(ts_letters)
+
+    # # 3. letter occurence in whole seq
+    whole_seq = np.ravel(seq_letters)
+    unique, counts = np.unique(whole_seq, return_counts=True)
+    letter_p_class_all = dict(zip(unique, counts))
+    # print(f"\nletter_p_class_all\n{letter_p_class_all}")
+
+    # # # 4. letter occurence per timestep
+    letter_p_class_p_ts = dict()
+    for index, ts in enumerate(ts_labels):
+        ts_letters = np.ravel(seq_letters[index])
+        unique, counts = np.unique(ts_letters, return_counts=True)
+        letter_p_class_ts = dict(zip(unique, counts))
+        letter_p_class_p_ts[ts] = letter_p_class_ts
+    # focussed_dict_print(letter_p_class_p_ts, 'letter_p_class_p_ts')
+
+    IPC_seq_dict = {'word_p_class_all': word_p_class_all,
+                    'word_p_class_p_ts': word_p_class_p_ts,
+                    'letter_p_class_all': letter_p_class_all,
+                    'letter_p_class_p_ts': letter_p_class_p_ts,
+                    }
+
+    return IPC_seq_dict
+
+
+#####
+# print(f"\n\n\ntesting IPC from bottom of script\n\n\n")
+#
+# seq_label_path = '/home/nm13850/Documents/PhD/python_v2/experiments/' \
+#                  'STM_RNN/STM_RNN_test_v30_free_recall/test/all_generator_gha/test/' \
+#                  'STM_RNN_test_v30_free_recall_320_test_label_seqs.npy'
+# seq_labels = np.load(seq_label_path)
+# # print(f"seq_labels: {np.shape(seq_labels)}")
+#
+# vocab_dict = load_dict(os.path.join('/home/nm13850/Documents/PhD/python_v2/datasets/RNN/bowers14_rep',
+#                                     'vocab_30_dict.txt'))
+# # focussed_dict_print(vocab_dict)
+#
+# IPC_dict = seq_items_per_class(label_seqs=seq_labels, vocab_dict=vocab_dict)
+#
+# focussed_dict_print(IPC_dict, 'IPC_dict')
 

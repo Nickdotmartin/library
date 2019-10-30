@@ -10,7 +10,7 @@ from keras.utils import to_categorical
 from tensorflow.keras.models import load_model, Model
 
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
-from tools.RNN_STM import get_label_seqs, get_test_scores, get_layer_acts
+from tools.RNN_STM import get_label_seqs, get_test_scores, get_layer_acts, seq_items_per_class
 
 
 def kernel_to_2d(layer_activation_4d, reduce_type='max', verbose=False):
@@ -290,8 +290,10 @@ def rnn_gha(sim_dict_path,
     # # # PART 3 get_scores() # # #
     loaded_model.compile(loss=loss_func, optimizer=optimizer, metrics=['accuracy'])
 
+    n_seqs = 10*batch_size
+
     test_label_seqs = get_label_seqs(n_labels=n_cats, seq_len=timesteps,
-                                     serial_recall=serial_recall, n_seqs=10*batch_size)
+                                     serial_recall=serial_recall, n_seqs=n_seqs)
 
     test_label_name = f"{output_filename}_{np.shape(test_label_seqs)[0]}_test_label_seqs.npy"
     print(f"test_label_name: {test_label_name}")
@@ -307,6 +309,11 @@ def rnn_gha(sim_dict_path,
 
     mean_IoU = scores_dict['mean_IoU']
     prop_seq_corr = scores_dict['prop_seq_corr']
+
+    IPC_dict = seq_items_per_class(label_seqs=test_label_seqs, vocab_dict=vocab_dict)
+    test_IPC_name = f"{output_filename}_{n_seqs}_test_IPC.pickle"
+    with open(test_IPC_name, "wb") as pickle_out:
+        pickle.dump(IPC_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
 
 
     # # PART 5
@@ -416,6 +423,7 @@ def rnn_gha(sim_dict_path,
                 "GHA_info": {"use_dataset": use_dataset,
                              'x_data_path': x_data_path,
                              'y_data_path': test_label_name,
+                             'IPC_dict_path': test_IPC_name,
                              'gha_path': gha_path,
                              'gha_dict_path': gha_dict_path,
                              "gha_incorrect": gha_incorrect,
