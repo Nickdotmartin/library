@@ -444,6 +444,8 @@ def get_sel_summaries(max_sel_dict_path,
 
     max_sel_dict = load_dict(max_sel_dict_path)
 
+    focussed_dict_print(max_sel_dict, 'max_sel-dict')
+
     # # max_sel_p_unit layout
     """print("\nORIG max_sel_p_unit dict")
     print(f"\nFirst nest is Layers: {len(list(max_sel_dict.keys()))} keys."
@@ -686,6 +688,7 @@ def get_sel_summaries(max_sel_dict_path,
 
 def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             save_output_to='pickle',
+            letter_sel=False,
             verbose=False, test_run=False):
     """
     Analyse hidden unit activations.
@@ -708,6 +711,8 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     :param correct_items_only: Whether selectivity considered incorrect items
     :param all_classes: Whether to test for selectivity of all classes or a subset
                         (e.g., most active classes)
+    :param letter_sel: if False, test sel for words (class-labels).
+            If True, test for letters (parts) using 'local_word_X' for each word when looping through classes
     :param verbose: how much to print to screen
     :param save_output_to: file-type to use, deault piclke
     :param test_run: if True, only do subset, e.g., 3 units from 3 layers
@@ -764,8 +769,6 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     model_dict = gha_dict['model_info']['config']
     if verbose:
         focussed_dict_print(model_dict, 'model_dict')
-    hid_units = gha_dict['model_info']['layers']['hid_layers']['hid_totals']["analysable"]
-    units_per_layer = gha_dict['model_info']["overview"]["units_per_layer"]
     n_layers = gha_dict['model_info']['overview']['hid_layers']
 
 
@@ -783,9 +786,6 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
     # # get gha info from dict
     hid_acts_filename = gha_dict["GHA_info"]["hid_act_files"]['2d']
-    gha_incorrect = gha_dict['GHA_info']['gha_incorrect']
-
-
 
 
     '''Part 2 - load y, sort out incorrect resonses'''
@@ -825,10 +825,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         if verbose:
             print(f"\ny_letters: {type(y_letters)}  {np.shape(y_letters)}")
             print(f"y_words: {type(y_words)}  {np.shape(y_words)}")
-            # print(f"test_label_seqs[0]: {test_label_seqs[0]}")
-            # if test_run:
-            #     print(f"y_letters[0]:\n{y_letters[0]}")
-            #     print(f"y_words[0]:\n{y_words[0]}")
+
 
         y_df_headers = [f"ts{i}" for i in range(timesteps)]
         y_scores_df = pd.DataFrame(data=test_label_seqs, columns=y_df_headers)
@@ -850,7 +847,6 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     print("\n\nRemoving incorrect responses")
     # # # get values for correct/incorrect items (1/0 or True/False)
     item_correct_list = y_scores_df['full_model'].tolist()
-    # full_model_values = y_scores_df.full_model.unique()
     full_model_values = list(set(item_correct_list))
 
     correct_symbol = 1
@@ -880,7 +876,6 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             correct_items.append(index)
     if correct_items_only:
         item_index == correct_items
-    # print(f"incorrect_items: {np.shape(incorrect_items)}\n{incorrect_items}")
 
     if gha_incorrect:
         if correct_items_only:
@@ -924,7 +919,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
     if verbose is True:
         print(f"\ny_df: {y_df.shape}\n{y_df.head()}")
-        print(f"\ntest_label_seqs: {np.shape(test_label_seqs)}\n{test_label_seqs}")
+        print(f"\ntest_label_seqs: {np.shape(test_label_seqs)}")  # \n{test_label_seqs}")
 
     n_correct, timesteps = np.shape(test_label_seqs)
     corr_test_seq_name = f"{output_filename}_{n_correct}_corr_test_label_seqs.npy"
@@ -1073,7 +1068,6 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         sequence_data = unit_gha["sequence_data"]
         y_1hot = unit_gha["y_1hot"]
         act_func = unit_gha["act_func"]
-        layer_number = unit_gha["layer_number"]
         layer_name = unit_gha["layer_name"]
         unit_index = unit_gha["unit_index"]
         timestep = unit_gha["timestep"]
