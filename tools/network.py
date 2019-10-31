@@ -639,7 +639,7 @@ def loop_thru_acts(gha_dict_path,
 
     if verbose is True:
         print(f"\ny_df: {y_df.shape}\n{y_df.head()}")
-        print(f"\ntest_label_seqs: {np.shape(test_label_seqs)}\n{test_label_seqs}")
+        print(f"\ntest_label_seqs: {np.shape(test_label_seqs)}")  # \n{test_label_seqs}")
 
 
 

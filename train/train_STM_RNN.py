@@ -15,7 +15,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
-from tools.data import load_x_data, load_y_data
+from tools.data import load_x_data, load_y_data, find_path_to_dir
 from tools.network import get_model_dict, get_scores
 from tools.RNN_STM import generate_STM_RNN_seqs, get_label_seqs, get_test_scores
 from models.rnns import Bowers14rnn, SimpleRNNn, GRUn, LSTMn, Seq2Seq
@@ -486,9 +486,15 @@ def train_model(exp_name,
                      ]
 
 
-    exp_path = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
+    # exp_path = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
+    # os.chdir(exp_path)
+
+    # # save sel summary in exp folder not condition folder
+    exp_path = find_path_to_dir(long_path=exp_cond_path, target_dir=exp_name)
     os.chdir(exp_path)
+
     print(f"save_summaries: {exp_path}")
+
 
     # check if training_info.csv exists
     if not os.path.isfile(f"{exp_name}_training_summary.csv"):

@@ -11,6 +11,7 @@ from tensorflow.keras.models import load_model, Model
 
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
 from tools.RNN_STM import get_label_seqs, get_test_scores, get_layer_acts, seq_items_per_class
+from tools.data import find_path_to_dir
 
 
 def kernel_to_2d(layer_activation_4d, reduce_type='max', verbose=False):
@@ -471,8 +472,14 @@ def rnn_gha(sim_dict_path,
     # exp_name = exp_dir.strip('/')
     exp_name = sim_dict['topic_info']['exp_name']
 
-    os.chdir('../..')
-    exp_path = os.getcwd()
+    # os.chdir('../..')
+    # exp_path = os.getcwd()
+
+    # # save sel summary in exp folder not condition folder
+    exp_name = sim_dict['topic_info']['exp_name']
+    exp_path = find_path_to_dir(long_path=gha_path, target_dir=exp_name)
+    os.chdir(exp_path)
+
 
     if not os.path.isfile(exp_name + "_GHA_summary.csv"):
         gha_summary = open(exp_name + "_GHA_summary.csv", 'w')
