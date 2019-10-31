@@ -396,3 +396,45 @@ def get_dset_path(cond_name):
 
     return dset_path
 
+
+
+
+def find_path_to_dir(long_path, target_dir, recursion_path=None):
+    """
+    When I want to save something (e.g., a summary.csv) in a parent folder,
+    but I am not sure how many levels up it is, use this to find the path.
+
+    If it can not find the target in the first pass (long_path), it will
+    use 'recursion_path' on subsequent loops, allowing the original 'long_path'
+    to be returned in the error message.
+
+    :param long_path: path of a child, grandchild, great-grandchild folder for target.
+    :param target_dir: the name of the  parent/grandparent/great-grandparent of longpath
+    :param recursion_path: Default: None.  The path to check in all recursive loops.
+        Do not enter anything for this variable when calling the function.
+
+    :return: path to the target directory.
+    """
+    # # on first pass check the long-path.
+    if recursion_path is None:
+        tail, head = os.path.split(long_path)
+
+    # # on subsequent loops use the recursion path
+    else:
+        tail, head = os.path.split(recursion_path)
+
+    # # if target has been found return path to target
+    if head == target_dir:
+        if recursion_path is None:
+            return long_path
+        else:
+            return recursion_path
+
+    # # if the path can not be split. raise an error
+    if head is '':
+        raise ValueError(f"target dir {target_dir} not found in {long_path}")
+
+    else:
+        # print(f"checking path:  {tail}\t\thead: {head}")
+        return find_path_to_dir(long_path, target_dir, tail)
+
