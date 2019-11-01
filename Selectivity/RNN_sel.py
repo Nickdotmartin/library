@@ -741,6 +741,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
     # get topic_info from dict
     output_filename = gha_dict["topic_info"]["output_filename"]
+    # todo: if letter sel, change the output filename
 
 
     # # where to save files
@@ -763,6 +764,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
 
     # # get data info from dict
+    # todo: if letter_sel:  use 'data_info'['X_size'] instead.
     n_cats = gha_dict["data_info"]["n_cats"]
 
     # # get model info from dict
@@ -791,6 +793,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     '''Part 2 - load y, sort out incorrect resonses'''
     print("\n\nPart 2: loading labels")
     # # load y_labels to go with hid_acts and item_correct for sequences
+    # todo: this'll need to change for letters
     if 'seq_corr_list' in list(gha_dict['GHA_info']['scores_dict'].keys()):
         n_seqs = gha_dict['GHA_info']['scores_dict']['n_seqs']
         n_seq_corr = gha_dict['GHA_info']['scores_dict']['n_seq_corr']
@@ -826,6 +829,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             print(f"\ny_letters: {type(y_letters)}  {np.shape(y_letters)}")
             print(f"y_words: {type(y_words)}  {np.shape(y_words)}")
 
+        # todo: what is the point of this?  I don't use y_words or y_letters anywhere
 
         y_df_headers = [f"ts{i}" for i in range(timesteps)]
         y_scores_df = pd.DataFrame(data=test_label_seqs, columns=y_df_headers)
@@ -840,6 +844,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         item_correct_name = gha_dict['GHA_info']['scores_dict']['item_correct_name']
         # y_df = pd.read_csv(item_correct_name)
         y_scores_df = nick_read_csv(item_correct_name)
+
 
 
 
@@ -935,6 +940,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
     '''get output activations'''
     # # get output activations for class-corr if y_1hot == True
+    # todo: if not letter sel - can't get class corr for letters
     if y_1hot:
         print("getting output activations to use for class_correlation")
         acts_saved_as = 'pickle'
