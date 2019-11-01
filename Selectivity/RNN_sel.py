@@ -43,6 +43,7 @@ def nick_roc_stuff(class_list, hid_acts, this_class, class_a_size, not_a_size,
         If sigmoid: y_true = 0-1, use raw acts
         If Relu: y_true = 0-1, use normed acts?
         If tanh: y_true = -1-1, use raw acts
+
     :param verbose: how much to print to screen
 
     :return: roc_dict: fpr, tpr, thr, ROC_AUC
@@ -742,7 +743,8 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     # get topic_info from dict
     output_filename = gha_dict["topic_info"]["output_filename"]
     # todo: if letter sel, change the output filename
-
+    if letter_sel:
+        output_filename = f"{output_filename}_lett"
 
     # # where to save files
     analyse_items = 'all'
@@ -756,7 +758,6 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     if not os.path.exists(sel_path):
         os.makedirs(sel_path)
 
-
     if verbose:
         print(f"\ncurrent_wd: {current_wd}")
         print(f"output_filename: {output_filename}")
@@ -764,14 +765,22 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
 
     # # get data info from dict
-    # todo: if letter_sel:  use 'data_info'['X_size'] instead.
+    # todo: if letter_sel:  use 'data_info'['X_size'] instead.  (although I don't actually use these)
     n_cats = gha_dict["data_info"]["n_cats"]
+    if letter_sel:
+        n_letters = gha_dict['data_info']["X_size"]
+        letter_id_dict = load_dict(os.path.join(gha_dict['data_info']['data_path'],
+                                                'letter_id_dict.txt'))
+        print(f"\nletter_id_dict:\n{letter_id_dict}")
+
+
+
 
     # # get model info from dict
+    n_layers = gha_dict['model_info']['overview']['hid_layers']
     model_dict = gha_dict['model_info']['config']
     if verbose:
         focussed_dict_print(model_dict, 'model_dict')
-    n_layers = gha_dict['model_info']['overview']['hid_layers']
 
 
     # # check for sequences/rnn
@@ -786,6 +795,11 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         vocab_dict = load_dict(os.path.join(gha_dict['data_info']["data_path"],
                                             gha_dict['data_info']["vocab_dict"]))
 
+    # # I can't do class correlations for letters, (as it is the equivillent of
+    # having a dist output for letters
+    if letter_sel:
+        y_1hot = False
+
     # # get gha info from dict
     hid_acts_filename = gha_dict["GHA_info"]["hid_act_files"]['2d']
 
@@ -793,7 +807,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     '''Part 2 - load y, sort out incorrect resonses'''
     print("\n\nPart 2: loading labels")
     # # load y_labels to go with hid_acts and item_correct for sequences
-    # todo: this'll need to change for letters
+    # todo: does this need to change for letters?
     if 'seq_corr_list' in list(gha_dict['GHA_info']['scores_dict'].keys()):
         n_seqs = gha_dict['GHA_info']['scores_dict']['n_seqs']
         n_seq_corr = gha_dict['GHA_info']['scores_dict']['n_seq_corr']
@@ -829,7 +843,15 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             print(f"\ny_letters: {type(y_letters)}  {np.shape(y_letters)}")
             print(f"y_words: {type(y_words)}  {np.shape(y_words)}")
 
-        # todo: what is the point of this?  I don't use y_words or y_letters anywhere
+        # todo: what is the point of this?  I don't use y_words or y_letters anywhere.
+        #  answer: These are the vectors that might be good to use instead of class labels for words
+        #  and I will definiately need to use for letters
+
+        # todo: rather than use letter vectors for letter_sel (len = n_letters),
+        #  I could use separate position IDs (len = 3), onset, vowel, coda.
+        #  However - although this is fine for this experiment, if a future experiment
+        #  contained words with repeated letters, they would be treated separately
+        #  (e.g., in 'dad' the onset /d/ is not the same as the coda /d/)
 
         y_df_headers = [f"ts{i}" for i in range(timesteps)]
         y_scores_df = pd.DataFrame(data=test_label_seqs, columns=y_df_headers)
@@ -848,7 +870,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
 
 
-    """# # sort incorrect item data"""
+    """# # get rid of incorrect items if required"""
     print("\n\nRemoving incorrect responses")
     # # # get values for correct/incorrect items (1/0 or True/False)
     item_correct_list = y_scores_df['full_model'].tolist()
@@ -897,6 +919,9 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             mask[incorrect_items] = False
             test_label_seqs = test_label_seqs[mask]
 
+            if letter_sel:
+                y_letters = y_letters[mask]
+
         else:
             if verbose:
                 print("\ngha_incorrect: True (I have incorrect responses)\n"
@@ -916,19 +941,27 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             if verbose:
                 print("\ngha_incorrect: False (I only have correct responses)\n"
                       "correct_items_only: False (I want incorrect responses)")
-                print("I can not complete this as desried"
-                      "change correct_items_only to True"
-                      "for analysis  - don't remove anything from hid_acts, output and "
-                      "use y scores as y_df")
-            correct_items_only = True
+                raise TypeError("I can not complete this as desried"
+                                "change correct_items_only to True"
+                                "for analysis  - don't remove anything from hid_acts, output and "
+                                "use y scores as y_df")
+
+            # correct_items_only = True
 
     if verbose is True:
         print(f"\ny_df: {y_df.shape}\n{y_df.head()}")
         print(f"\ntest_label_seqs: {np.shape(test_label_seqs)}")  # \n{test_label_seqs}")
+        if letter_sel:
+            y_letters = np.asarray(y_letters)
+            print(f"y_letters: {np.shape(y_letters)}")  # \n{test_label_seqs}")
 
     n_correct, timesteps = np.shape(test_label_seqs)
     corr_test_seq_name = f"{output_filename}_{n_correct}_corr_test_label_seqs.npy"
     np.save(corr_test_seq_name, test_label_seqs)
+    corr_test_letters_name = 'not_processed_yet'
+    if letter_sel:
+        corr_test_letters_name = f"{output_filename}_{n_correct}_corr_test_letter_seqs.npy"
+        np.save(corr_test_letters_name, y_letters)
 
 
     # # get items per class
@@ -1015,7 +1048,6 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             all_sel_dict = load_dict(all_sel_dict_name)
             max_sel_dict = load_dict(max_sel_dict_name)
 
-
             for key, value in all_sel_dict.items():
                 unit_list = list(value.keys())
                 if 'means' in unit_list:
@@ -1053,14 +1085,22 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     '''
     part 3   - get gha for each unit
     '''
+    # todo: change loop_thru_acts to accomodate letter_sel
     loop_gha = loop_thru_acts(gha_dict_path=gha_dict_path,
                               correct_items_only=correct_items_only,
+                              letter_sel=letter_sel,
                               already_completed=already_completed,
                               verbose=True,
                               test_run=True
                               )
 
     for index, unit_gha in enumerate(loop_gha):
+
+        print(f"\nindex: {index}")
+
+        if index == 9:
+            break
+
         this_dict = {'roc_auc': {}, 'ave_prec': {}, 'pr_auc': {},
                      'max_informed': {}, 'max_info_count': {},
                      'max_info_thr': {}, 'max_info_sens': {},
@@ -1080,6 +1120,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         ts_name = f"ts{timestep}"
         item_act_label_array = unit_gha["item_act_label_array"]
         IPC_words = IPC_dict['word_p_class_p_ts'][ts_name]
+        IPC_letters = IPC_dict['letter_p_class_p_ts'][ts_name]
 
         # #  make df
         this_unit_acts = pd.DataFrame(data=item_act_label_array,
@@ -1087,9 +1128,31 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         this_unit_acts_df = this_unit_acts.astype(
             {'item': 'int32', 'activation': 'float', 'label': 'int32'})
 
+        print(f"sequence_data: {sequence_data}")
+        print(f"y_1hot: {y_1hot}")
+        print(f"unit_index: {unit_index}")
+        print(f"timestep: {timestep}")
+        print(f"ts_name: {ts_name}")
+        y_letters_1ts = np.array(y_letters[:, timestep])
+        print(f"y_letters_1ts: {np.shape(y_letters_1ts)}")
 
-        # sort by descending hid act values
+
+
+        # sort by descending hid act values (per item)
         this_unit_acts_df = this_unit_acts_df.sort_values(by='activation', ascending=False)
+        if letter_sel:
+            sorted_items = this_unit_acts_df['item'].to_list()
+            sorted_idx = list(range(len(sorted_items)))
+
+            # # unsort sorted_idx back into order of ascending items
+            unsorted_order = [b for a, b in sorted(zip(sorted_items, sorted_idx))]
+
+            # # put y_letters into same order as sorted_items
+            y_letters_1ts = [b for a, b in sorted(zip(unsorted_order, y_letters_1ts))]
+            y_letters_1ts = np.array(y_letters_1ts)
+            # print(f"y_letters_1ts: {y_letters_1ts}")
+            print(f"np.shape(y_letters_1ts): {np.shape(y_letters_1ts)}")
+
 
         # # # always normalize to range [0, 1] activations if relu
         if act_func in ['relu', 'ReLu', 'Relu']:
@@ -1112,43 +1175,76 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             print(f"\nthis_unit_acts_df: {this_unit_acts_df.shape}\n"
                   # f"{this_unit_acts_df.head()}"
                   )
+            print(f"this_unit_acts_df:\n{this_unit_acts_df.head()}")
 
-        # # run sel on word items
-        # # get class_sel_basics (class_means, sd, prop > .5, prop @ 0)
-        class_sel_basics_dict = class_sel_basics(this_unit_acts_df=this_unit_acts_df,
-                                                 items_per_cat=IPC_words,
-                                                 n_classes=n_cats,
-                                                 act_func=act_func,
-                                                 verbose=verbose)
-
-        if verbose:
-            focussed_dict_print(class_sel_basics_dict, 'class_sel_basics_dict')
-
-        # # add class_sel_basics_dict to unit dict
-        for csb_key, csb_value in class_sel_basics_dict.items():
-            if csb_key == 'total':
-                continue
-            if csb_key == 'perplexity':
-                continue
-            this_dict[csb_key] = csb_value
-
-        classes_of_interest = list(range(n_cats))
-        if all_classes is False:
-            # # I don't want to use all classes, just ones that are worth testing
-            classes_of_interest = coi_list(class_sel_basics_dict, verbose=verbose)
+        # todo: come back to class sel basics later, for not just try to get ROC workng on letter vectors
+        # # # run sel on word items
+        # # # get class_sel_basics (class_means, sd, prop > .5, prop @ 0)
+        # class_sel_basics_dict = class_sel_basics(this_unit_acts_df=this_unit_acts_df,
+        #                                          items_per_cat=IPC_words,
+        #                                          n_classes=n_cats,
+        #                                          act_func=act_func,
+        #                                          verbose=verbose)
+        #
+        # if verbose:
+        #     focussed_dict_print(class_sel_basics_dict, 'class_sel_basics_dict')
+        #
+        # # # add class_sel_basics_dict to unit dict
+        # for csb_key, csb_value in class_sel_basics_dict.items():
+        #     if csb_key == 'total':
+        #         continue
+        #     if csb_key == 'perplexity':
+        #         continue
+        #     this_dict[csb_key] = csb_value
+        #
+        # classes_of_interest = list(range(n_cats))
+        # if all_classes is False:
+        #     # # I don't want to use all classes, just ones that are worth testing
+        #     classes_of_interest = coi_list(class_sel_basics_dict, verbose=verbose)
 
         print('\n**** cycle through classes ****')
-        for this_cat in range(len(classes_of_interest)):
+        # for this_cat in range(len(classes_of_interest)):
+        for this_cat in range(n_letters):
 
-            if this_cat in list(IPC_words.keys()):
-                this_class_size = IPC_words[this_cat]
+            if letter_sel:
+                this_letter = letter_id_dict[this_cat]
+                print(f"\nthis_cat: {this_cat} this_letter: {this_letter}")
+                if this_letter in list(IPC_letters.keys()):
+                    this_class_size = IPC_letters[this_letter]
+                else:
+                    this_class_size = 0
+                not_a_size = n_correct - this_class_size
+
+                # # make binary letter class list
+                letter_class_list = y_letters_1ts[:, 0]
+
+                # # changes '1's to this_cat
+                print(f"letter_class_list: {letter_class_list}")
+
+                if this_cat == 0:
+                    letter_class_list = [this_cat if i == 1 else -4 for i in np.array(letter_class_list)]
+                else:
+                    letter_class_list = [this_cat if i == 1 else 0 for i in np.array(letter_class_list)]
+                print(f"letter_class_list: {letter_class_list}")
+
+                print(f"letter_class_list: {np.shape(letter_class_list)}")
+
+                this_unit_acts_df['label'] = letter_class_list
+
             else:
-                this_class_size = 0
-            not_a_size = n_correct - this_class_size
+                if this_cat in list(IPC_words.keys()):
+                    this_class_size = IPC_words[this_cat]
+                else:
+                    this_class_size = 0
+                not_a_size = n_correct - this_class_size
+
+            print(f"this_unit_acts_df:\n{this_unit_acts_df.head()}")
+
 
             if verbose is True:
                 print(f"\nclass_{this_cat}: {this_class_size} items, "
                       f"not_{this_cat}: {not_a_size} items")
+
 
             # # running selectivity measures
 
@@ -1161,6 +1257,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             if act_func == 'relu':
                 act_values = 'normed'
 
+
             roc_stuff_dict = nick_roc_stuff(class_list=this_unit_acts_df['label'],
                                             hid_acts=this_unit_acts_df[act_values],
                                             this_class=this_cat,
@@ -1170,7 +1267,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
             print(f"roc_stuff_dict:\n{roc_stuff_dict}")
 
-            # # add class_sel_basics_dict to unit dict
+            # # add roc_stuff_dict to unit dict
             for roc_key, roc_value in roc_stuff_dict.items():
                 this_dict[roc_key][this_cat] = roc_value
 
@@ -1225,148 +1322,152 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                     del this_dict['corr_coef']
                     del this_dict['corr_p']
 
+        focussed_dict_print(this_dict, 'this_dict', focus_list=["roc_auc"])
 
         # # which class was the highest for each measure
-        max_sel_p_unit_dict = sel_unit_max(this_dict, verbose=verbose)
+        # max_sel_p_unit_dict = sel_unit_max(this_dict, verbose=verbose)
+    #
+    #
+    #
+    #     # # # # once sel analysis has been done for this hid_act array
+    #
+    #     # # sort dicts to save
+    #     # # add layer to all_sel_dict
+    #     if layer_name not in list(all_sel_dict.keys()):
+    #         all_sel_dict[layer_name] = dict()
+    #         max_sel_dict[layer_name] = dict()
+    #
+    #     # # add unit index to sel_p_unit dict
+    #     if unit_index not in list(all_sel_dict[layer_name].keys()):
+    #         all_sel_dict[layer_name][unit_index] = dict()
+    #         max_sel_dict[layer_name][unit_index] = dict()
+    #
+    #     # # if not sequences data, add this unit to all_sel_dict
+    #     if not sequence_data:
+    #         all_sel_dict[layer_name][unit_index] = this_dict
+    #         max_sel_dict[layer_name][unit_index] = max_sel_p_unit_dict
+    #
+    #     else:  # # if sequence data
+    #         # # add timestep to max sel_p_unit dict
+    #         if timestep not in list(all_sel_dict[layer_name][unit_index].keys()):
+    #             all_sel_dict[layer_name][unit_index][ts_name] = dict()
+    #             max_sel_dict[layer_name][unit_index][ts_name] = dict()
+    #
+    #         # # add this timestep to all_sel_dict
+    #         all_sel_dict[layer_name][unit_index][ts_name] = this_dict
+    #         max_sel_dict[layer_name][unit_index][ts_name] = max_sel_p_unit_dict
+    #
+    #
+    #
+    #     # # save unit/timestep to disk
+    #     if save_output_to is 'pickle':
+    #         with open(all_sel_dict_name, "wb") as pickle_out:
+    #             pickle.dump(all_sel_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
+    #         with open(max_sel_dict_name, "wb") as pickle_out:
+    #             pickle.dump(max_sel_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
+    #     if save_output_to is 'shelve':
+    #         with shelve.open(all_sel_dict_name, protocol=pickle.HIGHEST_PROTOCOL) as db:
+    #             # # make a test item just to establish the db
+    #             db['all_sel_dict'] = all_sel_dict
+    #             db['max_sel_dict'] = max_sel_dict
+    #
+    #     print("saved to disk")
+    #
+    #
+    # print(f"********\nfinished looping through units************")
+    #
+    #
+    # if verbose:
+    #     focussed_dict_print(all_sel_dict, 'all_sel_dict')
+    #     # print_nested_round_floats(all_sel_dict, 'all_sel_dict')
+    #
+    # # # save dict
+    # print("\n\n\n*****************\nanalysis complete\n*****************")
+    #
+    # max_sel_dict_path = os.path.join(sel_path, max_sel_dict_name)
+    # max_sel_summary = get_sel_summaries(max_sel_dict_path, verbose=verbose)
+    #
+    # # # save selectivity info
+    # sel_dict = gha_dict
+    #
+    # sel_dict_name = f"{sel_path}/{output_filename}_sel_dict.pickle"
+    #
+    # sel_dict["sel_info"] = {"sel_path": sel_path,
+    #                         'sel_dict_name': sel_dict_name,
+    #                         "all_sel_dict_name": all_sel_dict_name,
+    #                         'max_sel_dict_name': max_sel_dict_name,
+    #                         "correct_items_only": correct_items_only,
+    #                         "all_classes": all_classes,
+    #                         'corr_test_seq_name': corr_test_seq_name,
+    #                         'corr_test_letters_name': corr_test_letters_name,
+    #                         'corr_test_IPC_name': corr_test_IPC_name,
+    #                         'max_sel_summary': max_sel_summary,
+    #                         "sel_date": int(datetime.datetime.now().strftime("%y%m%d")),
+    #                         "sel_time": int(datetime.datetime.now().strftime("%H%M")),
+    #                         }
 
+    # print(f"\nSaving sel_dict to: {os.getcwd()}")
+    # pickle_out = open(sel_dict_name, "wb")
+    # pickle.dump(sel_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
+    # pickle_out.close()
+    #
+    # focussed_dict_print(sel_dict, "sel_dict")
+    #
+    #
+    # # # making sel_summary_csv
+    # run = gha_dict['topic_info']['run']
+    # if test_run:
+    #     run = 'test'
+    #
+    # if 'gha_acc' in gha_dict['GHA_info']['scores_dict'].keys():
+    #     gha_acc = gha_dict['GHA_info']['scores_dict']['gha_acc']
+    # elif 'prop_seq_corr' in gha_dict['GHA_info']['scores_dict'].keys():
+    #     gha_acc = gha_dict['GHA_info']['scores_dict']['prop_seq_corr']
+    #
+    # sel_csv_info = [gha_dict['topic_info']['cond'], run, output_filename,
+    #                 gha_dict['data_info']['dataset'], gha_dict['GHA_info']['use_dataset'],
+    #                 n_layers,
+    #                 gha_dict['model_info']['layers']['hid_layers']['hid_totals']['analysable'],
+    #                 gha_acc,
+    #                 round(max_sel_summary['for_summ_csv_dict']['mi_mean'], 3),
+    #                 round(max_sel_summary['for_summ_csv_dict']['mi_max'], 3),
+    #                 round(max_sel_summary['for_summ_csv_dict']['ccma_mean'], 3),
+    #                 round(max_sel_summary['for_summ_csv_dict']['ccma_max'], 3),
+    #                 round(max_sel_summary['for_summ_csv_dict']['prec_mean'], 3),
+    #                 round(max_sel_summary['for_summ_csv_dict']['prec_max'], 3),
+    #                 round(max_sel_summary['for_summ_csv_dict']['means_mean'], 3),
+    #                 round(max_sel_summary['for_summ_csv_dict']['means_max'], 3),
+    #                 ]
+    #
+    # summary_headers = ["cond", "run", "output_filename", "dataset", "use_dataset",
+    #                    "n_layers", "hid_units", "gha_acc",
+    #                    "mi_mean", "mi_max", "ccma_mean", "ccma_max",
+    #                    "prec_mean", "prec_max", "means_mean", "means_max"]
+    #
+    # # # save sel summary in exp folder not condition folder
+    # exp_name = gha_dict['topic_info']['exp_name']
+    # exp_path = find_path_to_dir(long_path=sel_path, target_dir=exp_name)
+    # os.chdir(exp_path)
+    #
+    # if not os.path.isfile(exp_name + "_sel_summary.csv"):
+    #     sel_summary = open(exp_name + "_sel_summary.csv", 'w')
+    #     mywriter = csv.writer(sel_summary)
+    #     mywriter.writerow(summary_headers)
+    #     print(f"creating summary csv at: {exp_path}")
+    # else:
+    #     sel_summary = open(exp_name + "_sel_summary.csv", 'a')
+    #     mywriter = csv.writer(sel_summary)
+    #     print(f"appending to summary csv at: {exp_path}")
+    #
+    # mywriter.writerow(sel_csv_info)
+    # sel_summary.close()
 
-
-        # # # # once sel analysis has been done for this hid_act array
-
-        # # sort dicts to save
-        # # add layer to all_sel_dict
-        if layer_name not in list(all_sel_dict.keys()):
-            all_sel_dict[layer_name] = dict()
-            max_sel_dict[layer_name] = dict()
-
-        # # add unit index to sel_p_unit dict
-        if unit_index not in list(all_sel_dict[layer_name].keys()):
-            all_sel_dict[layer_name][unit_index] = dict()
-            max_sel_dict[layer_name][unit_index] = dict()
-
-        # # if not sequences data, add this unit to all_sel_dict
-        if not sequence_data:
-            all_sel_dict[layer_name][unit_index] = this_dict
-            max_sel_dict[layer_name][unit_index] = max_sel_p_unit_dict
-
-        else:  # # if sequence data
-            # # add timestep to max sel_p_unit dict
-            if timestep not in list(all_sel_dict[layer_name][unit_index].keys()):
-                all_sel_dict[layer_name][unit_index][ts_name] = dict()
-                max_sel_dict[layer_name][unit_index][ts_name] = dict()
-
-            # # add this timestep to all_sel_dict
-            all_sel_dict[layer_name][unit_index][ts_name] = this_dict
-            max_sel_dict[layer_name][unit_index][ts_name] = max_sel_p_unit_dict
-
-
-
-        # # save unit/timestep to disk
-        if save_output_to is 'pickle':
-            with open(all_sel_dict_name, "wb") as pickle_out:
-                pickle.dump(all_sel_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
-            with open(max_sel_dict_name, "wb") as pickle_out:
-                pickle.dump(max_sel_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
-        if save_output_to is 'shelve':
-            with shelve.open(all_sel_dict_name, protocol=pickle.HIGHEST_PROTOCOL) as db:
-                # # make a test item just to establish the db
-                db['all_sel_dict'] = all_sel_dict
-                db['max_sel_dict'] = max_sel_dict
-
-        print("saved to disk")
-
-
-    print(f"********\nfinished looping through units************")
-
-
-    if verbose:
-        focussed_dict_print(all_sel_dict, 'all_sel_dict')
-        # print_nested_round_floats(all_sel_dict, 'all_sel_dict')
-
-    # # save dict
-    print("\n\n\n*****************\nanalysis complete\n*****************")
-
-    max_sel_dict_path = os.path.join(sel_path, max_sel_dict_name)
-    max_sel_summary = get_sel_summaries(max_sel_dict_path, verbose=verbose)
-
-    # # save selectivity info
-    sel_dict = gha_dict
-
-    sel_dict_name = f"{sel_path}/{output_filename}_sel_dict.pickle"
-
-    sel_dict["sel_info"] = {"sel_path": sel_path,
-                            'sel_dict_name': sel_dict_name,
-                            "all_sel_dict_name": all_sel_dict_name,
-                            'max_sel_dict_name': max_sel_dict_name,
-                            "correct_items_only": correct_items_only,
-                            "all_classes": all_classes,
-                            'corr_test_seq_name': corr_test_seq_name,
-                            'corr_test_IPC_name': corr_test_IPC_name,
-                            'max_sel_summary': max_sel_summary,
-                            "sel_date": int(datetime.datetime.now().strftime("%y%m%d")),
-                            "sel_time": int(datetime.datetime.now().strftime("%H%M")),
-                            }
-
-    print(f"\nSaving sel_dict to: {os.getcwd()}")
-    pickle_out = open(sel_dict_name, "wb")
-    pickle.dump(sel_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
-    pickle_out.close()
-
-    focussed_dict_print(sel_dict, "sel_dict")
-
-
-    # # making sel_summary_csv
-    run = gha_dict['topic_info']['run']
-    if test_run:
-        run = 'test'
-
-    if 'gha_acc' in gha_dict['GHA_info']['scores_dict'].keys():
-        gha_acc = gha_dict['GHA_info']['scores_dict']['gha_acc']
-    elif 'prop_seq_corr' in gha_dict['GHA_info']['scores_dict'].keys():
-        gha_acc = gha_dict['GHA_info']['scores_dict']['prop_seq_corr']
-
-    sel_csv_info = [gha_dict['topic_info']['cond'], run, output_filename,
-                    gha_dict['data_info']['dataset'], gha_dict['GHA_info']['use_dataset'],
-                    n_layers,
-                    gha_dict['model_info']['layers']['hid_layers']['hid_totals']['analysable'],
-                    gha_acc,
-                    round(max_sel_summary['for_summ_csv_dict']['mi_mean'], 3),
-                    round(max_sel_summary['for_summ_csv_dict']['mi_max'], 3),
-                    round(max_sel_summary['for_summ_csv_dict']['ccma_mean'], 3),
-                    round(max_sel_summary['for_summ_csv_dict']['ccma_max'], 3),
-                    round(max_sel_summary['for_summ_csv_dict']['prec_mean'], 3),
-                    round(max_sel_summary['for_summ_csv_dict']['prec_max'], 3),
-                    round(max_sel_summary['for_summ_csv_dict']['means_mean'], 3),
-                    round(max_sel_summary['for_summ_csv_dict']['means_max'], 3),
-                    ]
-
-    summary_headers = ["cond", "run", "output_filename", "dataset", "use_dataset",
-                       "n_layers", "hid_units", "gha_acc",
-                       "mi_mean", "mi_max", "ccma_mean", "ccma_max",
-                       "prec_mean", "prec_max", "means_mean", "means_max"]
-
-    # # save sel summary in exp folder not condition folder
-    exp_name = gha_dict['topic_info']['exp_name']
-    exp_path = find_path_to_dir(long_path=sel_path, target_dir=exp_name)
-    os.chdir(exp_path)
-
-    if not os.path.isfile(exp_name + "_sel_summary.csv"):
-        sel_summary = open(exp_name + "_sel_summary.csv", 'w')
-        mywriter = csv.writer(sel_summary)
-        mywriter.writerow(summary_headers)
-        print(f"creating summary csv at: {exp_path}")
-    else:
-        sel_summary = open(exp_name + "_sel_summary.csv", 'a')
-        mywriter = csv.writer(sel_summary)
-        print(f"appending to summary csv at: {exp_path}")
-
-    mywriter.writerow(sel_csv_info)
-    sel_summary.close()
+    # todo: get rid of this empty dict
+    sel_dict = dict()
 
     print("\nend of sel script")
 
     return sel_dict  # , mean_sel_per_NN
 
 
-# # todo: sort sel for letters?
 

@@ -412,6 +412,7 @@ def VGG_get_scores(predicted_outputs, y_df, output_filename, verbose=False, save
 def loop_thru_acts(gha_dict_path,
                    correct_items_only=True,
                    acts_saved_as='pickle',
+                   letter_sel=False,
                    already_completed={},
                    verbose=False, test_run=False):
     """
@@ -432,6 +433,8 @@ def loop_thru_acts(gha_dict_path,
     :param correct_items_only: Whether to skip test items that that model got incorrect.
     :param all_classes: Whether to test for selectivity of all classes or a subset
                         (e.g., most active classes)
+    :param letter_sel: if False, test sel for words (class-labels).
+            If True, test for letters (parts) using 'local_word_X' for each word when looping through classes
     :param already_completed: None, or dict with layer_names as keys,
                             values are ether 'all' or number of last completed unit.
     :param acts_saved_as: file format used to save gha
@@ -469,6 +472,9 @@ def loop_thru_acts(gha_dict_path,
 
     # get topic_info from dict
     output_filename = gha_dict["topic_info"]["output_filename"]
+    # todo: if letter sel, change the output filename
+    if letter_sel:
+        output_filename = f"{output_filename}_lett"
 
     if verbose:
         print(f"\ncurrent_wd: {current_wd}")
@@ -476,11 +482,12 @@ def loop_thru_acts(gha_dict_path,
 
 
     # # get model info from dict
+    units_per_layer = gha_dict['model_info']["overview"]["units_per_layer"]
+    n_layers = gha_dict['model_info']['overview']['hid_layers']
     model_dict = gha_dict['model_info']['config']
     if verbose:
         focussed_dict_print(model_dict, 'model_dict')
-    units_per_layer = gha_dict['model_info']["overview"]["units_per_layer"]
-    n_layers = gha_dict['model_info']['overview']['hid_layers']
+
 
 
     # # check for sequences/rnn
@@ -497,9 +504,6 @@ def loop_thru_acts(gha_dict_path,
     # # get gha info from dict
     hid_acts_filename = gha_dict["GHA_info"]["hid_act_files"]['2d']
     gha_incorrect = gha_dict['GHA_info']['gha_incorrect']
-
-
-
 
 
 
@@ -523,6 +527,7 @@ def loop_thru_acts(gha_dict_path,
             print(f"n_seq_corr: {n_seq_corr}")
 
         """get 1hot item vectors for 'words' and 3 hot for letters"""
+        # # todo: letter vectors loaded from code below?
         # '''Always use serial_recall True. as I want a separate 1hot vector for each item.
         # Always use x_data_type 'local_letter_X' as I want 3hot vectors'''
         # y_letters = []
