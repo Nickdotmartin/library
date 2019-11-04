@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import more_itertools
+import pandas as pd
 from tensorflow.keras.models import load_model, Model
 
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
@@ -668,3 +669,80 @@ def seq_items_per_class(label_seqs, vocab_dict):
 #
 # focussed_dict_print(IPC_dict, 'IPC_dict')
 
+
+def spell_label_seqs(test_label_seqs, vocab_dict,
+                     test_label_name='test_label_words', save_csv=True):
+    """
+    input a list of sequence labels and return list of english words.
+
+    :param test_label_seqs:
+    :param vocab_dict:
+    :return:
+    """
+
+    if save_csv:
+        if test_label_name is None:
+            raise ValueError("Enter a name/path to save the file")
+
+    if type(test_label_seqs) == str:
+        if os.path.isfile(test_label_seqs):
+            test_labels = np.load(test_label_seqs)
+    elif type(test_label_seqs) == np.ndarray:
+        test_labels = test_label_seqs
+    else:
+        raise TypeError("test_label_seqs should be path or np.ndarray")
+    # print(test_labels)
+    # print(np.shape(test_labels))
+    # print(len(np.shape(test_labels)))
+    # print(type(test_labels))
+    if len(np.shape(test_labels)) is 2:
+        items, seqs = np.shape(test_labels)
+    elif len(np.shape(test_labels)) is 1:
+        items = np.shape(test_labels)
+        seqs = 1
+    else:
+        raise ValueError("expecting 1d or 2d np.ndarray for test_labels\n"
+                         f"This array is shape {np.shape(test_labels)}")
+
+    # focussed_dict_print(vocab_dict)
+
+    df_headers = [f"ts{seq}" for seq in list(range(seqs))]
+    test_label_df = pd.DataFrame(data=test_labels,
+                                 columns=df_headers)
+    # print(test_label_df.head())
+    # test_label_df.to_csv(os.path.join(np_dir, csv_name), index=False)
+
+    spelled_label_seqs = []
+    for index, row in test_label_df.iterrows():
+        row_seqs = []
+        # print(index, row.tolist())
+        for label in row.tolist():
+            this_word = vocab_dict[label]['word']
+            # print(label, this_word)
+            row_seqs.append(this_word)
+        spelled_label_seqs.append(row_seqs)
+
+
+    spelled_label_seqs_df = pd.DataFrame(data=spelled_label_seqs,
+                                         columns=df_headers)
+    # print(spelled_label_seqs_df.head())
+
+    if save_csv:
+        spelled_label_seqs_df.to_csv(test_label_name, index=False)
+
+    return spelled_label_seqs_df
+
+# print("\n\n\n*********testing spell_label_seqs()\n\n")
+# free_test_label_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/STM_RNN_test_v30_free_recall/test/all_generator_gha/test/STM_RNN_test_v30_free_recall_lett_320_corr_test_label_seqs.npy'
+# seri_test_label_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/STM_RNN_test_v30_serial_recall/test/all_generator_gha/test/STM_RNN_test_v30_serial_recall_320_corr_test_label_seqs.npy'
+# seri_3l_test_label_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/STM_RNN_test_v30_serial_recall_3l/test/all_generator_gha/test/STM_RNN_test_v30_serial_recall_3l_320_corr_test_label_seqs.npy'
+#
+# this_one = seri_3l_test_label_path
+# np_dir, np_name = os.path.split(this_one)
+# csv_name = os.path.join(np_dir, f"{np_name[:-8]}spelled.csv")
+#
+# vocab_dict = load_dict(os.path.join('/home/nm13850/Documents/PhD/python_v2/datasets/RNN/bowers14_rep',
+#                                     'vocab_30_dict.txt'))
+# get_words = spell_label_seqs(test_label_seqs=this_one,
+#                              test_label_name=csv_name,
+#                              vocab_dict=vocab_dict, save_csv=True)

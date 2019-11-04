@@ -22,6 +22,8 @@ outputs = 30/300
 Simultaneous recall of all items
 """
 
+# todo: weight initializations for rnns?
+
 class Bowers14rnn:
     @staticmethod
     def build(features, classes, timesteps, batch_size, n_layers=1, units_per_layer=200,

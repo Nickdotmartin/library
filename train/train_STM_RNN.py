@@ -37,6 +37,7 @@ various datasets (vocab, seq len, rpt)
 models (rnn, GRU, LSTM, seq2seq)
 
 '''
+# todo: weight initializations for rnns?
 
 
 def train_model(exp_name,

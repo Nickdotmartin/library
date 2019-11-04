@@ -465,14 +465,12 @@ def loop_thru_acts(gha_dict_path,
     os.chdir(exp_cond_gha_path)
     current_wd = os.getcwd()
 
-
     # # part 1. load dict from study (should run with sim, GHA or sel dict)
     gha_dict = load_dict(gha_dict_path)
     focussed_dict_print(gha_dict, 'gha_dict')
 
     # get topic_info from dict
     output_filename = gha_dict["topic_info"]["output_filename"]
-    # todo: if letter sel, change the output filename
     if letter_sel:
         output_filename = f"{output_filename}_lett"
 
@@ -500,12 +498,13 @@ def loop_thru_acts(gha_dict_path,
         serial_recall = gha_dict['model_info']["overview"]["serial_recall"]
         y_1hot = serial_recall
 
+    # # I can't do class correlations for letters, (as it is the equivillent of
+    # having a dist output for letters
+    if letter_sel:
+        y_1hot = False
 
     # # get gha info from dict
     hid_acts_filename = gha_dict["GHA_info"]["hid_act_files"]['2d']
-    gha_incorrect = gha_dict['GHA_info']['gha_incorrect']
-
-
 
 
     '''Part 2 - load y, sort out incorrect resonses'''
@@ -572,7 +571,6 @@ def loop_thru_acts(gha_dict_path,
     print("\n\nRemoving incorrect responses")
     # # # get values for correct/incorrect items (1/0 or True/False)
     item_correct_list = y_scores_df['full_model'].tolist()
-    # full_model_values = y_scores_df.full_model.unique()
     full_model_values = list(set(item_correct_list))
 
     correct_symbol = 1
@@ -616,7 +614,6 @@ def loop_thru_acts(gha_dict_path,
             mask[incorrect_items] = False
             test_label_seqs = test_label_seqs[mask]
 
-
         else:
             if verbose:
                 print("\ngha_incorrect: True (I have incorrect responses)\n"
@@ -636,17 +633,15 @@ def loop_thru_acts(gha_dict_path,
             if verbose:
                 print("\ngha_incorrect: False (I only have correct responses)\n"
                       "correct_items_only: False (I want incorrect responses)")
-                print("I can not complete this as desried"
-                      "change correct_items_only to True"
-                      "for analysis  - don't remove anything from hid_acts, output and "
-                      "use y scores as y_df")
-            correct_items_only = True
+                raise TypeError("I can not complete this as desried"
+                                "change correct_items_only to True"
+                                "for analysis  - don't remove anything from hid_acts, output and "
+                                "use y scores as y_df")
+
 
     if verbose is True:
         print(f"\ny_df: {y_df.shape}\n{y_df.head()}")
         print(f"\ntest_label_seqs: {np.shape(test_label_seqs)}")  # \n{test_label_seqs}")
-
-
 
 
 
@@ -749,15 +744,7 @@ def loop_thru_acts(gha_dict_path,
                     print(f"\nremoving {n_incorrect} incorrect responses from "
                           f"hid_acts_array: {np.shape(hid_acts_array)}")
 
-                # mask = np.ones(shape=len(seqs_corr), dtype=bool)
-                # mask[incorrect_items] = False
-                # test_label_seqs = test_label_seqs[mask]
-
-                # print(f"mask: {mask}")
-
                 hid_acts_array = hid_acts_array[mask]
-
-
                 if verbose:
                     print(f"(cleaned) np.shape(hid_acts_array) (n_seqs_corr, timesteps, units_per_layer): "
                           f"{np.shape(hid_acts_array)}"

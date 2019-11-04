@@ -10,7 +10,8 @@ from keras.utils import to_categorical
 from tensorflow.keras.models import load_model, Model
 
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
-from tools.RNN_STM import get_label_seqs, get_test_scores, get_layer_acts, seq_items_per_class
+from tools.RNN_STM import get_label_seqs, get_test_scores, get_layer_acts
+from tools.RNN_STM import seq_items_per_class, spell_label_seqs
 from tools.data import find_path_to_dir
 
 
@@ -296,9 +297,15 @@ def rnn_gha(sim_dict_path,
     test_label_seqs = get_label_seqs(n_labels=n_cats, seq_len=timesteps,
                                      serial_recall=serial_recall, n_seqs=n_seqs)
 
-    test_label_name = f"{output_filename}_{np.shape(test_label_seqs)[0]}_test_label_seqs.npy"
-    print(f"test_label_name: {test_label_name}")
-    np.save(test_label_name, test_label_seqs)
+    test_label_name = f"{output_filename}_{np.shape(test_label_seqs)[0]}_test_seq_"
+    # print(f"test_label_name: {test_label_name}")
+    np.save(f"{test_label_name}labels.npy", test_label_seqs)
+
+    seq_words_df = spell_label_seqs(test_label_seqs=test_label_seqs,
+                                 test_label_name=f"{test_label_name}words.csv",
+                                 vocab_dict=vocab_dict, save_csv=True)
+    if verbose:
+        print(seq_words_df.head())
 
     scores_dict = get_test_scores(model=loaded_model, data_dict=data_dict,
                                   test_label_seqs=test_label_seqs,
