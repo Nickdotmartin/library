@@ -773,7 +773,6 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
 
     # # get data info from dict
-    # todo: if letter_sel:  use 'data_info'['X_size'] instead.  (although I don't actually use these)
     n_cats = gha_dict["data_info"]["n_cats"]
     if verbose:
         print(f"the are {n_cats} word classes")
@@ -821,7 +820,6 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     '''Part 2 - load y, sort out incorrect resonses'''
     print("\n\nPart 2: loading labels")
     # # load y_labels to go with hid_acts and item_correct for sequences
-    # todo: does this need to change for letters?
     if 'seq_corr_list' in list(gha_dict['GHA_info']['scores_dict'].keys()):
         n_seqs = gha_dict['GHA_info']['scores_dict']['n_seqs']
         n_seq_corr = gha_dict['GHA_info']['scores_dict']['n_seq_corr']
@@ -857,10 +855,6 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         if verbose:
             print(f"\ny_letters: {type(y_letters)}  {np.shape(y_letters)}")
             print(f"y_words: {type(y_words)}  {np.shape(y_words)}")
-
-        # todo: Q: what is the point of this?  I don't use y_words or y_letters anywhere.
-        #  answer: These are the vectors that might be good to use instead of class labels for words
-        #  and I will definiately need to use for letters
 
 
         y_df_headers = [f"ts{i}" for i in range(timesteps)]
