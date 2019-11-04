@@ -1100,8 +1100,9 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
         print(f"\nindex: {index}")
 
-        if index == 9:
-            break
+        if test_run:
+            if index == 9:
+                break
 
         this_dict = {'roc_auc': {}, 'ave_prec': {}, 'pr_auc': {},
                      'max_informed': {}, 'max_info_count': {},
