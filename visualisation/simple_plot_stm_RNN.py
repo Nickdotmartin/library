@@ -1,21 +1,17 @@
-import copy
-import csv
-import datetime
 import os
 import pickle
-import shelve
 
-import h5py
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-from scipy.stats.stats import pearsonr, rankdata
-from sklearn.metrics import roc_curve, auc
+from matplotlib import gridspec
+
+from operator import itemgetter
 
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
 from tools.RNN_STM import get_X_and_Y_data_from_seq, seq_items_per_class, spell_label_seqs
-from tools.data import load_y_data, nick_to_csv, nick_read_csv, find_path_to_dir
+from tools.data import nick_read_csv, find_path_to_dir
 from tools.network import loop_thru_acts
 
 
@@ -42,7 +38,7 @@ def simple_plot_rnn(gha_dict_path,
     print("\n**** running simple_plot_rnn() ****")
 
 
-    if type(gha_dict_path) is str:
+    if os.path.isfile(gha_dict_path):
         # # use gha-dict_path to get exp_cond_gha_path, gha_dict_name,
         exp_cond_gha_path, gha_dict_name = os.path.split(gha_dict_path)
         os.chdir(exp_cond_gha_path)
@@ -50,9 +46,13 @@ def simple_plot_rnn(gha_dict_path,
 
         # # part 1. load dict from study (should run with sim, GHA or sel dict)
         gha_dict = load_dict(gha_dict_path)
+
     elif type(gha_dict_path) is dict:
         gha_dict = gha_dict_path
         exp_cond_gha_path = current_wd = os.getcwd()
+
+    else:
+        raise FileNotFoundError(gha_dict_path)
 
     if verbose:
         focussed_dict_print(gha_dict, 'gha_dict')
@@ -64,8 +64,9 @@ def simple_plot_rnn(gha_dict_path,
 
     # # where to save files
     plots_folder = 'plots'
-    plots_path = os.path.join(current_wd, plots_folder)
-
+    cond_name = gha_dict['topic_info']['output_filename']
+    condition_path = find_path_to_dir(long_path=exp_cond_gha_path, target_dir=cond_name)
+    plots_path = os.path.join(condition_path, plots_folder)
     if not os.path.exists(plots_path):
         os.makedirs(plots_path)
     # os.chdir(plots_path)
@@ -134,7 +135,7 @@ def simple_plot_rnn(gha_dict_path,
         test_label_seq_name = gha_dict['GHA_info']['y_data_path']
         seqs_corr = gha_dict['GHA_info']['scores_dict']['seq_corr_list']
 
-        test_label_seqs = np.load(test_label_seq_name)
+        test_label_seqs = np.load(f"{test_label_seq_name}labels.npy")
 
         if verbose:
             print(f"test_label_seqs: {np.shape(test_label_seqs)}")
@@ -287,7 +288,7 @@ def simple_plot_rnn(gha_dict_path,
 
     if type(plot_what) is str:
         if plot_what == 'all':
-            hl_dict = None
+            hl_dict = dict()
         if os.path.isfile(plot_what):
             try:
                 hl_dict = load_dict(plot_what)
@@ -307,7 +308,8 @@ def simple_plot_rnn(gha_dict_path,
                          "iii. highlights_dict\n"
                          "iv. dict with structure [layers][units][timesteps]")
 
-    if hl_path:
+    if hl_dict:
+        print(hl_dict)
         focussed_dict_print(hl_dict, 'hl_dict')
 
 
@@ -357,8 +359,18 @@ def simple_plot_rnn(gha_dict_path,
             if ts_name not in hl_dict[layer_name][unit_index].keys():
                 print(f"{ts_name} not in hl_dict[{layer_name}][{unit_index}]")
                 continue
+
+            hl_info = hl_dict[layer_name][unit_index][ts_name]
+            hl_info = sorted(hl_info, key=itemgetter(2))
+
             print(f"plotting {layer_name} {unit_index} {ts_name}\n"
-                  f"{hl_dict[layer_name][unit_index][ts_name]}")
+                  f"{hl_info}")
+
+            hl_text = 'measure\tvalue\tclass\trank\n'
+            for info in hl_info:
+                str_info = str(info)
+                hl_text = ''.join([hl_text, str_info[1:-1], '\n'])
+            print(hl_text)
 
         # #  make df
         this_unit_acts = pd.DataFrame(data=item_act_label_array,
@@ -401,20 +413,40 @@ def simple_plot_rnn(gha_dict_path,
 
         print(f"title: {title}")
 
-        g = sns.catplot(x='activation', y="words", data=this_unit_acts_df,
-                        orient='h', kind="strip",
+        if hl_dict:
+            # fig = plt.figure()
+            # gs = gridspec.GridSpec(1, 2, width_ratios=[2, 1])
+            # spotty_axis = plt.subplot(gs[0])
+            # text_box = plt.subplot(gs[1])
+            gridkw = dict(width_ratios=[2, 1])
+            fig, (spotty_axis, text_box) = plt.subplots(1, 2, gridspec_kw=gridkw)
+            spot_plot = sns.catplot(x='activation', y="words", data=this_unit_acts_df,
+                        ax=spotty_axis, orient='h', kind="strip",
                         jitter=1, dodge=True, linewidth=.5,
                         palette="Set2", marker="D", edgecolor="gray")  # , alpha=.25)
-        plt.xlabel("Unit activations")
-        plt.suptitle(title)
+            text_box.text(0.0, -0.01, hl_text, fontsize=10, clip_on=False)
+            text_box.axes.get_yaxis().set_visible(False)
+            text_box.axes.get_xaxis().set_visible(False)
+            text_box.patch.set_visible(False)
+            text_box.axis('off')
+            spotty_axis.set_xlabel("Unit activations")
+            fig.suptitle(title)
+            plt.close()  # extra blank plot
+        else:
+            g = sns.catplot(x='activation', y="words", data=this_unit_acts_df,
+                            orient='h', kind="strip",
+                            jitter=1, dodge=True, linewidth=.5,
+                            palette="Set2", marker="D", edgecolor="gray")  # , alpha=.25)
+            plt.xlabel("Unit activations")
+            plt.suptitle(title)
+            plt.tight_layout(rect=[0, 0.03, 1, 0.90])
 
-        plt.tight_layout(rect=[0, 0.03, 1, 0.90])
 
-        if show_plots:
-            plt.show()
 
         save_name = f"{plots_path}/{output_filename}_{layer_name}_{unit_index}_{ts_name}_spotty.png"
         plt.savefig(save_name)
+        if show_plots:
+            plt.show()
         plt.close()
 
 
@@ -422,20 +454,22 @@ def simple_plot_rnn(gha_dict_path,
 
 
 
-# # # PART 1 # # #
-gha_dict_path = '/home/nm13850/Documents/PhD/python_v2/experiments/' \
-                'STM_RNN/STM_RNN_test_v30_free_recall/test/all_generator_gha/test/' \
-                'STM_RNN_test_v30_free_recall_GHA_dict.pickle'
-
-hl_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/STM_RNN_test_v30_free_recall/test/all_generator_gha/test/correct_sel/test/STM_RNN_test_v30_free_recall_lett_hl_units.pickle'
-
-plot_this = {'hid0': {1: {"ts2": ['reason for plotting can go here']},
-                      2: {'ts0': ['why did i want to plot this']}}}
-
-simple_plot_rnn(gha_dict_path,
-                plot_what=hl_path,
-                show_plots=True,
-                verbose=True, test_run=True)
+# # # # PART 1 # # #
+# gha_dict_path = '/home/nm13850/Documents/PhD/python_v2/experiments/' \
+#                 'STM_RNN/STM_RNN_test_v30_free_recall/test/all_generator_gha/test/' \
+#                 'STM_RNN_test_v30_free_recall_GHA_dict.pickle'
+#
+# hl_path = '/home/nm13850/Documents/PhD/python_v2/experiments/' \
+#           'STM_RNN/STM_RNN_test_v30_free_recall/correct_sel/test/' \
+#           'STM_RNN_test_v30_free_recall_hl_units.pickle'
+#
+# plot_this = {'hid0': {1: {"ts2": ['reason for plotting can go here']},
+#                       2: {'ts0': ['why did i want to plot this']}}}
+#
+# simple_plot_rnn(gha_dict_path,
+#                 plot_what='all',
+#                 show_plots=True,
+#                 verbose=True, test_run=True)
 
 
 

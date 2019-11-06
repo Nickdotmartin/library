@@ -124,9 +124,12 @@ def train_model(exp_name,
 
     # Output files
     if not cond_name:
-        output_filename = f"{exp_name}_{model_name}_{dset_name}"
+        # output_filename = f"{exp_name}_{model_name}_{dset_name}"
+        output_filename = f"{model_name}_{dset_name}"
+
     else:
-        output_filename = f"{exp_name}_{cond_name}"
+        # output_filename = f"{exp_name}_{cond_name}"
+        output_filename = cond_name
 
     print(f"\noutput_filename: {output_filename}")
 
@@ -179,13 +182,17 @@ def train_model(exp_name,
     # # save path
     exp_cond_path = os.path.join(exp_root, exp_name, output_filename)
 
+    train_folder = 'training'
+
     if test_run:
-        exp_cond_path = os.path.join(exp_cond_path, 'test')
+        train_folder = os.path.join(train_folder, 'test')
+
+    exp_cond_path = os.path.join(exp_cond_path, train_folder)
 
     if not os.path.exists(exp_cond_path):
         os.makedirs(exp_cond_path)
     os.chdir(exp_cond_path)
-    print(f"\nsaving to: {exp_cond_path}")
+    print(f"\nsaving to exp_cond_path: {exp_cond_path}")
 
 
     # # The Model
@@ -432,6 +439,10 @@ def train_model(exp_name,
 
     repo = git.Repo('/home/nm13850/Documents/PhD/code/library')
 
+    sim_dict_name = f"{output_filename}_sim_dict.txt"
+
+    sim_dict_path = os.path.join(exp_cond_path, sim_dict_name)
+
     # # simulation_info_dict
     sim_dict = {"topic_info": {"output_filename": output_filename, "cond": cond, "run": run,
                                "data_dict_path": data_dict_path, "model_path": model_path,
@@ -445,12 +456,12 @@ def train_model(exp_name,
                                   'scores': scores_dict,
                                   "trained_date": trained_date, "trained_time": trained_time,
                                   'x_data_path': x_data_path, 'y_data_path': y_data_path,
+                                  'sim_dict_path': sim_dict_path,
                                   'tensorboard_path': tensorboard_path,
                                   'commit': repo.head.object.hexsha,
                                   }
                 }
 
-    sim_dict_name = f"{output_filename}_sim_dict.txt"
 
     if not use_val_data:
         sim_dict['training_info']['end_val_acc'] = 'NaN'
@@ -531,7 +542,7 @@ def train_model(exp_name,
           f'tensorboard --logdir={tensorboard_path}'
           '\nthen click link')
 
-    print("\ntrain_STM_RNN_14102019 finished")
+    print("\ntrain_model() finished")
 
 
-    return training_info, sim_dict
+    return sim_dict

@@ -109,6 +109,11 @@ def rnn_gha(sim_dict_path,
         print(f"sim_dict_path: {sim_dict_path}")
         sim_dict = load_dict(sim_dict_path)
         full_exp_cond_path, sim_dict_name = os.path.split(sim_dict_path)
+
+    elif type(sim_dict_path) is dict:
+        sim_dict = sim_dict_path
+        full_exp_cond_path = sim_dict['topic_info']['exp_cond_path']
+
     else:
         raise FileNotFoundError(sim_dict_path)
 
@@ -265,10 +270,12 @@ def rnn_gha(sim_dict_path,
     if not gha_incorrect:
         hid_act_items = 'correct'
     gha_folder = f'{hid_act_items}_{use_dataset}_gha'
-
     if test_run:
         gha_folder = os.path.join(gha_folder, 'test')
-    gha_path = os.path.join(full_exp_cond_path, gha_folder)
+
+    cond_name = sim_dict['topic_info']['output_filename']
+    condition_path = find_path_to_dir(long_path=full_exp_cond_path, target_dir=cond_name)
+    gha_path = os.path.join(condition_path, gha_folder)
 
     if not os.path.exists(gha_path):
         os.makedirs(gha_path)
@@ -513,7 +520,7 @@ def rnn_gha(sim_dict_path,
 
     print("\nend of ff_gha")
 
-    return gha_info, gha_dict
+    return gha_dict
 
 ###############################
 # print("\n\n\n\n\nWarning\n\n\n\n\nrunning script from bottom of page!\n\n\!!!!!")

@@ -518,7 +518,7 @@ def loop_thru_acts(gha_dict_path,
         test_label_seq_name = gha_dict['GHA_info']['y_data_path']
         seqs_corr = gha_dict['GHA_info']['scores_dict']['seq_corr_list']
 
-        test_label_seqs = np.load(test_label_seq_name)
+        test_label_seqs = np.load(f"{test_label_seq_name}labels.npy")
 
         if verbose:
             print(f"test_label_seqs: {np.shape(test_label_seqs)}")

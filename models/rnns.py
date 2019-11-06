@@ -47,6 +47,7 @@ class Bowers14rnn:
 
                             return_sequences=serial_recall,  # this stops it from giving an output after each item
 
+
                             # it allows the model to learn from activations at all timesteps not just the final one.
                             # this also allows truncated backprop thru time.
                             # stateful=True,

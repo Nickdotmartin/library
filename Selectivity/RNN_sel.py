@@ -52,7 +52,7 @@ def nick_roc_stuff(class_list, hid_acts, this_class, class_a_size, not_a_size,
     print("**** nick_roc_stuff() ****")
 
     # if class is not empty (no correct items)
-    if class_a_size > 0:
+    if class_a_size > 0 & not_a_size > 0:
         # convert class list to binary one vs all
         if act_func is 'tanh':
             binary_array = [1 if i == this_class else -1 for i in np.array(class_list)]
@@ -171,7 +171,7 @@ def class_sel_basics(this_unit_acts_df, items_per_cat, n_classes, hi_val_thr=.5,
         n_classes = max(list(items_per_cat.keys()))
 
     if type(n_classes) is int:
-        class_list = range(n_classes)
+        class_list = list(range(n_classes))
     elif type(n_classes) is list:
         class_list = n_classes
         n_classes = len(class_list)
@@ -204,7 +204,6 @@ def class_sel_basics(this_unit_acts_df, items_per_cat, n_classes, hi_val_thr=.5,
                                                hi_val_thr].groupby('label')[act_values].count())
     if len(list(hi_val_count_dict.keys())) < n_classes:
         for i in class_list:
-            print(f"items in class_list: {i} class list: {class_list}")
             if i not in list(hi_val_count_dict.keys()):
                 hi_val_count_dict[i] = 0
 
@@ -529,10 +528,14 @@ def get_sel_summaries(max_sel_dict_path,
     model_means_s = sel_measures_df.mean().rename('model_means')
     model_max_s = sel_measures_df.max().rename('model_max')
 
+
     # # plot distribution of selectivity scores
     colours = sns.color_palette('husl', n_colors=len(sel_measures_list))
     plt.figure()
     for index, measure in enumerate(sel_measures_list):
+
+        print(f"\nindex: {index}: measure: {measure}\n{sel_measures_df[measure]}")
+
         ax = sns.kdeplot(sel_measures_df[measure], color=colours[index], shade=True)
     plt.legend(sel_measures_list)
     plt.title('Density Plot of Selectivity measures')
@@ -617,7 +620,7 @@ def get_sel_summaries(max_sel_dict_path,
 
         # # get ranks for scores
         check_values = top_units.loc[:, measure].to_list()
-        rank_values = rankdata([-1 * i for i in check_values], method='dense')
+        rank_values = rankdata([int(-1 * i) for i in check_values], method='dense')
         top_units['rank'] = rank_values
 
         # # append to hl_dfs_dict
@@ -635,7 +638,7 @@ def get_sel_summaries(max_sel_dict_path,
 
             # # add values to dict (0: measure, 1: label, 2: rank)
             hl_units_dict[row.name[0]][row.name[1]][row.name[2]].append(
-                (measure, row.values[0], row.values[1], f'rank_{row.values[2]}'))
+                (measure, round(row.values[0], 3), int(row.values[1]), f'rank_{int(row.values[2])}'))
 
     # save hl_dfs_dict here
     with open(f"{output_filename}_hl_dfs.pickle", "wb") as pickle_out:
@@ -738,15 +741,26 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     """
 
 
-    print("\n**** running ff_sel() ****")
+    print("\n**** running rnn_sel() ****")
 
-    # # use gha-dict_path to get exp_cond_gha_path, gha_dict_name,
-    exp_cond_gha_path, gha_dict_name = os.path.split(gha_dict_path)
-    os.chdir(exp_cond_gha_path)
-    current_wd = os.getcwd()
+    if os.path.isfile(gha_dict_path):
+        print(f"gha_dict_path: {gha_dict_path}")
 
-    # # part 1. load dict from study (should run with sim, GHA or sel dict)
-    gha_dict = load_dict(gha_dict_path)
+        # # use gha-dict_path to get exp_cond_gha_path, gha_dict_name,
+        exp_cond_gha_path, gha_dict_name = os.path.split(gha_dict_path)
+        os.chdir(exp_cond_gha_path)
+        current_wd = os.getcwd()
+
+        # # part 1. load dict from study (should run with sim, GHA or sel dict)
+        gha_dict = load_dict(gha_dict_path)
+
+    elif type(gha_dict_path) is dict:
+        gha_dict = gha_dict_path
+        exp_cond_gha_path = gha_dict['topic_info']['exp_cond_path']
+
+    else:
+        raise FileNotFoundError(gha_dict_path)
+
     focussed_dict_print(gha_dict, 'gha_dict')
 
     # get topic_info from dict
@@ -761,7 +775,10 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     sel_folder = f'{analyse_items}_sel'
     if test_run:
         sel_folder = f'{analyse_items}_sel/test'
-    sel_path = os.path.join(current_wd, sel_folder)
+
+    cond_name = gha_dict['topic_info']['output_filename']
+    condition_path = find_path_to_dir(long_path=current_wd, target_dir=cond_name)
+    sel_path = os.path.join(condition_path, sel_folder)
 
     if not os.path.exists(sel_path):
         os.makedirs(sel_path)
@@ -828,7 +845,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         test_label_seq_name = gha_dict['GHA_info']['y_data_path']
         seqs_corr = gha_dict['GHA_info']['scores_dict']['seq_corr_list']
 
-        test_label_seqs = np.load(test_label_seq_name)
+        test_label_seqs = np.load(f"{test_label_seq_name}labels.npy")
 
         if verbose:
             print(f"test_label_seqs: {np.shape(test_label_seqs)}")
@@ -1104,7 +1121,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             if index == 9:
                 break
 
-        this_dict = {'roc_auc': {}, 'ave_prec': {}, 'pr_auc': {},
+        unit_ts_dict = {'roc_auc': {}, 'ave_prec': {}, 'pr_auc': {},
                      'max_informed': {}, 'max_info_count': {},
                      'max_info_thr': {}, 'max_info_sens': {},
                      'max_info_spec': {}, 'max_info_prec': {},
@@ -1209,7 +1226,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                     continue
                 if csb_key == 'perplexity':
                     continue
-                this_dict[csb_key] = csb_value
+                unit_ts_dict[csb_key] = csb_value
 
         classes_of_interest = list(range(n_cats))
         if all_classes is False:
@@ -1249,7 +1266,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                 else:
                     letter_class_list = [this_cat if i == 1 else not_this_letter_symbol
                                          for i in np.array(letter_class_list)]
-                # print(f"letter_class_list: {letter_class_list}")
+                print(f"letter_class_list: {letter_class_list}")
                 # print(f"letter_class_list: {np.shape(letter_class_list)}")
 
                 this_unit_acts_df['label'] = letter_class_list
@@ -1276,9 +1293,14 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                 # # make new IPC_dict
                 ts_IPC_letters = copy.copy(IPC_dict['letter_p_class_p_ts'][ts_name])
                 # print(f"ts_IPC_letters:\n{ts_IPC_letters}")
-                ts_IPC_this_letter = ts_IPC_letters[this_letter]
 
-                ts_IPC_this_letter = ts_IPC_letters.pop(this_letter)
+                if this_letter in ts_IPC_letters.keys():
+                    ts_IPC_this_letter = ts_IPC_letters[this_letter]
+                    ts_IPC_this_letter = ts_IPC_letters.pop(this_letter)
+
+                else:
+                    ts_IPC_this_letter = 0
+
                 ts_IPC_not_this_letter = sum(list(ts_IPC_letters.values()))
 
                 IPC_binary_letters = {this_cat: ts_IPC_this_letter,
@@ -1306,19 +1328,22 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                     if csb_key == 'perplexity':
                         continue
 
-                    if csb_key not in this_dict.keys():
-                        this_dict[csb_key] = dict()
+                    if csb_key not in unit_ts_dict.keys():
+                        unit_ts_dict[csb_key] = dict()
 
-                    # print(f"\nthis_cat: {this_cat}")
-                    # print(f"not_this_letter_symbol: {not_this_letter_symbol}")
-                    # print(f"csb_key: {csb_key}")
-                    # print(f"csb_value: {csb_value}")
+                    print(f"\nthis_cat: {this_cat}")
+                    print(f"not_this_letter_symbol: {not_this_letter_symbol}")
+                    print(f"csb_key: {csb_key}")
+                    print(f"csb_value: {csb_value}")
 
-                    this_dict[csb_key][this_cat] = csb_value[this_cat]
+                    if this_cat in csb_value.keys():
+                        unit_ts_dict[csb_key][this_cat] = csb_value[this_cat]
+                    else:
+                        unit_ts_dict[csb_key][this_cat] = 0
 
 
 
-            # # ROC_stuff includes:
+                        # # ROC_stuff includes:
             # roc_auc, ave_prec, pr_auc, nz_ave_prec, nz_pr_auc, top_class_sel, informedness
 
             # # if relu, always use normed values. Otherwise use original values,
@@ -1339,18 +1364,37 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
             # # add roc_stuff_dict to unit dict
             for roc_key, roc_value in roc_stuff_dict.items():
-                this_dict[roc_key][this_cat] = roc_value
+                unit_ts_dict[roc_key][this_cat] = roc_value
 
             # # CCMA
+
             class_a = this_unit_acts_df.loc[this_unit_acts_df['label'] == this_cat]
-            class_a_mean = class_a[act_values].mean()
             not_class_a = this_unit_acts_df.loc[this_unit_acts_df['label'] != this_cat]
-            not_class_a_mean = not_class_a[act_values].mean()
-            if act_func == 'tanh':
-                class_a_mean = class_a['normed'].mean()
-                not_class_a_mean = not_class_a['normed'].mean()
-            ccma = (class_a_mean - not_class_a_mean) / (class_a_mean + not_class_a_mean)
-            this_dict["ccma"][this_cat] = ccma
+
+            if class_a.empty:
+                print(f"\nCCMA\nno items in class {this_cat}\nccma=0")
+                ccma = 0
+            elif not_class_a.empty:
+                print(f"\nCCMA\nno items NOT in class {this_cat}\nccma=0")
+                ccma = 0
+            else:
+                class_a_mean = class_a[act_values].mean()
+                not_class_a_mean = not_class_a[act_values].mean()
+                if act_func == 'tanh':
+                    class_a_mean = class_a['normed'].mean()
+                    not_class_a_mean = not_class_a['normed'].mean()
+                ccma_numerator = class_a_mean - not_class_a_mean
+                ccma_denominator = class_a_mean + not_class_a_mean
+                ccma = ccma_numerator / ccma_denominator
+
+                print(f"\nccma check\n"
+                      f"this_class_size: {this_class_size}, not_a_size: {not_a_size}\n"
+                      f"class_a: {class_a}, class_a_mean: {class_a_mean}\n"
+                      f"not_class_a: {not_class_a}\nnot_class_a_mean: {not_class_a_mean}\n"
+                      f"ccma_numerator: {ccma_numerator}\nccma_denominator: {ccma_denominator}\n"
+                      f"ccma: {ccma}")
+
+            unit_ts_dict["ccma"][this_cat] = ccma
 
 
             # # zhou_prec
@@ -1369,9 +1413,9 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                 zhou_thr = list(most_active["activation"])[-1]
 
             zhou_prec = sum([1 for i in most_active['label'] if i == this_cat]) / zhou_selects
-            this_dict["zhou_prec"][this_cat] = zhou_prec
-            this_dict["zhou_selects"][this_cat] = zhou_selects
-            this_dict["zhou_thr"][this_cat] = zhou_thr
+            unit_ts_dict["zhou_prec"][this_cat] = zhou_prec
+            unit_ts_dict["zhou_selects"][this_cat] = zhou_selects
+            unit_ts_dict["zhou_thr"][this_cat] = zhou_thr
 
             # class correlation
             # get output activations for class correlation
@@ -1385,17 +1429,17 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                 class_corr = class_correlation(this_unit_acts=this_unit_acts_df[act_values],
                                                output_acts=output_acts_ts[:, this_cat],
                                                verbose=verbose)
-                this_dict["corr_coef"][this_cat] = class_corr['coef']
-                this_dict["corr_p"][this_cat] = class_corr['p']
+                unit_ts_dict["corr_coef"][this_cat] = class_corr['coef']
+                unit_ts_dict["corr_p"][this_cat] = class_corr['p']
             else:
-                if 'corr_coef' in list(this_dict.keys()):
-                    del this_dict['corr_coef']
-                    del this_dict['corr_p']
+                if 'corr_coef' in list(unit_ts_dict.keys()):
+                    del unit_ts_dict['corr_coef']
+                    del unit_ts_dict['corr_p']
 
-        focussed_dict_print(this_dict, 'this_dict', )
+        focussed_dict_print(unit_ts_dict, 'unit_ts_dict', )
 
         # which class was the highest for each measure
-        max_sel_p_unit_dict = sel_unit_max(this_dict, verbose=verbose)
+        max_sel_p_unit_dict = sel_unit_max(unit_ts_dict, verbose=verbose)
 
 
 
@@ -1414,7 +1458,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
         # # if not sequences data, add this unit to all_sel_dict
         if not sequence_data:
-            all_sel_dict[layer_name][unit_index] = this_dict
+            all_sel_dict[layer_name][unit_index] = unit_ts_dict
             max_sel_dict[layer_name][unit_index] = max_sel_p_unit_dict
 
         else:  # # if sequence data
@@ -1424,7 +1468,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                 max_sel_dict[layer_name][unit_index][ts_name] = dict()
 
             # # add this timestep to all_sel_dict
-            all_sel_dict[layer_name][unit_index][ts_name] = this_dict
+            all_sel_dict[layer_name][unit_index][ts_name] = unit_ts_dict
             max_sel_dict[layer_name][unit_index][ts_name] = max_sel_p_unit_dict
 
 
