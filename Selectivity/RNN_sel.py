@@ -291,6 +291,9 @@ def sel_unit_max(all_sel_dict, verbose=False):
         measure_c_name = f"{measure}_c"
         classes = list(class_dict.keys())
         values = list(class_dict.values())
+
+        # print("\nidiot check\n"
+        #       f"measure: {measure}\nvalues:\n{values}")
         max_val = max(values)
         max_class = classes[values.index(max_val)]
         # print(measure, measure_c_name)
@@ -453,7 +456,7 @@ def get_sel_summaries(max_sel_dict_path,
 
     max_sel_dict = load_dict(max_sel_dict_path)
 
-    focussed_dict_print(max_sel_dict, 'max_sel-dict')
+    focussed_dict_print(max_sel_dict, 'max_sel_dict')
 
     # # max_sel_p_unit layout
     """print("\nORIG max_sel_p_unit dict")
@@ -511,7 +514,7 @@ def get_sel_summaries(max_sel_dict_path,
     max_sel_df.to_csv(f'{output_filename}_max_sel.csv')
 
     if verbose:
-        print(f"max_sel_df:\n{max_sel_df}")
+        print(f"\nmax_sel_df:\n{max_sel_df}")
 
     '''use max_sel_df.xs (cross-section) to select info in multi-indexed dataframes'''
     # layer_df = max_sel_df.xs('hid2', level='Layer')
@@ -535,8 +538,14 @@ def get_sel_summaries(max_sel_dict_path,
     for index, measure in enumerate(sel_measures_list):
 
         print(f"\nindex: {index}: measure: {measure}\n{sel_measures_df[measure]}")
+        check_values = sel_measures_df[measure].to_list()
+        print(f"check_values: {check_values}")
 
-        ax = sns.kdeplot(sel_measures_df[measure], color=colours[index], shade=True)
+        sel_measures_df.dropna(subset=[measure], inplace=True)
+        print(f"\ndropna:\n{sel_measures_df[measure]}")
+
+        if not sel_measures_df.empty:
+            ax = sns.kdeplot(sel_measures_df[measure], color=colours[index], shade=True)
     plt.legend(sel_measures_list)
     plt.title('Density Plot of Selectivity measures')
     ax.set(xlabel='Selectivity')
@@ -555,12 +564,23 @@ def get_sel_summaries(max_sel_dict_path,
 
     if len(layer_names_list) > 1:
         for this_layer in layer_names_list:
-            # # select relevant rows from list
-            layer_measure_df = sel_measures_df.xs(this_layer, level='Layer')
 
-            # # get means and max vales series
-            layer_means_s = layer_measure_df.mean().rename(f'{this_layer}_means')
-            layer_max_s = layer_measure_df.max().rename(f'{this_layer}_max')
+            # # check that relevant timestep is present
+            layer_check = sorted(list(set(sel_measures_df.index.get_level_values('Layer'))))
+
+            if this_layer in layer_check:
+
+                # # select relevant rows from list
+                layer_measure_df = sel_measures_df.xs(this_layer, level='Layer')
+
+                # # get means and max vales series
+                layer_means_s = layer_measure_df.mean().rename(f'{this_layer}_means')
+                layer_max_s = layer_measure_df.max().rename(f'{this_layer}_max')
+            else:
+                headers = list(sel_measures_df)
+                values = [0] * len(headers)
+                layer_means_s = pd.Series(dict(zip(headers, values))).rename(f'{this_layer}_means')
+                layer_max_s = pd.Series(dict(zip(headers, values))).rename(f'{this_layer}_max')
 
             mean_max_arrays.append(layer_means_s)
             mean_max_arrays.append(layer_max_s)
@@ -568,15 +588,31 @@ def get_sel_summaries(max_sel_dict_path,
     '''2c. model_mean_max_df: get means and max per timestep'''
     if len(ts_names_list) > 1:
         for this_ts in ts_names_list:
-            # # select relevant rows from list
-            ts_measure_df = sel_measures_df.xs(this_ts, level='Timestep')
 
-            # # get means and max vales series
-            model_means_s = ts_measure_df.mean().rename(f'{this_ts}_means')
-            model_max_s = ts_measure_df.max().rename(f'{this_ts}_max')
+            # # check that relevant timestep is present
+            ts_check = sorted(list(set(sel_measures_df.index.get_level_values('Timestep'))))
+            # print(f"\nts_checl: {ts_check}")
 
-            mean_max_arrays.append(model_means_s)
-            mean_max_arrays.append(model_max_s)
+            if this_ts in ts_check:
+
+                # # select relevant rows from list
+                ts_measure_df = sel_measures_df.xs(this_ts, level='Timestep')
+
+                # # get means and max vales series
+                ts_means_s = ts_measure_df.mean().rename(f'{this_ts}_means')
+                ts_max_s = ts_measure_df.max().rename(f'{this_ts}_max')
+
+            else:
+                # print("idiot check ts missing")
+                headers = list(sel_measures_df)
+                values = [0] * len(headers)
+                ts_means_s = pd.Series(dict(zip(headers, values))).rename(f'{this_ts}_means')
+                ts_max_s = pd.Series(dict(zip(headers, values))).rename(f'{this_ts}_max')
+
+            # print(f"\nmodel_means_s:\n{model_means_s}")
+
+            mean_max_arrays.append(ts_means_s)
+            mean_max_arrays.append(ts_max_s)
 
     model_mean_max_df = pd.concat(mean_max_arrays, axis='columns')
 
@@ -740,8 +776,10 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
     """
 
-
-    print("\n**** running rnn_sel() ****")
+    if letter_sel:
+        print("\n**** running rnn_sel() on letters ****")
+    else:
+        print("\n**** running rnn_sel() on words ****")
 
     if os.path.isfile(gha_dict_path):
         print(f"gha_dict_path: {gha_dict_path}")
@@ -1373,8 +1411,11 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
             empty_class_list = [class_a.empty, not_class_a.empty]
             an_empty_class = False
-            if empty_class_list == [True, True]:
+            if True in empty_class_list:
                 an_empty_class = True
+
+            print(f"empty_class_list: {empty_class_list}\n"
+                  f"an_empty_class: {an_empty_class}")
 
             if an_empty_class:
                 print(f"\nCCMA\nno items in class {this_cat} or not this cat\nccma=0")
@@ -1427,7 +1468,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             # # can only run this on y_1hot
             if y_1hot:
                 if an_empty_class:
-                    class_corr = {'coef': 0, 'p': "nan"}
+                    class_corr = {'coef': 0, 'p': 1}
                 else:
                     output_layer_acts = np.load(output_acts_name)
                     # print(f"np.shape(output_layer_acts): {np.shape(output_layer_acts)}")

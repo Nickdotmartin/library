@@ -5,7 +5,6 @@ import datetime
 
 
 # TODO: make save dict as pickle or json function (or hd5f?)
-# todo: add filepath as optional arg for load dict.
 
 
 tools_date = int(datetime.datetime.now().strftime("%y%m%d"))

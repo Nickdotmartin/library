@@ -270,9 +270,6 @@ def get_test_scores(model, data_dict, test_label_seqs,
     For free recall - IoU is already set up/ (sort Y-True)
     For serial, turn predictions into seq labels (don't sort)
 
-    # todo: think about checking accuracy per item
-
-
     :param model: trained model
     :param data_dict: dict with relevant info including link to vocab dict
     :param test_label_seqs: sequence of labels to test on

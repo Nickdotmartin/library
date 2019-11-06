@@ -526,7 +526,6 @@ def loop_thru_acts(gha_dict_path,
             print(f"n_seq_corr: {n_seq_corr}")
 
         """get 1hot item vectors for 'words' and 3 hot for letters"""
-        # # todo: letter vectors loaded from code below?
         # '''Always use serial_recall True. as I want a separate 1hot vector for each item.
         # Always use x_data_type 'local_letter_X' as I want 3hot vectors'''
         # y_letters = []
