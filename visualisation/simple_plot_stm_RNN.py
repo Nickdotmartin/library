@@ -26,7 +26,8 @@ def simple_plot_rnn(gha_dict_path,
     
     :param gha_dict_path: or gha_dict
     :param plot_what: 'all' or 'highlights' or dict[layer_names][units][timesteps] 
-    :param verbose: 
+    :param correct_items_only: remove items that were incorrect
+    :param verbose:
     :param test_run: just 3 plots
     :param show_plots: 
 
@@ -144,7 +145,7 @@ def simple_plot_rnn(gha_dict_path,
 
 
         # # get 1hot item vectors for 'words' and 3 hot for letters
-        #todo: do I need this?
+        # todo: do I need this?
         '''Always use serial_recall True. as I want a separate 1hot vector for each item.
         Always use x_data_type 'local_letter_X' as I want 3hot vectors'''
         y_letters = []
@@ -290,14 +291,12 @@ def simple_plot_rnn(gha_dict_path,
         if plot_what == 'all':
             hl_dict = dict()
         if os.path.isfile(plot_what):
-            try:
-                hl_dict = load_dict(plot_what)
-            except:
-                raise ValueError("plot_what should be\n"
-                                 "i. 'all'\n"
-                                 "ii. path to highlights dict\n"
-                                 "iii. highlights_dict\n"
-                                 "iv. dict with structure [layers][units][timesteps]")
+            hl_dict = load_dict(plot_what)
+            """plot_what should be:\n
+                    i. 'all'\n
+                    ii. path to highlights dict\n
+                    iii. highlights_dict\n
+                    iv. dict with structure [layers][units][timesteps]"""
 
     elif type(plot_what) is dict:
         hl_dict = plot_what
@@ -421,9 +420,9 @@ def simple_plot_rnn(gha_dict_path,
             gridkw = dict(width_ratios=[2, 1])
             fig, (spotty_axis, text_box) = plt.subplots(1, 2, gridspec_kw=gridkw)
             spot_plot = sns.catplot(x='activation', y="words", data=this_unit_acts_df,
-                        ax=spotty_axis, orient='h', kind="strip",
-                        jitter=1, dodge=True, linewidth=.5,
-                        palette="Set2", marker="D", edgecolor="gray")  # , alpha=.25)
+                                    ax=spotty_axis, orient='h', kind="strip",
+                                    jitter=1, dodge=True, linewidth=.5,
+                                    palette="Set2", marker="D", edgecolor="gray")  # , alpha=.25)
             text_box.text(0.0, -0.01, hl_text, fontsize=10, clip_on=False)
             text_box.axes.get_yaxis().set_visible(False)
             text_box.axes.get_xaxis().set_visible(False)
@@ -470,7 +469,3 @@ def simple_plot_rnn(gha_dict_path,
 #                 plot_what='all',
 #                 show_plots=True,
 #                 verbose=True, test_run=True)
-
-
-
-

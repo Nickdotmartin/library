@@ -15,7 +15,7 @@ from sklearn.metrics import roc_curve, auc
 
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
 from tools.RNN_STM import get_X_and_Y_data_from_seq, seq_items_per_class, spell_label_seqs
-from tools.data import load_y_data, nick_to_csv, nick_read_csv, find_path_to_dir
+from tools.data import nick_read_csv, find_path_to_dir
 from tools.network import loop_thru_acts
 
 
@@ -757,7 +757,8 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     elif type(gha_dict_path) is dict:
         gha_dict = gha_dict_path
         exp_cond_gha_path = gha_dict['topic_info']['exp_cond_path']
-
+        os.chdir(exp_cond_gha_path)
+        current_wd = os.getcwd()
     else:
         raise FileNotFoundError(gha_dict_path)
 
@@ -1122,13 +1123,13 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                 break
 
         unit_ts_dict = {'roc_auc': {}, 'ave_prec': {}, 'pr_auc': {},
-                     'max_informed': {}, 'max_info_count': {},
-                     'max_info_thr': {}, 'max_info_sens': {},
-                     'max_info_spec': {}, 'max_info_prec': {},
-                     'ccma': {}, 'zhou_prec': {},
-                     'zhou_selects': {}, 'zhou_thr': {},
-                     'corr_coef': {}, 'corr_p': {},
-                     }
+                        'max_informed': {}, 'max_info_count': {},
+                        'max_info_thr': {}, 'max_info_sens': {},
+                        'max_info_spec': {}, 'max_info_prec': {},
+                        'ccma': {}, 'zhou_prec': {},
+                        'zhou_selects': {}, 'zhou_thr': {},
+                        'corr_coef': {}, 'corr_p': {},
+                        }
 
         # print(f"\n\n{index}:\n{unit_gha}\n")
         sequence_data = unit_gha["sequence_data"]
@@ -1367,15 +1368,16 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                 unit_ts_dict[roc_key][this_cat] = roc_value
 
             # # CCMA
-
             class_a = this_unit_acts_df.loc[this_unit_acts_df['label'] == this_cat]
             not_class_a = this_unit_acts_df.loc[this_unit_acts_df['label'] != this_cat]
 
-            if class_a.empty:
-                print(f"\nCCMA\nno items in class {this_cat}\nccma=0")
-                ccma = 0
-            elif not_class_a.empty:
-                print(f"\nCCMA\nno items NOT in class {this_cat}\nccma=0")
+            empty_class_list = [class_a.empty, not_class_a.empty]
+            an_empty_class = False
+            if empty_class_list == [True, True]:
+                an_empty_class = True
+
+            if an_empty_class:
+                print(f"\nCCMA\nno items in class {this_cat} or not this cat\nccma=0")
                 ccma = 0
             else:
                 class_a_mean = class_a[act_values].mean()
@@ -1398,21 +1400,24 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
 
             # # zhou_prec
-            zhou_cut_off = .005
-            if n_correct < 20000:
-                zhou_cut_off = 100 / n_correct
-            if n_correct < 100:
-                zhou_cut_off = 1 / n_correct
-            zhou_selects = int(n_correct * zhou_cut_off)
-
-            most_active = this_unit_acts_df.iloc[:zhou_selects]
-
-            if act_func in ['relu', 'ReLu', 'Relu']:
-                zhou_thr = list(most_active["normed"])[-1]
+            if an_empty_class:
+                zhou_prec = zhou_selects = zhou_thr = 0
             else:
-                zhou_thr = list(most_active["activation"])[-1]
+                zhou_cut_off = .005
+                if n_correct < 20000:
+                    zhou_cut_off = 100 / n_correct
+                if n_correct < 100:
+                    zhou_cut_off = 1 / n_correct
+                zhou_selects = int(n_correct * zhou_cut_off)
 
-            zhou_prec = sum([1 for i in most_active['label'] if i == this_cat]) / zhou_selects
+                most_active = this_unit_acts_df.iloc[:zhou_selects]
+
+                if act_func in ['relu', 'ReLu', 'Relu']:
+                    zhou_thr = list(most_active["normed"])[-1]
+                else:
+                    zhou_thr = list(most_active["activation"])[-1]
+
+                zhou_prec = sum([1 for i in most_active['label'] if i == this_cat]) / zhou_selects
             unit_ts_dict["zhou_prec"][this_cat] = zhou_prec
             unit_ts_dict["zhou_selects"][this_cat] = zhou_selects
             unit_ts_dict["zhou_thr"][this_cat] = zhou_thr
@@ -1421,14 +1426,17 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             # get output activations for class correlation
             # # can only run this on y_1hot
             if y_1hot:
-                output_layer_acts = np.load(output_acts_name)
-                # print(f"np.shape(output_layer_acts): {np.shape(output_layer_acts)}")
-                output_acts_ts = output_layer_acts[:, timestep, :]
-                # print(f"np.shape(output_acts_ts): {np.shape(output_acts_ts)}")
+                if an_empty_class:
+                    class_corr = {'coef': 0, 'p': "nan"}
+                else:
+                    output_layer_acts = np.load(output_acts_name)
+                    # print(f"np.shape(output_layer_acts): {np.shape(output_layer_acts)}")
+                    output_acts_ts = output_layer_acts[:, timestep, :]
+                    # print(f"np.shape(output_acts_ts): {np.shape(output_acts_ts)}")
 
-                class_corr = class_correlation(this_unit_acts=this_unit_acts_df[act_values],
-                                               output_acts=output_acts_ts[:, this_cat],
-                                               verbose=verbose)
+                    class_corr = class_correlation(this_unit_acts=this_unit_acts_df[act_values],
+                                                   output_acts=output_acts_ts[:, this_cat],
+                                                   verbose=verbose)
                 unit_ts_dict["corr_coef"][this_cat] = class_corr['coef']
                 unit_ts_dict["corr_p"][this_cat] = class_corr['p']
             else:
@@ -1533,16 +1541,11 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     if test_run:
         run = 'test'
 
-    if 'gha_acc' in gha_dict['GHA_info']['scores_dict'].keys():
-        gha_acc = gha_dict['GHA_info']['scores_dict']['gha_acc']
-    elif 'prop_seq_corr' in gha_dict['GHA_info']['scores_dict'].keys():
-        gha_acc = gha_dict['GHA_info']['scores_dict']['prop_seq_corr']
-
     sel_csv_info = [gha_dict['topic_info']['cond'], run, output_filename,
                     gha_dict['data_info']['dataset'], gha_dict['GHA_info']['use_dataset'],
                     n_layers,
                     gha_dict['model_info']['layers']['hid_layers']['hid_totals']['analysable'],
-                    gha_acc,
+                    gha_dict['GHA_info']['scores_dict']['prop_seq_corr'],
                     round(max_sel_summary['for_summ_csv_dict']['mi_mean'], 3),
                     round(max_sel_summary['for_summ_csv_dict']['mi_max'], 3),
                     round(max_sel_summary['for_summ_csv_dict']['ccma_mean'], 3),
@@ -1554,7 +1557,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                     ]
 
     summary_headers = ["cond", "run", "output_filename", "dataset", "use_dataset",
-                       "n_layers", "hid_units", "gha_acc",
+                       "n_layers", "hid_units", "prop_seq_corr",
                        "mi_mean", "mi_max", "ccma_mean", "ccma_max",
                        "prec_mean", "prec_max", "means_mean", "means_max"]
 
@@ -1580,6 +1583,3 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     print("\nend of sel script")
 
     return sel_dict  # , mean_sel_per_NN
-
-
-

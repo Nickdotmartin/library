@@ -6,17 +6,19 @@ import git
 import numpy as np
 
 import tensorflow as tf
-from tensorflow.keras.optimizers import Adam, SGD, RMSprop
+from tensorflow.python import keras
+
+from tensorflow.python.keras.optimizers import Adam, SGD, RMSprop
 from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.python.keras.callbacks import TensorBoard
+from tensorflow.keras.callbacks import TensorBoard
+
 from keras.preprocessing.image import ImageDataGenerator
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler
+
 
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
-from tools.data import load_x_data, load_y_data, find_path_to_dir
-from tools.network import get_model_dict, get_scores
+from tools.data import find_path_to_dir
+from tools.network import get_model_dict
 from tools.RNN_STM import generate_STM_RNN_seqs, get_label_seqs, get_test_scores
 from models.rnns import Bowers14rnn, SimpleRNNn, GRUn, LSTMn, Seq2Seq
 
@@ -60,7 +62,6 @@ def train_model(exp_name,
                 timesteps=1,
                 exp_root='/home/nm13850/Documents/PhD/python_v2/experiments/',
                 verbose=False,
-                test_run=False
                 ):
 
     """
@@ -176,16 +177,13 @@ def train_model(exp_name,
         # # if generator is true
         x_data_path = 'RNN_STM_tools/generate_STM_RNN_seqs'
         y_data_path = 'RNN_STM_tools/generate_STM_RNN_seqs'
-        n_items='unknown'
+        n_items = 'unknown'
 
 
     # # save path
     exp_cond_path = os.path.join(exp_root, exp_name, output_filename)
 
     train_folder = 'training'
-
-    if test_run:
-        train_folder = os.path.join(train_folder, 'test')
 
     exp_cond_path = os.path.join(exp_cond_path, train_folder)
 
@@ -201,17 +199,17 @@ def train_model(exp_name,
         augmentation = False
 
         models_dict = {'Bowers14rnn': Bowers14rnn,
-                      'SimpleRNNn': SimpleRNNn,
-                      'GRUn': GRUn,
-                      'LSTMn': LSTMn,
-                      'Seq2Seq': Seq2Seq}
+                       'SimpleRNNn': SimpleRNNn,
+                       'GRUn': GRUn,
+                       'LSTMn': LSTMn,
+                       'Seq2Seq': Seq2Seq}
 
         model = models_dict[model_name].build(features=x_size, classes=n_cats, timesteps=timesteps,
-                                             batch_size=batch_size, n_layers=hid_layers,
-                                             serial_recall=serial_recall, 
-                                             units_per_layer=units_per_layer, act_func=act_func,
-                                             y_1hot=serial_recall,
-                                             dropout=use_dropout)
+                                              batch_size=batch_size, n_layers=hid_layers,
+                                              serial_recall=serial_recall,
+                                              units_per_layer=units_per_layer, act_func=act_func,
+                                              y_1hot=serial_recall,
+                                              dropout=use_dropout)
     else:
         print("model_dir not recognised")
 
