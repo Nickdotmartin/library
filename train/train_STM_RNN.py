@@ -6,19 +6,17 @@ import git
 import numpy as np
 
 import tensorflow as tf
-from tensorflow.python import keras
-
-from tensorflow.python.keras.optimizers import Adam, SGD, RMSprop
+from tensorflow.keras.optimizers import Adam, SGD, RMSprop
 from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.callbacks import TensorBoard
-
+from tensorflow.python.keras.callbacks import TensorBoard
 from keras.preprocessing.image import ImageDataGenerator
 import matplotlib.pyplot as plt
-
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
 
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
-from tools.data import find_path_to_dir
-from tools.network import get_model_dict
+from tools.data import load_x_data, load_y_data, find_path_to_dir
+from tools.network import get_model_dict, get_scores
 from tools.RNN_STM import generate_STM_RNN_seqs, get_label_seqs, get_test_scores
 from models.rnns import Bowers14rnn, SimpleRNNn, GRUn, LSTMn, Seq2Seq
 
@@ -62,6 +60,7 @@ def train_model(exp_name,
                 timesteps=1,
                 exp_root='/home/nm13850/Documents/PhD/python_v2/experiments/',
                 verbose=False,
+                test_run=False
                 ):
 
     """
@@ -115,6 +114,8 @@ def train_model(exp_name,
     :return: sim_dict with dataset info, model info and training info
 
     """
+
+    print("\n\n\nTraining a new model\n********************")
 
     dset_dir, data_dict_name = os.path.split(data_dict_path)
     dset_dir, dset_name = os.path.split(dset_dir)
