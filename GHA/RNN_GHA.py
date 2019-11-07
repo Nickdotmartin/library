@@ -97,19 +97,21 @@ def rnn_gha(sim_dict_path,
 
     # # # PART 1 # # #
     # # load details from dict
-    if os.path.isfile(sim_dict_path):
-        print(f"sim_dict_path: {sim_dict_path}")
-        sim_dict = load_dict(sim_dict_path)
-        full_exp_cond_path, sim_dict_name = os.path.split(sim_dict_path)
+    if type(sim_dict_path) is str:
+        if os.path.isfile(sim_dict_path):
+            print(f"sim_dict_path: {sim_dict_path}")
+            sim_dict = load_dict(sim_dict_path)
+            full_exp_cond_path, sim_dict_name = os.path.split(sim_dict_path)
 
-    elif os.path.isfile(os.path.join(exp_root, sim_dict_path)):
-        sim_dict_path = os.path.join(exp_root, sim_dict_path)
-        print(f"sim_dict_path: {sim_dict_path}")
-        sim_dict = load_dict(sim_dict_path)
-        full_exp_cond_path, sim_dict_name = os.path.split(sim_dict_path)
+        elif os.path.isfile(os.path.join(exp_root, sim_dict_path)):
+            sim_dict_path = os.path.join(exp_root, sim_dict_path)
+            print(f"sim_dict_path: {sim_dict_path}")
+            sim_dict = load_dict(sim_dict_path)
+            full_exp_cond_path, sim_dict_name = os.path.split(sim_dict_path)
 
     elif type(sim_dict_path) is dict:
         sim_dict = sim_dict_path
+        sim_dict_path = sim_dict['training_info']['sim_dict_path']
         full_exp_cond_path = sim_dict['topic_info']['exp_cond_path']
 
     else:
@@ -185,7 +187,16 @@ def rnn_gha(sim_dict_path,
     # # # # PART 2 # # #
     print("\n**** THE MODEL ****")
     model_name = sim_dict['model_info']['overview']['trained_model']
-    loaded_model = load_model(model_name)
+
+    if os.path.isfile(model_name):
+        loaded_model = load_model(model_name)
+    else:
+        training_dir, sim_dict_name = os.path.split(sim_dict_path)
+        print(f"training_dir: {training_dir}\n"
+              f"sim_dict_name: {sim_dict_name}")
+        if os.path.isfile(os.path.join(training_dir, model_name)):
+            loaded_model = load_model(os.path.join(training_dir, model_name))
+
     loaded_model.trainable = False
 
     model_details = loaded_model.get_config()
@@ -467,7 +478,9 @@ def rnn_gha(sim_dict_path,
 
     print(f"\nadded to list for selectivity analysis: {gha_dict_name[:-7]}")
 
-    gha_info = [cond, run, output_filename, n_layers, hid_units, dataset, use_dataset,
+    gha_info = [cond, run, output_filename,
+                sim_dict['model_info']['overview']['model_name'],
+                n_layers, hid_units, dataset, use_dataset,
                 gha_incorrect, n_cats,
                 timesteps,
                 x_data_type,
@@ -487,7 +500,8 @@ def rnn_gha(sim_dict_path,
     if not os.path.isfile(exp_name + "_GHA_summary.csv"):
         gha_summary = open(exp_name + "_GHA_summary.csv", 'w')
         mywriter = csv.writer(gha_summary)
-        summary_headers = ["cond", "run", 'filename', "n_layers", "hid_units", "dataset", "GHA_on",
+        summary_headers = ["cond", "run", 'filename', 'model', "n_layers",
+                           "hid_units", "dataset", "GHA_on",
                            'incorrect', "n_cats",
                            "timesteps",
                            "x_data_type",

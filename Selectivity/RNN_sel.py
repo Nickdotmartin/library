@@ -52,7 +52,8 @@ def nick_roc_stuff(class_list, hid_acts, this_class, class_a_size, not_a_size,
     print("**** nick_roc_stuff() ****")
 
     # if class is not empty (no correct items)
-    if class_a_size > 0 & not_a_size > 0:
+    if class_a_size * not_a_size > 0:
+
         # convert class list to binary one vs all
         if act_func is 'tanh':
             binary_array = [1 if i == this_class else -1 for i in np.array(class_list)]
@@ -92,6 +93,7 @@ def nick_roc_stuff(class_list, hid_acts, this_class, class_a_size, not_a_size,
 
 
     else:  # if there are not items in this class
+        print(f"\nROC\nno items in class {this_class} (n={class_a_size}) or not_a (n={not_a_size})")
         roc_auc = ave_prec = pr_auc = 0
         max_informed = max_informed_count = max_informed_thr = 0
         max_info_sens = max_info_spec = max_informed_prec = 0
@@ -781,16 +783,19 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     else:
         print("\n**** running rnn_sel() on words ****")
 
-    if os.path.isfile(gha_dict_path):
-        print(f"gha_dict_path: {gha_dict_path}")
+    if type(gha_dict_path) is str:
+        if os.path.isfile(gha_dict_path):
+            print(f"gha_dict_path: {gha_dict_path}")
 
-        # # use gha-dict_path to get exp_cond_gha_path, gha_dict_name,
-        exp_cond_gha_path, gha_dict_name = os.path.split(gha_dict_path)
-        os.chdir(exp_cond_gha_path)
-        current_wd = os.getcwd()
+            # # use gha-dict_path to get exp_cond_gha_path, gha_dict_name,
+            exp_cond_gha_path, gha_dict_name = os.path.split(gha_dict_path)
+            os.chdir(exp_cond_gha_path)
+            current_wd = os.getcwd()
 
-        # # part 1. load dict from study (should run with sim, GHA or sel dict)
-        gha_dict = load_dict(gha_dict_path)
+            # # part 1. load dict from study (should run with sim, GHA or sel dict)
+            gha_dict = load_dict(gha_dict_path)
+        else:
+            raise FileNotFoundError(gha_dict_path)
 
     elif type(gha_dict_path) is dict:
         gha_dict = gha_dict_path
@@ -800,6 +805,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     else:
         raise FileNotFoundError(gha_dict_path)
 
+    assert 'GHA_info' in gha_dict
     focussed_dict_print(gha_dict, 'gha_dict')
 
     # get topic_info from dict
@@ -831,7 +837,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     # # get data info from dict
     n_cats = gha_dict["data_info"]["n_cats"]
     if verbose:
-        print(f"the are {n_cats} word classes")
+        print(f"\nthere are {n_cats} word classes")
 
     if letter_sel:
         n_letters = gha_dict['data_info']["X_size"]
@@ -873,7 +879,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     hid_acts_filename = gha_dict["GHA_info"]["hid_act_files"]['2d']
 
 
-    '''Part 2 - load y, sort out incorrect resonses'''
+    '''Part 2 - load y, sort out incorrect responses'''
     print("\n\nPart 2: loading labels")
     # # load y_labels to go with hid_acts and item_correct for sequences
     if 'seq_corr_list' in list(gha_dict['GHA_info']['scores_dict'].keys()):
@@ -921,14 +927,15 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
 
     # # if not sequence data, load y_labels to go with hid_acts and item_correct for items
-    elif 'item_correct_name' in list(gha_dict['GHA_info']['scores_dict'].keys()):
+    # elif 'item_correct_name' in list(gha_dict['GHA_info']['scores_dict'].keys()):
+    elif 'item_correct_name' in gha_dict['GHA_info']['scores_dict']:
         # # load item_correct (y_data)
         item_correct_name = gha_dict['GHA_info']['scores_dict']['item_correct_name']
         # y_df = pd.read_csv(item_correct_name)
         y_scores_df = nick_read_csv(item_correct_name)
 
 
-
+    # todo: don't use list(dict.keys()) unless making a list.
 
     """# # get rid of incorrect items if required"""
     print("\n\nRemoving incorrect responses")
@@ -1026,7 +1033,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
     # # get items per class
     IPC_dict = seq_items_per_class(label_seqs=test_label_seqs, vocab_dict=vocab_dict)
-    focussed_dict_print(IPC_dict, 'IPC_dict')
+    focussed_dict_print(IPC_dict, 'IPC_dict for correct responses')
     corr_test_IPC_name = f"{output_filename}_{n_correct}_corr_test_IPC.pickle"
     with open(corr_test_IPC_name, "wb") as pickle_out:
         pickle.dump(IPC_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
@@ -1432,8 +1439,8 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
                 print(f"\nccma check\n"
                       f"this_class_size: {this_class_size}, not_a_size: {not_a_size}\n"
-                      f"class_a: {class_a}, class_a_mean: {class_a_mean}\n"
-                      f"not_class_a: {not_class_a}\nnot_class_a_mean: {not_class_a_mean}\n"
+                      f"class_a:\n{class_a}\nclass_a_mean: {class_a_mean}\n"
+                      f"not_class_a:\n{not_class_a}\nnot_class_a_mean: {not_class_a_mean}\n"
                       f"ccma_numerator: {ccma_numerator}\nccma_denominator: {ccma_denominator}\n"
                       f"ccma: {ccma}")
 
@@ -1584,8 +1591,13 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
     sel_csv_info = [gha_dict['topic_info']['cond'], run, output_filename,
                     gha_dict['data_info']['dataset'], gha_dict['GHA_info']['use_dataset'],
+                    gha_dict['model_info']['overview']['x_data_type'],
+                    timesteps,
+                    serial_recall,
+                    gha_dict['model_info']['overview']['model_name'],
                     n_layers,
                     gha_dict['model_info']['layers']['hid_layers']['hid_totals']['analysable'],
+                    letter_sel,
                     gha_dict['GHA_info']['scores_dict']['prop_seq_corr'],
                     round(max_sel_summary['for_summ_csv_dict']['mi_mean'], 3),
                     round(max_sel_summary['for_summ_csv_dict']['mi_max'], 3),
@@ -1598,7 +1610,13 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                     ]
 
     summary_headers = ["cond", "run", "output_filename", "dataset", "use_dataset",
-                       "n_layers", "hid_units", "prop_seq_corr",
+                       'X_type',
+                       'timesteps',
+                       'recall',
+                       'model',
+                       "n_layers", "hid_units",
+                       'letter_sel',
+                       "prop_seq_corr",
                        "mi_mean", "mi_max", "ccma_mean", "ccma_max",
                        "prec_mean", "prec_max", "means_mean", "means_max"]
 
