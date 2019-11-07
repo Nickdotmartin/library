@@ -49,10 +49,13 @@ def nick_roc_stuff(class_list, hid_acts, this_class, class_a_size, not_a_size,
     :return: roc_dict: fpr, tpr, thr, ROC_AUC
     """
 
-    print("**** nick_roc_stuff() ****")
+    print("\n**** nick_roc_stuff() ****")
 
     # if class is not empty (no correct items)
     if class_a_size * not_a_size > 0:
+
+        if verbose:
+            print(f"this_class: {this_class}, class_a_size: {class_a_size}, not_a_size: {not_a_size}")
 
         # convert class list to binary one vs all
         if act_func is 'tanh':
@@ -180,7 +183,21 @@ def class_sel_basics(this_unit_acts_df, items_per_cat, n_classes, hi_val_thr=.5,
 
     # # means
     means_dict = dict(this_unit_acts_df.groupby('label')[act_values].mean())
+
+    # # sd.  will give value of nan if there is no variance rather then 0.
     sd_dict = dict(this_unit_acts_df.groupby('label')[act_values].std())
+    sd_dict = {k: v if not np.isnan(v) else 0 for k, v in sd_dict.items()}
+
+
+    # print(f"\nidiot check sd\n"
+    #       f"means: {len(means_dict.values())} {means_dict}\n"
+    #       f"sd: {len(sd_dict.values())} {sd_dict}\n"
+    #       f"items_per_cat: {items_per_cat}\n"
+    #       f"this_unit_acts_df:\n{this_unit_acts_df}")
+    # for cat in range(n_classes):
+    #     print(f"\ncat: {cat}\n"
+    #           f"{this_unit_acts_df[this_unit_acts_df['label'] == cat]}")
+    # # if all(list(sd_dict.values())) == 'Nan'
 
     # # non-zero_count
     nz_count_dict = dict(this_unit_acts_df[this_unit_acts_df[act_values]
@@ -879,7 +896,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     hid_acts_filename = gha_dict["GHA_info"]["hid_act_files"]['2d']
 
 
-    '''Part 2 - load y, sort out incorrect responses'''
+    '''Part 2 - load y, remove incorrect responses'''
     print("\n\nPart 2: loading labels")
     # # load y_labels to go with hid_acts and item_correct for sequences
     if 'seq_corr_list' in list(gha_dict['GHA_info']['scores_dict'].keys()):
@@ -912,12 +929,20 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             y_letters.append(get_letters)
             y_words.append(get_words)
 
+            print(f"\nthis_seq: {this_seq}\nget_letters: {get_letters}\nget_words: {get_words}\n")
+
         y_letters = np.array(y_letters)
         y_words = np.array(y_words)
         if verbose:
             print(f"\ny_letters: {type(y_letters)}  {np.shape(y_letters)}")
             print(f"y_words: {type(y_words)}  {np.shape(y_words)}")
 
+        # print(f"y letters idio check"
+        #       f"test_label_seqs: {test_label_seqs}"
+        #       f"y_letters[:10]:\n{y_letters[:10]}"
+        #       f"y_words[:10]:\n{y_words[:10]}"
+        #
+        #       f"")
 
         y_df_headers = [f"ts{i}" for i in range(timesteps)]
         y_scores_df = pd.DataFrame(data=test_label_seqs, columns=y_df_headers)
@@ -1299,6 +1324,16 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
                 # # make binary letter class list
                 letter_class_list = y_letters_1ts[:, this_cat]
+
+                # print(f"\n idiot check\n"
+                #       f"y_letters: {y_letters.shape}\n{list(y_letters)}"
+                #       f"\ny_letters_1ts: {y_letters_1ts.shape}\n{list(y_letters_1ts)}"
+                #
+                #       # f"y_letters_1ts\n{list(y_letters_1ts)}\n"
+                #       f"original lettter class list\n{letter_class_list}\n"
+                #       f"this_letter: {this_letter}, this_class_size: {this_class_size}, not_a_size: {not_a_size}\n"
+                #       f"{this_unit_acts_df.sort_values(by='words')}\n"
+                #       f"")
 
                 # # changes '1's to this_cat
                 # print(f"letter_class_list: {letter_class_list}")

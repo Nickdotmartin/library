@@ -82,7 +82,11 @@ def get_X_and_Y_data_from_seq(vocab_dict,
 
             x_data.append(this_word)
     else:
-        x_data = [vocab_dict[item][x_data_type] for item in seq_line]
+        # x_data = [vocab_dict[item][x_data_type] for item in seq_line]
+        x_data = []
+        for item in seq_line:
+            this_word = vocab_dict[item][x_data_type]
+            x_data.append(this_word)
 
     # # Y data
     if serial_recall:
@@ -112,7 +116,7 @@ def get_X_and_Y_data_from_seq(vocab_dict,
 
     return np.array(x_data), np.array(y_data)
 
-# # test get_X_and_Y_data_from_seq
+# # # test get_X_and_Y_data_from_seq
 # print("\ntest get_X_and_Y_data_from_seq")
 # vocab_dict = load_dict('/home/nm13850/Documents/PhD/python_v2/datasets/RNN/bowers14_rep/vocab_30_dict.txt')
 #
@@ -126,8 +130,9 @@ def get_X_and_Y_data_from_seq(vocab_dict,
 # # print(f"x: {get_x}\ny:{get_y}")
 #
 # # many sequences
-# these_seqs = get_label_seqs(n_labels=3, seq_len=3, serial_recall=False, n_seqs=3)
+# # these_seqs = get_label_seqs(n_labels=3, seq_len=3, serial_recall=False, n_seqs=3)
 # # these_seqs = [[0, 2, 3], [5, 3, 6], [0, 4, 2]]
+# these_seqs = [[0], [2], [3], [5], [3], [6], [0], [4], [2]]
 # x_seqs = []
 # y_seqs = []
 # # for index, this_seq in enumerate(these_seqs):
