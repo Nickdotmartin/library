@@ -1180,8 +1180,8 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                               correct_items_only=correct_items_only,
                               letter_sel=letter_sel,
                               already_completed=already_completed,
-                              verbose=True,
-                              test_run=True
+                              verbose=verbose,
+                              test_run=test_run
                               )
 
     for index, unit_gha in enumerate(loop_gha):
@@ -1492,6 +1492,12 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                 if n_correct < 100:
                     zhou_cut_off = 1 / n_correct
                 zhou_selects = int(n_correct * zhou_cut_off)
+
+                if 9 < min(IPC_letters.values()) < 100:
+                    zhou_selects = min(IPC_letters.values())
+
+                print(f"\nZhou\n{IPC_letters}\n{min(IPC_letters.values())}")
+
 
                 most_active = this_unit_acts_df.iloc[:zhou_selects]
 

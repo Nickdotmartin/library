@@ -307,18 +307,37 @@ def rnn_gha(sim_dict_path,
     # # # PART 3 get_scores() # # #
     loaded_model.compile(loss=loss_func, optimizer=optimizer, metrics=['accuracy'])
 
-    n_seqs = 10*batch_size
+    # # load test_seqs if they are there, else generate some
+    data_path = sim_dict['data_info']['data_path']
+    test_filename = f'seq{timesteps}_v{n_cats}_960_test_seq_labels.npy'
+    test_seq_path = os.path.join(data_path, test_filename)
 
-    test_label_seqs = get_label_seqs(n_labels=n_cats, seq_len=timesteps,
-                                     serial_recall=serial_recall, n_seqs=n_seqs)
+    # if os.path.isfile(test_seq_path):
+    test_label_seqs = np.load(test_seq_path)
+    test_label_name = os.path.join(sim_dict['data_info']['data_path'],
+                                   test_filename[:-10])
 
-    test_label_name = f"{output_filename}_{np.shape(test_label_seqs)[0]}_test_seq_"
-    # print(f"test_label_name: {test_label_name}")
-    np.save(f"{test_label_name}labels.npy", test_label_seqs)
+    seq_words_df = pd.read_csv(f"{test_label_name}words.csv")
 
-    seq_words_df = spell_label_seqs(test_label_seqs=test_label_seqs,
-                                    test_label_name=f"{test_label_name}words.csv",
-                                    vocab_dict=vocab_dict, save_csv=True)
+    test_IPC_name = os.path.join(data_path,
+                                 f"seq{timesteps}_v{n_cats}_960_test_IPC.pickle")
+    IPC_dict = load_dict(test_IPC_name)
+
+    # else:
+    #
+    #     n_seqs = 30*batch_size
+    #
+    #     test_label_seqs = get_label_seqs(n_labels=n_cats, seq_len=timesteps,
+    #                                      serial_recall=serial_recall, n_seqs=n_seqs)
+    #     test_label_name = f"{output_filename}_{np.shape(test_label_seqs)[0]}_test_seq_"
+    #
+    #
+    #     # print(f"test_label_name: {test_label_name}")
+    #     np.save(f"{test_label_name}labels.npy", test_label_seqs)
+    #
+    #     seq_words_df = spell_label_seqs(test_label_seqs=test_label_seqs,
+    #                                     test_label_name=f"{test_label_name}words.csv",
+    #                                     vocab_dict=vocab_dict, save_csv=True)
     if verbose:
         print(seq_words_df.head())
 
@@ -333,10 +352,10 @@ def rnn_gha(sim_dict_path,
     mean_IoU = scores_dict['mean_IoU']
     prop_seq_corr = scores_dict['prop_seq_corr']
 
-    IPC_dict = seq_items_per_class(label_seqs=test_label_seqs, vocab_dict=vocab_dict)
-    test_IPC_name = f"{output_filename}_{n_seqs}_test_IPC.pickle"
-    with open(test_IPC_name, "wb") as pickle_out:
-        pickle.dump(IPC_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
+    # IPC_dict = seq_items_per_class(label_seqs=test_label_seqs, vocab_dict=vocab_dict)
+    # test_IPC_name = f"{output_filename}_{n_seqs}_test_IPC.pickle"
+    # with open(test_IPC_name, "wb") as pickle_out:
+    #     pickle.dump(IPC_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
 
 
     # # PART 5
@@ -465,19 +484,6 @@ def rnn_gha(sim_dict_path,
         focussed_dict_print(gha_dict, 'gha_dict', ['GHA_info'])
 
 
-    # make a list of dict names to do sel on
-    if not os.path.isfile(f"{output_filename}_dict_list_for_sel.csv"):
-        dict_list = open(f"{output_filename}_dict_list_for_sel.csv", 'w')
-        mywriter = csv.writer(dict_list)
-    else:
-        dict_list = open(f"{output_filename}_dict_list_for_sel.csv", 'a')
-        mywriter = csv.writer(dict_list)
-
-    mywriter.writerow([gha_dict_name[:-7]])
-    dict_list.close()
-
-    print(f"\nadded to list for selectivity analysis: {gha_dict_name[:-7]}")
-
     gha_info = [cond, run, output_filename,
                 sim_dict['model_info']['overview']['model_name'],
                 n_layers, hid_units, dataset, use_dataset,
@@ -520,6 +526,20 @@ def rnn_gha(sim_dict_path,
 
     mywriter.writerow(gha_info)
     gha_summary.close()
+
+
+    # make a list of dict names to do sel on
+    if not os.path.isfile(f"{output_filename}_dict_list_for_sel.csv"):
+        dict_list = open(f"{output_filename}_dict_list_for_sel.csv", 'w')
+        mywriter = csv.writer(dict_list)
+    else:
+        dict_list = open(f"{output_filename}_dict_list_for_sel.csv", 'a')
+        mywriter = csv.writer(dict_list)
+
+    mywriter.writerow([gha_dict_name[:-7]])
+    dict_list.close()
+
+    print(f"\nadded to list for selectivity analysis: {gha_dict_name[:-7]}")
 
     print("\nend of ff_gha")
 

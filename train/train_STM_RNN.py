@@ -395,9 +395,19 @@ def train_model(exp_name,
     #         if data_dict["test_label_seqs"][-3:] == 'npy':
     #             test_label_seqs = np.load(data_dict["test_label_seqs"])
     # else:
-    #     # # get labels for 100 sequences
-    test_label_seqs = get_label_seqs(n_labels=n_cats, seq_len=timesteps,
-                                     serial_recall=serial_recall, n_seqs=10*batch_size)
+
+    # #     # # get labels for 100 sequences
+    # test_label_seqs = get_label_seqs(n_labels=n_cats, seq_len=timesteps,
+    #                                  serial_recall=serial_recall, n_seqs=10*batch_size)
+
+    # # load test label seqs
+    data_path = data_dict['data_path']
+    test_filename = f'seq{timesteps}_v{n_cats}_960_test_seq_labels.npy'
+    test_seq_path = os.path.join(data_path, test_filename)
+
+    # if os.path.isfile(test_seq_path):
+    test_label_seqs = np.load(test_seq_path)
+
 
     # # call get test accracy(serial_recall,
     scores_dict = get_test_scores(model=model, data_dict=data_dict, test_label_seqs=test_label_seqs,
