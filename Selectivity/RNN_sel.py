@@ -504,7 +504,12 @@ def get_sel_summaries(max_sel_dict_path,
     # # also removing nz_count and hi-val count as they have scores > 1.
     drop_these_measures = ['max_info_count', 'max_info_thr', 'max_info_sens',
                            'max_info_spec', 'max_info_prec', 'zhou_selects', 'zhou_thr',
-                           "nz_count", 'nz_count_c', 'hi_val_count', 'hi_val_count_c']
+                           # # remove nz and hi val for rnn stuff.  not informative
+                           "nz_count", 'nz_count_c', "nz_prop", "nz_prop_c", "nz_prec", "nz_prec_c",
+                           'hi_val_count', 'hi_val_count_c',
+                           "hi_val_prop", "hi_val_prop_c", "hi_val_prec", "hi_val_prec_c",
+                           ]
+
     sel_measures_list = [measure for measure in all_sel_measures_list if measure not in drop_these_measures]
 
     # # remove max_sel_class labels associated with sel measures
@@ -648,7 +653,10 @@ def get_sel_summaries(max_sel_dict_path,
                          "prec_mean": model_means_s.loc['zhou_prec'],
                          "prec_max": model_max_s.loc['zhou_prec'],
                          "means_mean": model_means_s.loc['means'],
-                         "means_max": model_max_s.loc['means']}
+                         "means_max": model_max_s.loc['means'],
+                         "b_sel_mean": model_means_s.loc['b_sel'],
+                         "b_sel_max": model_max_s.loc['b_sel'],
+                         }
 
     '''4a. hl_dfs_dict (highlights_dataframe_dict):  
         df with top_n units/timesteps for each sel measure.
@@ -675,7 +683,9 @@ def get_sel_summaries(max_sel_dict_path,
 
         # # get ranks for scores
         check_values = top_units.loc[:, measure].to_list()
-        rank_values = rankdata([int(-1 * i) for i in check_values], method='dense')
+        rank_values = rankdata([int(-100 * i) for i in check_values], method='dense')
+
+        print(f"\ncheck_values: {check_values}\nrank_values: {rank_values}")
         top_units['rank'] = rank_values
 
         # # append to hl_dfs_dict
@@ -929,7 +939,8 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             y_letters.append(get_letters)
             y_words.append(get_words)
 
-            print(f"\nthis_seq: {this_seq}\nget_letters: {get_letters}\nget_words: {get_words}\n")
+
+            # print(f"\nthis_seq: {this_seq}\nget_letters: {get_letters}\nget_words: {get_words}\n")
 
         y_letters = np.array(y_letters)
         y_words = np.array(y_words)
@@ -1196,7 +1207,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                         'max_informed': {}, 'max_info_count': {},
                         'max_info_thr': {}, 'max_info_sens': {},
                         'max_info_spec': {}, 'max_info_prec': {},
-                        'ccma': {}, 'zhou_prec': {},
+                        'ccma': {}, 'b_sel': {}, 'zhou_prec': {},
                         'zhou_selects': {}, 'zhou_thr': {},
                         'corr_coef': {}, 'corr_p': {},
                         }
@@ -1462,6 +1473,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             if an_empty_class:
                 print(f"\nCCMA\nno items in class {this_cat} or not this cat\nccma=0")
                 ccma = 0
+                b_sel = 0
             else:
                 class_a_mean = class_a[act_values].mean()
                 not_class_a_mean = not_class_a[act_values].mean()
@@ -1479,7 +1491,23 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                       f"ccma_numerator: {ccma_numerator}\nccma_denominator: {ccma_denominator}\n"
                       f"ccma: {ccma}")
 
+                # # Bowers sel
+                print("\nBowers Sel")
+
+                class_a_min = class_a[act_values].min()
+                not_class_a_max = not_class_a[act_values].max()
+                if act_func in ['tanh', 'relu', 'ReLu']:
+                    class_a_min = class_a['normed'].min()
+                    not_class_a_max = not_class_a['normed'].max()
+
+                b_sel = class_a_min - not_class_a_max
+
+                if verbose:
+                    print(f"class_a_min: {class_a_min}, not_class_a_max: {not_class_a_max}\n"
+                          f"b_sel: {b_sel}")
+
             unit_ts_dict["ccma"][this_cat] = ccma
+            unit_ts_dict["b_sel"][this_cat] = b_sel
 
 
             # # zhou_prec
@@ -1644,6 +1672,10 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                     round(max_sel_summary['for_summ_csv_dict']['mi_max'], 3),
                     round(max_sel_summary['for_summ_csv_dict']['ccma_mean'], 3),
                     round(max_sel_summary['for_summ_csv_dict']['ccma_max'], 3),
+
+                    round(max_sel_summary['for_summ_csv_dict']['b_sel_mean'], 3),
+                    round(max_sel_summary['for_summ_csv_dict']['b_sel_max'], 3),
+
                     round(max_sel_summary['for_summ_csv_dict']['prec_mean'], 3),
                     round(max_sel_summary['for_summ_csv_dict']['prec_max'], 3),
                     round(max_sel_summary['for_summ_csv_dict']['means_mean'], 3),
@@ -1661,6 +1693,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                        'letter_sel',
                        "prop_seq_corr",
                        "mi_mean", "mi_max", "ccma_mean", "ccma_max",
+                       "b_sel_mean", 'b_sel_max',
                        "prec_mean", "prec_max", "means_mean", "means_max",
                        'sel_date', 'sel_time']
 
