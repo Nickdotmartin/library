@@ -19,6 +19,7 @@ from tools.network import loop_thru_acts
 
 def simple_plot_rnn(gha_dict_path, 
                     plot_what='all',
+                    measure='b_sel',
                     correct_items_only=True,
                     verbose=False, test_run=False, 
                     show_plots=False):
@@ -363,6 +364,8 @@ def simple_plot_rnn(gha_dict_path,
 
             print(f"plotting {layer_name} {unit_index} {ts_name}\n"
                   f"{hl_info}")
+
+            print(np.shape(hl_info))
 
             hl_text = 'measure\tvalue\tclass\trank\n'
             for info in hl_info:

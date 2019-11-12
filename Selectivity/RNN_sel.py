@@ -683,6 +683,14 @@ def get_sel_summaries(max_sel_dict_path,
 
         # # get ranks for scores
         check_values = top_units.loc[:, measure].to_list()
+
+        if all(check_values) == 0:
+            print(f"\nthese values are all 0\nmeasure: {measure}\n{check_values}")
+            continue
+        if all(check_values) == 0.0:
+            print(f"\nthese values are all 0.0\nmeasure: {measure}\n{check_values}")
+            continue
+
         rank_values = rankdata([int(-100 * i) for i in check_values], method='dense')
 
         print(f"\ncheck_values: {check_values}\nrank_values: {rank_values}")
@@ -719,21 +727,31 @@ def get_sel_summaries(max_sel_dict_path,
         for unit in units_names_list:
             # # get array for this layer, unit - all timesteps
             layer_unit_df = max_sel_df.xs((layer, unit), level=('Layer', 'Unit'))
+
+            print(f"\nlayer_unit_df:\n{layer_unit_df}")
+
             for measure in sel_measures_list:
                 # # get max sel label for these timesteps
                 check_classes = layer_unit_df.loc[:, f'{measure}_c'].to_list()
                 # # if there is only 1 label (i.e., all timesteps have same max_sel_class)
                 if len(set(check_classes)) == 1:
-                    # # add indices/keys to dict
-                    if layer not in hl_units_dict.keys():
-                        hl_units_dict[layer] = dict()
-                    if unit not in hl_units_dict[layer].keys():
-                        hl_units_dict[layer][unit] = dict()
-                    if 'ts_invar' not in hl_units_dict[layer][unit]:
-                        hl_units_dict[layer][unit]['ts_invar'] = []
 
-                    # # add measure name to dict
-                    hl_units_dict[layer][unit]['ts_invar'].append(measure)
+                    # # check vals are not all zero
+                    check_values = layer_unit_df.loc[:, measure].to_list()
+                    print(f"\ncheck_values ({measure}): {check_values}")
+
+                    if all(check_values) > 0:
+
+                        # # add indices/keys to dict
+                        if layer not in hl_units_dict.keys():
+                            hl_units_dict[layer] = dict()
+                        if unit not in hl_units_dict[layer].keys():
+                            hl_units_dict[layer][unit] = dict()
+                        if 'ts_invar' not in hl_units_dict[layer][unit]:
+                            hl_units_dict[layer][unit]['ts_invar'] = []
+
+                        # # add measure name to dict
+                        hl_units_dict[layer][unit]['ts_invar'].append(measure)
 
     # save hl_units_dict here
     with open(f"{output_filename}_hl_units.pickle", "wb") as pickle_out:
