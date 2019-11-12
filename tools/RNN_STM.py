@@ -331,7 +331,7 @@ def get_test_scores(model, data_dict, test_label_seqs,
         # print(f"all_pred_labels: {np.shape(all_pred_labels)}")
 
         # # sanitycheck
-        pred_y_values = model.predict(x_test, batch_size=batch_size, verbose=verbose)
+        # pred_y_values = model.predict(x_test, batch_size=batch_size, verbose=verbose)
 
 
     else:
