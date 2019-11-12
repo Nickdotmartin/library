@@ -492,7 +492,7 @@ def loop_thru_acts(gha_dict_path,
     sequence_data = False
     y_1hot = True
 
-    if 'timesteps' in list(gha_dict['model_info']['overview'].keys()):
+    if 'timesteps' in gha_dict['model_info']['overview']:
         sequence_data = True
         timesteps = gha_dict['model_info']["overview"]["timesteps"]
         serial_recall = gha_dict['model_info']["overview"]["serial_recall"]
@@ -510,7 +510,7 @@ def loop_thru_acts(gha_dict_path,
     '''Part 2 - load y, sort out incorrect resonses'''
     print("\n\nPart 2: loading labels")
     # # load y_labels to go with hid_acts and item_correct for sequences
-    if 'seq_corr_list' in list(gha_dict['GHA_info']['scores_dict'].keys()):
+    if 'seq_corr_list' in gha_dict['GHA_info']['scores_dict']:
         n_seqs = gha_dict['GHA_info']['scores_dict']['n_seqs']
         n_seq_corr = gha_dict['GHA_info']['scores_dict']['n_seq_corr']
         n_incorrect = n_seqs - n_seq_corr
@@ -558,7 +558,7 @@ def loop_thru_acts(gha_dict_path,
 
 
     # # if not sequence data, load y_labels to go with hid_acts and item_correct for items
-    elif 'item_correct_name' in list(gha_dict['GHA_info']['scores_dict'].keys()):
+    elif 'item_correct_name' in gha_dict['GHA_info']['scores_dict']:
         # # load item_correct (y_data)
         item_correct_name = gha_dict['GHA_info']['scores_dict']['item_correct_name']
         # y_df = pd.read_csv(item_correct_name)
@@ -714,7 +714,7 @@ def loop_thru_acts(gha_dict_path,
         layer_name = layer_dict['layer_name']
 
         partially_completed_layer = False
-        if layer_name in list(already_completed.keys()):
+        if layer_name in already_completed:
             if already_completed[layer_name] is 'all':
                 print("already completed analysis on this layer")
                 continue

@@ -43,6 +43,8 @@ class Bowers14rnn:
 
         model.add(SimpleRNN(units=units_per_layer,
                             # input_shape=(timesteps, features),
+
+
                             batch_input_shape=(batch_size, timesteps, features),
 
                             return_sequences=serial_recall,  # this stops it from giving an output after each item

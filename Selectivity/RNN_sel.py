@@ -205,7 +205,7 @@ def class_sel_basics(this_unit_acts_df, items_per_cat, n_classes, hi_val_thr=.5,
 
     if len(list(nz_count_dict.keys())) < n_classes:
         for i in class_list:
-            if i not in list(nz_count_dict.keys()):
+            if i not in nz_count_dict:
                 nz_count_dict[i] = 0
 
     # nz_perplexity = sum(1 for i in nz_count_dict.values() if i >= 0)
@@ -223,7 +223,7 @@ def class_sel_basics(this_unit_acts_df, items_per_cat, n_classes, hi_val_thr=.5,
                                                hi_val_thr].groupby('label')[act_values].count())
     if len(list(hi_val_count_dict.keys())) < n_classes:
         for i in class_list:
-            if i not in list(hi_val_count_dict.keys()):
+            if i not in hi_val_count_dict:
                 hi_val_count_dict[i] = 0
 
     hi_val_total = this_unit_acts_df[this_unit_acts_df[act_values] > hi_val_thr][act_values].count()
@@ -879,7 +879,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     sequence_data = False
     y_1hot = True
 
-    if 'timesteps' in list(gha_dict['model_info']['overview'].keys()):
+    if 'timesteps' in gha_dict['model_info']['overview']:
         sequence_data = True
         timesteps = gha_dict['model_info']["overview"]["timesteps"]
         serial_recall = gha_dict['model_info']["overview"]["serial_recall"]
@@ -899,7 +899,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     '''Part 2 - load y, remove incorrect responses'''
     print("\n\nPart 2: loading labels")
     # # load y_labels to go with hid_acts and item_correct for sequences
-    if 'seq_corr_list' in list(gha_dict['GHA_info']['scores_dict'].keys()):
+    if 'seq_corr_list' in gha_dict['GHA_info']['scores_dict']:
         n_seqs = gha_dict['GHA_info']['scores_dict']['n_seqs']
         n_seq_corr = gha_dict['GHA_info']['scores_dict']['n_seq_corr']
         n_incorrect = n_seqs - n_seq_corr
@@ -1079,9 +1079,9 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             last_layer_name = hid_acts_dict[last_layer_num]['layer_name']
 
             # output_layer_acts = hid_acts_dict['hid_acts_2d'][last_layer_name]
-            if 'hid_acts' in list(hid_acts_dict[last_layer_num].keys()):
+            if 'hid_acts' in hid_acts_dict[last_layer_num]:
                 output_layer_acts = hid_acts_dict[last_layer_num]['hid_acts']
-            elif 'hid_acts_2d' in list(hid_acts_dict[last_layer_num].keys()):
+            elif 'hid_acts_2d' in hid_acts_dict[last_layer_num]:
                 output_layer_acts = hid_acts_dict[last_layer_num]['hid_acts_2d']
 
         elif '.h5' == hid_acts_filename[-3:]:
@@ -1091,9 +1091,9 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                 last_layer_num = hid_acts_keys_list[-1]
                 last_layer_name = hid_acts_dict[last_layer_num]['layer_name']
                 # output_layer_acts = hid_acts_dict['hid_acts_2d'][last_layer_name]
-                if 'hid_acts' in list(hid_acts_dict[last_layer_num].keys()):
+                if 'hid_acts' in hid_acts_dict[last_layer_num]:
                     output_layer_acts = hid_acts_dict[last_layer_num]['hid_acts']
-                elif 'hid_acts_2d' in list(hid_acts_dict[last_layer_num].keys()):
+                elif 'hid_acts_2d' in hid_acts_dict[last_layer_num]:
                     output_layer_acts = hid_acts_dict[last_layer_num]['hid_acts_2d']
 
         # close hid act dict to save memory space?
@@ -1316,7 +1316,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             if letter_sel:
                 this_letter = letter_id_dict[this_cat]
                 print(f"\nthis_cat: {this_cat} this_letter: {this_letter}")
-                if this_letter in list(IPC_letters.keys()):
+                if this_letter in IPC_letters:
                     this_class_size = IPC_letters[this_letter]
                 else:
                     this_class_size = 0
@@ -1353,7 +1353,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                 this_unit_acts_df['label'] = letter_class_list
 
             else:
-                if this_cat in list(IPC_words.keys()):
+                if this_cat in IPC_words:
                     this_class_size = IPC_words[this_cat]
                 else:
                     this_class_size = 0
@@ -1529,7 +1529,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                 unit_ts_dict["corr_coef"][this_cat] = class_corr['coef']
                 unit_ts_dict["corr_p"][this_cat] = class_corr['p']
             else:
-                if 'corr_coef' in list(unit_ts_dict.keys()):
+                if 'corr_coef' in unit_ts_dict:
                     del unit_ts_dict['corr_coef']
                     del unit_ts_dict['corr_p']
 
@@ -1544,12 +1544,12 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
         # # sort dicts to save
         # # add layer to all_sel_dict
-        if layer_name not in list(all_sel_dict.keys()):
+        if layer_name not in all_sel_dict:
             all_sel_dict[layer_name] = dict()
             max_sel_dict[layer_name] = dict()
 
         # # add unit index to sel_p_unit dict
-        if unit_index not in list(all_sel_dict[layer_name].keys()):
+        if unit_index not in all_sel_dict[layer_name]:
             all_sel_dict[layer_name][unit_index] = dict()
             max_sel_dict[layer_name][unit_index] = dict()
 
@@ -1560,7 +1560,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
         else:  # # if sequence data
             # # add timestep to max sel_p_unit dict
-            if timestep not in list(all_sel_dict[layer_name][unit_index].keys()):
+            if timestep not in all_sel_dict[layer_name][unit_index]:
                 all_sel_dict[layer_name][unit_index][ts_name] = dict()
                 max_sel_dict[layer_name][unit_index][ts_name] = dict()
 
@@ -1648,6 +1648,8 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                     round(max_sel_summary['for_summ_csv_dict']['prec_max'], 3),
                     round(max_sel_summary['for_summ_csv_dict']['means_mean'], 3),
                     round(max_sel_summary['for_summ_csv_dict']['means_max'], 3),
+                    int(datetime.datetime.now().strftime("%y%m%d")),
+                    int(datetime.datetime.now().strftime("%H%M")),
                     ]
 
     summary_headers = ["cond", "run", "output_filename", "dataset", "use_dataset",
@@ -1659,7 +1661,8 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                        'letter_sel',
                        "prop_seq_corr",
                        "mi_mean", "mi_max", "ccma_mean", "ccma_max",
-                       "prec_mean", "prec_max", "means_mean", "means_max"]
+                       "prec_mean", "prec_max", "means_mean", "means_max",
+                       'sel_date', 'sel_time']
 
     # # save sel summary in exp folder not condition folder
     exp_name = gha_dict['topic_info']['exp_name']

@@ -529,11 +529,11 @@ def rnn_gha(sim_dict_path,
 
 
     # make a list of dict names to do sel on
-    if not os.path.isfile(f"{output_filename}_dict_list_for_sel.csv"):
-        dict_list = open(f"{output_filename}_dict_list_for_sel.csv", 'w')
+    if not os.path.isfile(f"{exp_name}_dict_list_for_sel.csv"):
+        dict_list = open(f"{exp_name}_dict_list_for_sel.csv", 'w')
         mywriter = csv.writer(dict_list)
     else:
-        dict_list = open(f"{output_filename}_dict_list_for_sel.csv", 'a')
+        dict_list = open(f"{exp_name}_dict_list_for_sel.csv", 'a')
         mywriter = csv.writer(dict_list)
 
     mywriter.writerow([gha_dict_name[:-7]])

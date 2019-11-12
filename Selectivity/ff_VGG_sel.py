@@ -949,7 +949,7 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         # focussed_dict_print(max_sel_dict, 'max_sel_dict')
 
         if unit_dict != 'dead_unit':
-            for measure in list(unit_dict.keys()):
+            for measure in unit_dict:
                 layer_unit_sel_list = []
                 if measure == 'max':
                     continue

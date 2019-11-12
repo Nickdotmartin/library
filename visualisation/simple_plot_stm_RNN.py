@@ -74,9 +74,9 @@ def simple_plot_rnn(gha_dict_path,
 
 
     if verbose:
-        print(f"output_filename: {output_filename}")
+        print(f"\noutput_filename: {output_filename}")
         print(f"plots_path (to save): {plots_path}")
-        print(f"\nos.getcwd(): {os.getcwd()}")
+        print(f"os.getcwd(): {os.getcwd()}")
 
 
     # # get data info from dict
@@ -108,7 +108,7 @@ def simple_plot_rnn(gha_dict_path,
     # todo: do I need y_1hot?
     y_1hot = True
 
-    if 'timesteps' in list(gha_dict['model_info']['overview'].keys()):
+    if 'timesteps' in gha_dict['model_info']['overview']:
         sequence_data = True
         timesteps = gha_dict['model_info']["overview"]["timesteps"]
         serial_recall = gha_dict['model_info']["overview"]["serial_recall"]
@@ -128,7 +128,7 @@ def simple_plot_rnn(gha_dict_path,
     '''Part 2 - load y, sort out incorrect resonses'''
     print("\n\nPart 2: loading labels")
     # # load y_labels to go with hid_acts and item_correct for sequences
-    if 'seq_corr_list' in list(gha_dict['GHA_info']['scores_dict'].keys()):
+    if 'seq_corr_list' in gha_dict['GHA_info']['scores_dict']:
         n_seqs = gha_dict['GHA_info']['scores_dict']['n_seqs']
         n_seq_corr = gha_dict['GHA_info']['scores_dict']['n_seq_corr']
         n_incorrect = n_seqs - n_seq_corr
@@ -174,7 +174,7 @@ def simple_plot_rnn(gha_dict_path,
 
 
     # # if not sequence data, load y_labels to go with hid_acts and item_correct for items
-    elif 'item_correct_name' in list(gha_dict['GHA_info']['scores_dict'].keys()):
+    elif 'item_correct_name' in gha_dict['GHA_info']['scores_dict']:
         # # load item_correct (y_data)
         item_correct_name = gha_dict['GHA_info']['scores_dict']['item_correct_name']
         # y_df = pd.read_csv(item_correct_name)
@@ -308,7 +308,6 @@ def simple_plot_rnn(gha_dict_path,
                          "iv. dict with structure [layers][units][timesteps]")
 
     if hl_dict:
-        print(hl_dict)
         focussed_dict_print(hl_dict, 'hl_dict')
 
 
@@ -324,8 +323,8 @@ def simple_plot_rnn(gha_dict_path,
     loop_gha = loop_thru_acts(gha_dict_path=gha_dict_path,
                               correct_items_only=correct_items_only,
                               letter_sel=False,
-                              verbose=True,
-                              test_run=True
+                              verbose=verbose,
+                              test_run=test_run
                               )
 
     for index, unit_gha in enumerate(loop_gha):
@@ -349,13 +348,13 @@ def simple_plot_rnn(gha_dict_path,
         IPC_letters = IPC_dict['letter_p_class_p_ts'][ts_name]
 
         if hl_dict:
-            if layer_name not in hl_dict.keys():
+            if layer_name not in hl_dict:
                 print(f"{layer_name} not in hl_dict")
                 continue
-            if unit_index not in hl_dict[layer_name].keys():
+            if unit_index not in hl_dict[layer_name]:
                 print(f"unit {unit_index} not in hl_dict[{layer_name}]")
                 continue
-            if ts_name not in hl_dict[layer_name][unit_index].keys():
+            if ts_name not in hl_dict[layer_name][unit_index]:
                 print(f"{ts_name} not in hl_dict[{layer_name}][{unit_index}]")
                 continue
 
