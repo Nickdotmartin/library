@@ -359,6 +359,9 @@ def simple_plot_rnn(gha_dict_path,
                 print(f"{ts_name} not in hl_dict[{layer_name}][{unit_index}]")
                 continue
 
+            print("\nchecking hl info\n"
+                  f"{hl_dict[layer_name][unit_index][ts_name]}")
+
             hl_info = hl_dict[layer_name][unit_index][ts_name]
             hl_info = sorted(hl_info, key=itemgetter(2))
 
@@ -389,7 +392,7 @@ def simple_plot_rnn(gha_dict_path,
         print(f"y_letters_1ts: {np.shape(y_letters_1ts)}")
 
         # sort by ascending word labels
-        this_unit_acts_df = this_unit_acts_df.sort_values(by='label')
+        this_unit_acts_df = this_unit_acts_df.sort_values(by='label', ascending=False)
 
 
         # if test_run:

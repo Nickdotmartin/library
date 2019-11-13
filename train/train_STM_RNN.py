@@ -6,7 +6,7 @@ import git
 import numpy as np
 
 import tensorflow as tf
-from tensorflow.keras.optimizers import Adam, SGD, RMSprop
+from tensorflow.keras.optimizers import Adam, SGD, RMSprop, Adagrad, Adadelta, Adamax, Nadam
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.python.keras.callbacks import TensorBoard
 from keras.preprocessing.image import ImageDataGenerator
@@ -58,6 +58,8 @@ def train_model(exp_name,
                 use_batch_norm=True, use_dropout=0.0,
                 use_val_data=True,
                 timesteps=1,
+                weight_init='GlorotUniform',
+                lr=0.001,
                 exp_root='/home/nm13850/Documents/PhD/python_v2/experiments/',
                 verbose=False,
                 test_run=False
@@ -210,7 +212,7 @@ def train_model(exp_name,
                                               serial_recall=serial_recall,
                                               units_per_layer=units_per_layer, act_func=act_func,
                                               y_1hot=serial_recall,
-                                              dropout=use_dropout)
+                                              dropout=use_dropout, weight_init=weight_init)
     else:
         print("model_dir not recognised")
 
@@ -223,12 +225,33 @@ def train_model(exp_name,
 
     # optimizer
     sgd_lr = 0.01  # initialize learning rate
-    sgd = SGD(lr=sgd_lr, momentum=.9)  # decay=sgd_lr / max_epochs)
+    sgd = SGD(lr=lr, momentum=.9)  # decay=sgd_lr / max_epochs)
     this_optimizer = sgd
-    if use_optimizer == 'adam':
-        this_optimizer = Adam(lr=0.001)
-    elif use_optimizer == 'rmsprop':
-        this_optimizer = RMSprop(lr=0.0001, decay=1e-6)
+
+    if use_optimizer == 'SGD_Nesterov':
+        sgd = SGD(lr=lr, momentum=.1, nesterov=True)  # decay=sgd_lr / max_epochs)
+
+    elif use_optimizer == 'adam':
+        # this_optimizer = Adam(lr=0.001)
+        this_optimizer = Adam(lr=lr, amsgrad=True)
+
+    elif use_optimizer == 'RMSprop':
+        # this_optimizer = RMSprop(lr=0.0001, decay=1e-6)
+        this_optimizer = RMSprop(lr=lr)  # , decay=1e-6)
+
+    elif use_optimizer == 'Adagrad':
+        this_optimizer = Adagrad()  # , decay=1e-6)
+
+    elif use_optimizer == 'Adadelta':
+        this_optimizer = Adadelta()  # , decay=1e-6)
+
+    elif use_optimizer == 'Adamax':
+        this_optimizer = Adamax(lr=lr)  # , decay=1e-6)
+
+    elif use_optimizer == 'Nadam':
+        this_optimizer = Nadam()  # , decay=1e-6)
+
+
 
     # # metrics
     main_metric = 'binary_accuracy'
@@ -238,6 +261,10 @@ def train_model(exp_name,
     # # compile model
     model.compile(loss=loss_func, optimizer=this_optimizer,
                   metrics=[main_metric])
+
+    optimizer_details = model.optimizer.get_config()
+    # print_nested_round_floats(model_details)
+    focussed_dict_print(optimizer_details, 'optimizer_details')
 
 
     # # get model dict
