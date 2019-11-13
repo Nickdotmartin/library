@@ -748,3 +748,69 @@ def spell_label_seqs(test_label_seqs, vocab_dict,
 # get_words = spell_label_seqs(test_label_seqs=this_one,
 #                              test_label_name=csv_name,
 #                              vocab_dict=vocab_dict, save_csv=True)
+
+
+##########################################
+
+def letter_in_seq(letter, test_label_seqs, vocab_dict):
+    """
+    input a list of sequence labels and a letter to search for.
+    Return a binary array showing whether the letter in question is present in each time.
+
+    :param letter:  to search for
+    :param test_label_seqs: items to search in
+    :param vocab_dict: to check it all out.
+
+    :return: binary numpy array
+    """
+
+    print(f"letter: {letter}\n"
+          f"test_label_seqs: {np.shape(test_label_seqs)}\n"
+          # f"{test_label_seqs}"
+          )
+
+    letter_id_dict = load_dict('/home/nm13850/Documents/PhD/python_v2/datasets/'
+                               'RNN/bowers14_rep/letter_id_dict.txt')
+
+    if type(letter) is int:
+        letter_id = letter
+        letter = letter_id_dict[letter_id]
+    if type(letter) is str:
+        all_letters = list(letter_id_dict.values())
+        print(all_letters)
+        letter_id = all_letters.index(letter)
+
+    print(f"letter: {letter}  id: {letter_id}")
+
+    letter_present_list = []
+    for row in test_label_seqs:
+        # print(row)
+        new_row = []
+        for item in row:
+            spelled_word = vocab_dict[item]['letters']
+            if letter in spelled_word:
+                print(spelled_word, letter)
+                new_row.append(1)
+            else:
+                print(spelled_word, )
+                new_row.append(0)
+        letter_present_list.append(new_row)
+
+    letter_present_array = np.array(letter_present_list)
+
+    return letter_present_array
+
+# print("\n\n\n*********testing letter_in_seq()\n\n")
+# free_test_label_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/STM_RNN_test_v30_free_recall/test/all_generator_gha/test/STM_RNN_test_v30_free_recall_lett_320_corr_test_label_seqs.npy'
+# seri_test_label_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/STM_RNN_test_v30_serial_recall/test/all_generator_gha/test/STM_RNN_test_v30_serial_recall_320_corr_test_label_seqs.npy'
+# seri_3l_test_label_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/STM_RNN_test_v30_serial_recall_3l/test/all_generator_gha/test/STM_RNN_test_v30_serial_recall_3l_320_corr_test_label_seqs.npy'
+#
+# this_one = free_test_label_path
+# np_dir, np_name = os.path.split(this_one)
+# # csv_name = os.path.join(np_dir, f"{np_name[:-8]}spelled.csv")
+#
+# test_label_seqs = np.load(free_test_label_path)
+#
+# vocab_dict = load_dict(os.path.join('/home/nm13850/Documents/PhD/python_v2/datasets/RNN/bowers14_rep',
+#                                     'vocab_30_dict.txt'))
+# get_letters = letter_in_seq(letter='ea', test_label_seqs=test_label_seqs, vocab_dict=vocab_dict)

@@ -10,7 +10,7 @@ from matplotlib import gridspec
 from operator import itemgetter
 
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
-from tools.RNN_STM import get_X_and_Y_data_from_seq, seq_items_per_class, spell_label_seqs
+from tools.RNN_STM import get_X_and_Y_data_from_seq, seq_items_per_class, spell_label_seqs, letter_in_seq
 from tools.data import nick_read_csv, find_path_to_dir
 from tools.network import loop_thru_acts
 
@@ -20,6 +20,7 @@ from tools.network import loop_thru_acts
 def simple_plot_rnn(gha_dict_path, 
                     plot_what='all',
                     measure='b_sel',
+                    letter_sel=False,
                     correct_items_only=True,
                     verbose=False, test_run=False, 
                     show_plots=False):
@@ -27,6 +28,8 @@ def simple_plot_rnn(gha_dict_path,
     
     :param gha_dict_path: or gha_dict
     :param plot_what: 'all' or 'highlights' or dict[layer_names][units][timesteps] 
+    :param measure: selectivity measure to focus on if hl_dict provided
+    :param letter_sel: focus on level of words or letters
     :param correct_items_only: remove items that were incorrect
     :param verbose:
     :param test_run: just 3 plots
@@ -61,8 +64,8 @@ def simple_plot_rnn(gha_dict_path,
 
     # get topic_info from dict
     output_filename = gha_dict["topic_info"]["output_filename"]
-    # if letter_sel:
-    #     output_filename = f"{output_filename}_lett"
+    if letter_sel:
+        output_filename = f"{output_filename}_lett"
 
     # # where to save files
     plots_folder = 'plots'
@@ -81,18 +84,19 @@ def simple_plot_rnn(gha_dict_path,
 
 
     # # get data info from dict
-    n_cats = gha_dict["data_info"]["n_cats"]
+    n_words = gha_dict["data_info"]["n_cats"]
+    n_letters = gha_dict["data_info"]["X_size"]
     if verbose:
-        print(f"the are {n_cats} word classes")
+        print(f"the are {n_words} word classes")
 
-    # if letter_sel:
-    #     n_letters = gha_dict['data_info']["X_size"]
-    #     n_cats = n_letters
-    #     print(f"the are {n_letters} letters classes\nn_cats now set as n_letters")
-    #
-    #     letter_id_dict = load_dict(os.path.join(gha_dict['data_info']['data_path'],
-    #                                             'letter_id_dict.txt'))
-    #     print(f"\nletter_id_dict:\n{letter_id_dict}")
+    if letter_sel:
+        n_letters = gha_dict['data_info']["X_size"]
+        n_words = n_letters
+        print(f"the are {n_letters} letters classes\nn_words now set as n_letters")
+
+        letter_id_dict = load_dict(os.path.join(gha_dict['data_info']['data_path'],
+                                                'letter_id_dict.txt'))
+        print(f"\nletter_id_dict:\n{letter_id_dict}")
 
 
 
@@ -106,8 +110,6 @@ def simple_plot_rnn(gha_dict_path,
 
     # # check for sequences/rnn
     sequence_data = False
-    # todo: do I need y_1hot?
-    y_1hot = True
 
     if 'timesteps' in gha_dict['model_info']['overview']:
         sequence_data = True
@@ -144,27 +146,26 @@ def simple_plot_rnn(gha_dict_path,
             print(f"seqs_corr: {np.shape(seqs_corr)}")
             print(f"n_seq_corr: {n_seq_corr}")
 
+        if letter_sel:
+            # # get 1hot item vectors for 'words' and 3 hot for letters
+            '''Always use serial_recall True. as I want a separate 1hot vector for each item.
+            Always use x_data_type 'local_letter_X' as I want 3hot vectors'''
+            y_letters = []
+            y_words = []
+            for this_seq in test_label_seqs:
+                get_letters, get_words = get_X_and_Y_data_from_seq(vocab_dict=vocab_dict,
+                                                                   seq_line=this_seq,
+                                                                   serial_recall=True,
+                                                                   end_seq_cue=False,
+                                                                   x_data_type='local_letter_X')
+                y_letters.append(get_letters)
+                y_words.append(get_words)
 
-        # # get 1hot item vectors for 'words' and 3 hot for letters
-        # todo: do I need this?
-        '''Always use serial_recall True. as I want a separate 1hot vector for each item.
-        Always use x_data_type 'local_letter_X' as I want 3hot vectors'''
-        y_letters = []
-        y_words = []
-        for this_seq in test_label_seqs:
-            get_letters, get_words = get_X_and_Y_data_from_seq(vocab_dict=vocab_dict,
-                                                               seq_line=this_seq,
-                                                               serial_recall=True,
-                                                               end_seq_cue=False,
-                                                               x_data_type='local_letter_X')
-            y_letters.append(get_letters)
-            y_words.append(get_words)
-
-        y_letters = np.array(y_letters)
-        y_words = np.array(y_words)
-        if verbose:
-            print(f"\ny_letters: {type(y_letters)}  {np.shape(y_letters)}")
-            print(f"y_words: {type(y_words)}  {np.shape(y_words)}")
+            y_letters = np.array(y_letters)
+            y_words = np.array(y_words)
+            if verbose:
+                print(f"\ny_letters: {type(y_letters)}  {np.shape(y_letters)}")
+                print(f"y_words: {type(y_words)}  {np.shape(y_words)}")
 
 
         y_df_headers = [f"ts{i}" for i in range(timesteps)]
@@ -233,8 +234,8 @@ def simple_plot_rnn(gha_dict_path,
             mask[incorrect_items] = False
             test_label_seqs = test_label_seqs[mask]
 
-            # if letter_sel:
-            #     y_letters = y_letters[mask]
+            if letter_sel:
+                y_letters = y_letters[mask]
 
         else:
             if verbose:
@@ -273,9 +274,9 @@ def simple_plot_rnn(gha_dict_path,
     corr_test_seq_name = f"{output_filename}_{n_correct}_corr_test_label_seqs.npy"
     np.save(corr_test_seq_name, test_label_seqs)
     corr_test_letters_name = 'not_processed_yet'
-    # if letter_sel:
-    #     corr_test_letters_name = f"{output_filename}_{n_correct}_corr_test_letter_seqs.npy"
-    #     np.save(corr_test_letters_name, y_letters)
+    if letter_sel:
+        corr_test_letters_name = f"{output_filename}_{n_correct}_corr_test_letter_seqs.npy"
+        np.save(corr_test_letters_name, y_letters)
 
 
     # # get items per class
@@ -284,6 +285,17 @@ def simple_plot_rnn(gha_dict_path,
     corr_test_IPC_name = f"{output_filename}_{n_correct}_corr_test_IPC.pickle"
     with open(corr_test_IPC_name, "wb") as pickle_out:
         pickle.dump(IPC_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # # how many times is each item represented at each timestep.
+    word_p_class_p_ts = IPC_dict['word_p_class_p_ts']
+    letter_p_class_p_ts = IPC_dict['letter_p_class_p_ts']
+    
+    for i in range(timesteps):
+        n_words_p_ts = len(word_p_class_p_ts[f"ts{i}"].keys())
+        n_letters_p_ts = len(letter_p_class_p_ts[f"ts{i}"].keys())
+
+        print(f"ts{i}) words:{n_words_p_ts}/{n_words}\tletters: {n_letters_p_ts}/{n_letters}")
+        # print(word_p_class_p_ts[f"ts{i}"].keys())
 
     # # sort plot_what
     print(f"\nplotting: {plot_what}")
@@ -311,11 +323,10 @@ def simple_plot_rnn(gha_dict_path,
     if hl_dict:
         focussed_dict_print(hl_dict, 'hl_dict')
 
-
     '''save results
     either make a new empty place to save.
     or load previous version and get the units I have already completed'''
-    # os.chdir(plots_path)
+    os.chdir(plots_path)
 
 
     '''
@@ -323,18 +334,15 @@ def simple_plot_rnn(gha_dict_path,
     '''
     loop_gha = loop_thru_acts(gha_dict_path=gha_dict_path,
                               correct_items_only=correct_items_only,
-                              letter_sel=False,
+                              letter_sel=letter_sel,
                               verbose=verbose,
                               test_run=test_run
                               )
 
+    test_run_counter = 0
     for index, unit_gha in enumerate(loop_gha):
 
         print(f"\nindex: {index}")
-
-        if test_run:
-            if index == 3:
-                break
 
         # print(f"\n\n{index}:\n{unit_gha}\n")
         sequence_data = unit_gha["sequence_data"]
@@ -348,6 +356,8 @@ def simple_plot_rnn(gha_dict_path,
         IPC_words = IPC_dict['word_p_class_p_ts'][ts_name]
         IPC_letters = IPC_dict['letter_p_class_p_ts'][ts_name]
 
+
+        # # only plot units of interest according to hl dict
         if hl_dict:
             if layer_name not in hl_dict:
                 print(f"{layer_name} not in hl_dict")
@@ -359,22 +369,56 @@ def simple_plot_rnn(gha_dict_path,
                 print(f"{ts_name} not in hl_dict[{layer_name}][{unit_index}]")
                 continue
 
-            print("\nchecking hl info\n"
-                  f"{hl_dict[layer_name][unit_index][ts_name]}")
+            unit_hl_info = [x for x in hl_dict[layer_name][unit_index][ts_name]
+                            if x[0] == measure]
+            if len(unit_hl_info) == 0:
+                print(f"{measure} not in hl_dict[{layer_name}][{unit_index}][{ts_name}]")
+                continue
 
-            hl_info = hl_dict[layer_name][unit_index][ts_name]
-            hl_info = sorted(hl_info, key=itemgetter(2))
+            if test_run:
+                if test_run_counter == 3:
+                    break
+                test_run_counter += 1
 
-            print(f"plotting {layer_name} {unit_index} {ts_name}\n"
-                  f"{hl_info}")
+            unit_hl_info = list(unit_hl_info[0])
 
-            print(np.shape(hl_info))
+            print(f"plotting {layer_name} {unit_index} {ts_name} "
+                  f"{unit_hl_info}")
 
-            hl_text = 'measure\tvalue\tclass\trank\n'
-            for info in hl_info:
+            print(f"\nsequence_data: {sequence_data}")
+            print(f"y_1hot: {y_1hot}")
+            print(f"unit_index: {unit_index}")
+            print(f"timestep: {timestep}")
+            print(f"ts_name: {ts_name}")
+
+            # # selective_for_what
+            sel_idx = unit_hl_info[2]
+            if letter_sel:
+                sel_for = 'letter'
+                sel_item = letter_id_dict[sel_idx]
+            else:
+                sel_for = 'word'
+                sel_item = vocab_dict[sel_idx]['word']
+
+            # # add in sel item
+            unit_hl_info.insert(3, sel_item)
+
+            # # change rank to int
+            rank_str = unit_hl_info[4]
+            unit_hl_info[4] = int(rank_str[5:])
+
+
+            # hl_text = f'measure\tvalue\tclass\t{sel_for}\trank\n'
+            hl_keys = ['measure: ', 'value: ', 'label: ', f'{sel_for}: ', 'rank: ']
+            hl_text = ''
+            for idx, info in enumerate(unit_hl_info):
+                key = hl_keys[idx]
                 str_info = str(info)
-                hl_text = ''.join([hl_text, str_info[1:-1], '\n'])
-            print(hl_text)
+                # hl_text = ''.join([hl_text, str_info[1:-1], '\n'])
+                hl_text = ''.join([hl_text, key, str_info, '\n'])
+
+            print(f"\nhl_text: {hl_text}")
+
 
         # #  make df
         this_unit_acts = pd.DataFrame(data=item_act_label_array,
@@ -382,17 +426,12 @@ def simple_plot_rnn(gha_dict_path,
         this_unit_acts_df = this_unit_acts.astype(
             {'item': 'int32', 'activation': 'float', 'label': 'int32'})
 
-        print(f"sequence_data: {sequence_data}")
-        print(f"y_1hot: {y_1hot}")
-        print(f"unit_index: {unit_index}")
-        print(f"timestep: {timestep}")
-        print(f"ts_name: {ts_name}")
 
-        y_letters_1ts = np.array(y_letters[:, timestep])
-        print(f"y_letters_1ts: {np.shape(y_letters_1ts)}")
 
-        # sort by ascending word labels
-        this_unit_acts_df = this_unit_acts_df.sort_values(by='label', ascending=False)
+        if letter_sel:
+            y_letters_1ts = np.array(y_letters[:, timestep])
+            print(f"y_letters_1ts: {np.shape(y_letters_1ts)}")
+            # print(f"y_letters_1ts: {y_letters_1ts}")
 
 
         # if test_run:
@@ -403,9 +442,22 @@ def simple_plot_rnn(gha_dict_path,
         seq_words_df = spell_label_seqs(test_label_seqs=np.asarray(unit_ts_labels),
                                         vocab_dict=vocab_dict, save_csv=False)
         seq_words_list = seq_words_df.iloc[:, 0].tolist()
-        # print(f"seq_words_list:\n{seq_words_list}")
+        # print(f"seq_words_df:\n{seq_words_df}")
         this_unit_acts_df['words'] = seq_words_list
         # print(f"this_unit_acts_df:\n{this_unit_acts_df.head()}")
+
+
+        # # get labels for selective item
+        if letter_sel:
+            sel_item_list = y_letters_1ts[:, sel_idx]
+        else:
+            sel_item_list = [1 if x == sel_item else 0 for x in seq_words_list]
+        this_unit_acts_df['sel_item'] = sel_item_list
+
+
+
+        # sort by ascending word labels
+        this_unit_acts_df = this_unit_acts_df.sort_values(by='words', ascending=True)
 
         if verbose is True:
             print(f"\nthis_unit_acts_df: {this_unit_acts_df.shape}\n")
@@ -413,7 +465,7 @@ def simple_plot_rnn(gha_dict_path,
 
 
         # # make simple plot
-        title = f"{layer_name} unit {unit_index} {ts_name} (of {timesteps})"
+        title = f"{layer_name} unit{unit_index} {ts_name} (of {timesteps})"
 
         print(f"title: {title}")
 
@@ -422,9 +474,14 @@ def simple_plot_rnn(gha_dict_path,
             # gs = gridspec.GridSpec(1, 2, width_ratios=[2, 1])
             # spotty_axis = plt.subplot(gs[0])
             # text_box = plt.subplot(gs[1])
+
+            sel_pallette = {0: "grey", 1: "green"}
+
+
             gridkw = dict(width_ratios=[2, 1])
             fig, (spotty_axis, text_box) = plt.subplots(1, 2, gridspec_kw=gridkw)
-            spot_plot = sns.catplot(x='activation', y="words", data=this_unit_acts_df,
+            spot_plot = sns.catplot(x='activation', y="words", hue='sel_item',
+                                    data=this_unit_acts_df,
                                     ax=spotty_axis, orient='h', kind="strip",
                                     jitter=1, dodge=True, linewidth=.5,
                                     palette="Set2", marker="D", edgecolor="gray")  # , alpha=.25)
@@ -433,6 +490,7 @@ def simple_plot_rnn(gha_dict_path,
             text_box.axes.get_xaxis().set_visible(False)
             text_box.patch.set_visible(False)
             text_box.axis('off')
+            spotty_axis.get_legend().set_visible(False)
             spotty_axis.set_xlabel("Unit activations")
             fig.suptitle(title)
             plt.close()  # extra blank plot
