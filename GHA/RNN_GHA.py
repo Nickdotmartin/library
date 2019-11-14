@@ -344,7 +344,6 @@ def rnn_gha(sim_dict_path,
     scores_dict = get_test_scores(model=loaded_model, data_dict=data_dict,
                                   test_label_seqs=test_label_seqs,
                                   serial_recall=serial_recall,
-                                  x_data_type=x_data_type,
                                   end_seq_cue=end_seq_cue,
                                   batch_size=batch_size,
                                   verbose=verbose)

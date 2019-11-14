@@ -170,7 +170,6 @@ def generate_STM_RNN_seqs(data_dict,
     although the other functions work one at a time.)
 
     :param data_dict: dict for this dataset with links to vocab_dict
-    :param vocab_dict: Dict containing the codes for Y and Y data
     :param seq_len: Or time-steps.  number of items per seq.
     :param batch_size: Generator outputs in batches - this sets their size
     :param serial_recall: default=false. free recall, y is a single n-hot vector where n=seq_len.
@@ -181,7 +180,6 @@ def generate_STM_RNN_seqs(data_dict,
     :param x_data_type: 'local_word_X', 'local_letter_X', 'dist_letter_X'.
                 Note for 1hot Y data use local_word_X
     :param end_seq_cue: if True, add input unit which is activated for the last item in each seq
-    :param sequences_to_use: if None, generate sequences.  Else, add sequences here.
 
     :Yeild: X_array and Y_array
     """
@@ -251,7 +249,6 @@ def generate_STM_RNN_seqs(data_dict,
 # # get test scores.
 def get_test_scores(model, data_dict, test_label_seqs,
                     serial_recall=False,
-                    x_data_type='dist_letter_X',
                     end_seq_cue=False,
                     batch_size=16,
                     verbose=True):
@@ -279,7 +276,6 @@ def get_test_scores(model, data_dict, test_label_seqs,
     :param data_dict: dict with relevant info including link to vocab dict
     :param test_label_seqs: sequence of labels to test on
     :param serial_recall: Type of recall
-    :param x_data_type:
     :param end_seq_cue:
     :param batch_size:
     :param verbose:
@@ -358,7 +354,9 @@ def get_test_scores(model, data_dict, test_label_seqs,
 
         # print("sanity check - first item")
         # pred_round = [np.round(i, 2) for i in pred_y_values[0]]
-        # print(f"\n\n\nlabels_test: {labels_test[0]}\nall_pred_labels: {all_pred_labels[0]}\npred_round: {pred_round}\n\n\n")
+        # print(f"\n\n\nlabels_test: {labels_test[0]}\n"
+        #       f"all_pred_labels: {all_pred_labels[0]}\n"
+        #       f"pred_round: {pred_round}\n\n\n")
 
     print("\nIoU acc")
     iou_scores = []
@@ -443,7 +441,6 @@ def get_test_scores(model, data_dict, test_label_seqs,
 # # get test scores.
 def get_layer_acts(model, layer_name, data_dict, test_label_seqs,
                    serial_recall=False,
-                   x_data_type='dist_letter_X',
                    end_seq_cue=False,
                    batch_size=16,
                    verbose=True):
@@ -462,7 +459,6 @@ def get_layer_acts(model, layer_name, data_dict, test_label_seqs,
     :param data_dict: dict with relevant info including link to vocab dict
     :param test_label_seqs: sequence of labels to test on
     :param serial_recall: Type of recall
-    :param x_data_type: how to convert labels to input data
     :param end_seq_cue: whether extra input unit is added
     :param batch_size: batch to predict at once
     :param verbose:
@@ -497,8 +493,6 @@ def get_layer_acts(model, layer_name, data_dict, test_label_seqs,
     # # make new model
     gha_model = Model(inputs=model.input, outputs=model.get_layer(layer_name).output)
 
-    # # get model dict for loaded model
-    gha_model_config = gha_model.get_config()
 
     # # get hid acts for each timestep even if output is free-recall
     # print("\nchanging layer attribute: return_sequnces")
@@ -677,9 +671,13 @@ def spell_label_seqs(test_label_seqs, vocab_dict,
     """
     input a list of sequence labels and return list of english words.
 
-    :param test_label_seqs:
-    :param vocab_dict:
-    :return:
+    :param test_label_seqs: sequence of ints to convert to words
+    :param vocab_dict: vocab dict to map ints to words
+    :param test_label_name: name to save file
+    :param save_csv: whether to save file
+
+    :return: spelled_label_seqs_df: dataframe of words with
+                                    timesteps as columns, items as rows
     """
 
     if save_csv:
@@ -700,7 +698,6 @@ def spell_label_seqs(test_label_seqs, vocab_dict,
     if len(np.shape(test_labels)) is 2:
         items, seqs = np.shape(test_labels)
     elif len(np.shape(test_labels)) is 1:
-        items = np.shape(test_labels)
         seqs = 1
     else:
         raise ValueError("expecting 1d or 2d np.ndarray for test_labels\n"
@@ -775,10 +772,12 @@ def letter_in_seq(letter, test_label_seqs, vocab_dict):
     if type(letter) is int:
         letter_id = letter
         letter = letter_id_dict[letter_id]
-    if type(letter) is str:
+    elif type(letter) is str:
         all_letters = list(letter_id_dict.values())
         print(all_letters)
         letter_id = all_letters.index(letter)
+    else:
+        raise TypeError("letter to search for should be string or int")
 
     print(f"letter: {letter}  id: {letter_id}")
 
@@ -801,9 +800,15 @@ def letter_in_seq(letter, test_label_seqs, vocab_dict):
     return letter_present_array
 
 # print("\n\n\n*********testing letter_in_seq()\n\n")
-# free_test_label_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/STM_RNN_test_v30_free_recall/test/all_generator_gha/test/STM_RNN_test_v30_free_recall_lett_320_corr_test_label_seqs.npy'
-# seri_test_label_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/STM_RNN_test_v30_serial_recall/test/all_generator_gha/test/STM_RNN_test_v30_serial_recall_320_corr_test_label_seqs.npy'
-# seri_3l_test_label_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/STM_RNN_test_v30_serial_recall_3l/test/all_generator_gha/test/STM_RNN_test_v30_serial_recall_3l_320_corr_test_label_seqs.npy'
+# free_test_label_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/' \
+#                        'STM_RNN_test_v30_free_recall/test/all_generator_gha/test/' \
+#                        'STM_RNN_test_v30_free_recall_lett_320_corr_test_label_seqs.npy'
+# seri_test_label_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/' \
+#                        'STM_RNN_test_v30_serial_recall/test/all_generator_gha/test/' \
+#                        'STM_RNN_test_v30_serial_recall_320_corr_test_label_seqs.npy'
+# seri_3l_test_label_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/' \
+#                           'STM_RNN_test_v30_serial_recall_3l/test/all_generator_gha/test/' \
+#                           'STM_RNN_test_v30_serial_recall_3l_320_corr_test_label_seqs.npy'
 #
 # this_one = free_test_label_path
 # np_dir, np_name = os.path.split(this_one)

@@ -10,7 +10,6 @@ from sklearn.metrics import confusion_matrix
 
 from tools.data import load_y_data, nick_to_csv, nick_read_csv
 from tools.dicts import load_dict, focussed_dict_print
-from tools.RNN_STM import get_X_and_Y_data_from_seq
 
 
 tools_date = int(datetime.datetime.now().strftime("%y%m%d"))
@@ -112,8 +111,8 @@ def get_model_dict(compiled_model, verbose=False):
 
         # # get useful info
         out_layer_dict = {'layer': layer,
-                      'name': model_config['layers'][layer]['config']['name'],
-                      'class': model_config['layers'][layer]['class_name']}
+                          'name': model_config['layers'][layer]['config']['name'],
+                          'class': model_config['layers'][layer]['class_name']}
 
         if 'units' in model_config['layers'][layer]['config']:
             out_layer_dict['units'] = model_config['layers'][layer]['config']['units']
@@ -415,9 +414,8 @@ def loop_thru_acts(gha_dict_path,
                    letter_sel=False,
                    already_completed={},
                    verbose=False, test_run=False):
-    """
-    To use hidden unit activations for sel, (lesioning?) visualisation.
-    1. load dict from study (GHA dict) - get variables from dict
+    """To use hidden unit activations for sel, (lesioning?) visualisation.
+        1. load dict from study (GHA dict) - get variables from dict
     2. load y, sort out incorrect resonses
     3. find where to load gha from: pickle, hdf5, shelve.
         for now write assuming pickle
@@ -431,8 +429,6 @@ def loop_thru_acts(gha_dict_path,
 
     :param gha_dict_path: path of the gha dict
     :param correct_items_only: Whether to skip test items that that model got incorrect.
-    :param all_classes: Whether to test for selectivity of all classes or a subset
-                        (e.g., most active classes)
     :param letter_sel: if False, test sel for words (class-labels).
             If True, test for letters (parts) using 'local_word_X' for each word when looping through classes
     :param already_completed: None, or dict with layer_names as keys,
@@ -448,7 +444,7 @@ def loop_thru_acts(gha_dict_path,
     """
 
     if verbose:
-       print("\n**** running loop_thru_units() ****")
+        print("\n**** running loop_thru_units() ****")
 
     # # check already completed dict
     if already_completed is not None:

@@ -37,7 +37,6 @@ various datasets (vocab, seq len, rpt)
 models (rnn, GRU, LSTM, seq2seq)
 
 '''
-# todo: weight initializations for rnns?
 
 
 def train_model(exp_name,
@@ -108,6 +107,8 @@ def train_model(exp_name,
     :param use_dropout: use dropout
     :param use_val_data: use validation set (either separate set, or train/val split)
     :param timesteps: if RNN length of sequence
+    :param weight_init: change the initializatation of the weights
+    :param lr: set the learning rate for the optimizer
     :param exp_root: root directory for saving experiments
 
     :param verbose: if 0, not verbose; if 1 - print basics; if 2, print all
@@ -224,32 +225,29 @@ def train_model(exp_name,
 
 
     # optimizer
-    sgd_lr = 0.01  # initialize learning rate
     sgd = SGD(lr=lr, momentum=.9)  # decay=sgd_lr / max_epochs)
     this_optimizer = sgd
 
     if use_optimizer == 'SGD_Nesterov':
-        sgd = SGD(lr=lr, momentum=.1, nesterov=True)  # decay=sgd_lr / max_epochs)
+        this_optimizer = SGD(lr=lr, momentum=.1, nesterov=True)  # decay=sgd_lr / max_epochs)
 
     elif use_optimizer == 'adam':
-        # this_optimizer = Adam(lr=0.001)
         this_optimizer = Adam(lr=lr, amsgrad=True)
 
     elif use_optimizer == 'RMSprop':
-        # this_optimizer = RMSprop(lr=0.0001, decay=1e-6)
-        this_optimizer = RMSprop(lr=lr)  # , decay=1e-6)
+        this_optimizer = RMSprop(lr=lr)
 
     elif use_optimizer == 'Adagrad':
-        this_optimizer = Adagrad()  # , decay=1e-6)
+        this_optimizer = Adagrad()
 
     elif use_optimizer == 'Adadelta':
-        this_optimizer = Adadelta()  # , decay=1e-6)
+        this_optimizer = Adadelta()
 
     elif use_optimizer == 'Adamax':
-        this_optimizer = Adamax(lr=lr)  # , decay=1e-6)
+        this_optimizer = Adamax(lr=lr)
 
     elif use_optimizer == 'Nadam':
-        this_optimizer = Nadam()  # , decay=1e-6)
+        this_optimizer = Nadam()
 
 
 
@@ -439,7 +437,6 @@ def train_model(exp_name,
     # # call get test accracy(serial_recall,
     scores_dict = get_test_scores(model=model, data_dict=data_dict, test_label_seqs=test_label_seqs,
                                   serial_recall=serial_recall,
-                                  x_data_type=x_data_type,
                                   end_seq_cue=end_seq_cue,
                                   batch_size=batch_size,
                                   verbose=verbose)

@@ -10,7 +10,7 @@ from matplotlib import gridspec
 from operator import itemgetter
 
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
-from tools.RNN_STM import get_X_and_Y_data_from_seq, seq_items_per_class, spell_label_seqs, letter_in_seq
+from tools.RNN_STM import get_X_and_Y_data_from_seq, seq_items_per_class, spell_label_seqs
 from tools.data import nick_read_csv, find_path_to_dir
 from tools.network import loop_thru_acts
 
@@ -47,14 +47,13 @@ def simple_plot_rnn(gha_dict_path,
         # # use gha-dict_path to get exp_cond_gha_path, gha_dict_name,
         exp_cond_gha_path, gha_dict_name = os.path.split(gha_dict_path)
         os.chdir(exp_cond_gha_path)
-        current_wd = os.getcwd()
 
         # # part 1. load dict from study (should run with sim, GHA or sel dict)
         gha_dict = load_dict(gha_dict_path)
 
     elif type(gha_dict_path) is dict:
         gha_dict = gha_dict_path
-        exp_cond_gha_path = current_wd = os.getcwd()
+        exp_cond_gha_path = os.getcwd()
 
     else:
         raise FileNotFoundError(gha_dict_path)
@@ -102,30 +101,13 @@ def simple_plot_rnn(gha_dict_path,
 
 
     # # get model info from dict
-    n_layers = gha_dict['model_info']['overview']['hid_layers']
     model_dict = gha_dict['model_info']['config']
     if verbose:
         focussed_dict_print(model_dict, 'model_dict')
 
-
-    # # check for sequences/rnn
-    sequence_data = False
-
-    if 'timesteps' in gha_dict['model_info']['overview']:
-        sequence_data = True
-        timesteps = gha_dict['model_info']["overview"]["timesteps"]
-        serial_recall = gha_dict['model_info']["overview"]["serial_recall"]
-        y_1hot = serial_recall
-        vocab_dict = load_dict(os.path.join(gha_dict['data_info']["data_path"],
-                                            gha_dict['data_info']["vocab_dict"]))
-
-    # # I can't do class correlations for letters, (as it is the equivillent of
-    # having a dist output for letters
-    # if letter_sel:
-    #     y_1hot = False
-
-    # # get gha info from dict
-    hid_acts_filename = gha_dict["GHA_info"]["hid_act_files"]['2d']
+    timesteps = gha_dict['model_info']["overview"]["timesteps"]
+    vocab_dict = load_dict(os.path.join(gha_dict['data_info']["data_path"],
+                                        gha_dict['data_info']["vocab_dict"]))
 
 
     '''Part 2 - load y, sort out incorrect resonses'''
@@ -474,9 +456,6 @@ def simple_plot_rnn(gha_dict_path,
             # gs = gridspec.GridSpec(1, 2, width_ratios=[2, 1])
             # spotty_axis = plt.subplot(gs[0])
             # text_box = plt.subplot(gs[1])
-
-            sel_pallette = {0: "grey", 1: "green"}
-
 
             gridkw = dict(width_ratios=[2, 1])
             fig, (spotty_axis, text_box) = plt.subplots(1, 2, gridspec_kw=gridkw)
