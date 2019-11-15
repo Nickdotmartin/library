@@ -192,7 +192,7 @@ def get_scores(predicted_outputs, y_df, output_filename, verbose=False, save_all
     true_cat = [int(i) for i in y_df['class'].tolist()]
     # true_cat = y_df['class'].tolist()  # was returning strings?
 
-    # make a list of whether the preidctions were correct
+    # make a list of whether the predictions were correct
     item_score = []
     incorrect_items = []
     for index, pred_item in enumerate(predicted_cat):

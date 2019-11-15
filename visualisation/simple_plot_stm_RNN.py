@@ -483,8 +483,10 @@ def simple_plot_rnn(gha_dict_path,
             plt.tight_layout(rect=[0, 0.03, 1, 0.90])
 
 
-
-        save_name = f"{plots_path}/{output_filename}_{layer_name}_{unit_index}_{ts_name}_spotty.png"
+        if letter_sel:
+            save_name = f"{plots_path}/{output_filename}_{layer_name}_{unit_index}_{ts_name}_lett_spotty.png"
+        else:
+            save_name = f"{plots_path}/{output_filename}_{layer_name}_{unit_index}_{ts_name}_spotty.png"
         plt.savefig(save_name)
         if show_plots:
             plt.show()

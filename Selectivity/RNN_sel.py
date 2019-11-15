@@ -1,6 +1,7 @@
 import copy
 import csv
 import datetime
+import json
 import os
 import pickle
 import shelve
@@ -96,7 +97,9 @@ def nick_roc_stuff(class_list, hid_acts, this_class, class_a_size, not_a_size,
 
 
     else:  # if there are not items in this class
-        print(f"\nROC\nno items in class {this_class} (n={class_a_size}) or not_a (n={not_a_size})")
+        if verbose:
+            print(f"\nROC\nno items in class {this_class} (n={class_a_size}) "
+                  f"or not_a (n={not_a_size})")
         roc_auc = ave_prec = pr_auc = 0
         max_informed = max_informed_count = max_informed_thr = 0
         max_info_sens = max_info_spec = max_informed_prec = 0
@@ -561,12 +564,12 @@ def get_sel_summaries(max_sel_dict_path,
     plt.figure()
     for index, measure in enumerate(sel_measures_list):
 
-        print(f"\nindex: {index}: measure: {measure}\n{sel_measures_df[measure]}")
+        # print(f"\nindex: {index}: measure: {measure}\n{sel_measures_df[measure]}")
         check_values = sel_measures_df[measure].to_list()
-        print(f"check_values: {check_values}")
+        # print(f"check_values: {check_values}")
 
         sel_measures_df.dropna(subset=[measure], inplace=True)
-        print(f"\ndropna:\n{sel_measures_df[measure]}")
+        # print(f"\ndropna:\n{sel_measures_df[measure]}")
 
         if not sel_measures_df.empty:
             ax = sns.kdeplot(sel_measures_df[measure], color=colours[index], shade=True)
@@ -693,7 +696,6 @@ def get_sel_summaries(max_sel_dict_path,
 
         rank_values = rankdata([int(-100 * i) for i in check_values], method='dense')
 
-        print(f"\ncheck_values: {check_values}\nrank_values: {rank_values}")
         top_units['rank'] = rank_values
 
         # # append to hl_dfs_dict
@@ -728,7 +730,8 @@ def get_sel_summaries(max_sel_dict_path,
             # # get array for this layer, unit - all timesteps
             layer_unit_df = max_sel_df.xs((layer, unit), level=('Layer', 'Unit'))
 
-            print(f"\nlayer_unit_df:\n{layer_unit_df}")
+            if verbose:
+                print(f"\nlayer_unit_df:\n{layer_unit_df}")
 
             for measure in sel_measures_list:
                 # # get max sel label for these timesteps
@@ -738,7 +741,9 @@ def get_sel_summaries(max_sel_dict_path,
 
                     # # check vals are not all zero
                     check_values = layer_unit_df.loc[:, measure].to_list()
-                    print(f"\ncheck_values ({measure}): {check_values}")
+
+                    if verbose:
+                        print(f"\ncheck_values ({measure}): {check_values}")
 
                     if all(check_values) > 0:
 
@@ -753,9 +758,11 @@ def get_sel_summaries(max_sel_dict_path,
                         # # add measure name to dict
                         hl_units_dict[layer][unit]['ts_invar'].append(measure)
 
-    # save hl_units_dict here
-    with open(f"{output_filename}_hl_units.pickle", "wb") as pickle_out:
-        pickle.dump(hl_units_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
+    # save hl_units_dict here as json for easy reading
+    # with open(f"{output_filename}_hl_units.pickle", "wb") as pickle_out:
+    #     pickle.dump(hl_units_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
+    with open(f"{output_filename}_hl_units.txt", 'w') as fp:
+        json.dump(hl_units_dict, fp, indent=4, separators=(',', ':'))
 
     if verbose:
         print_nested_round_floats(hl_units_dict, 'hl_units_dict')
@@ -822,6 +829,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
              layer means:                    [layer name]['means'][measure]
 
     """
+
 
     if letter_sel:
         print("\n**** running rnn_sel() on letters ****")
@@ -1006,8 +1014,9 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         else:
             TypeError(f"TYPE_ERROR!: what are the scores/acc for items? {full_model_values}")
 
-    print(f"len(full_model_values): {len(full_model_values)}")
-    print(f"correct_symbol: {correct_symbol}")
+    if verbose:
+        print(f"len(full_model_values): {len(full_model_values)}")
+        print(f"correct_symbol: {correct_symbol}")
 
     # # i need to check whether this analysis should include incorrect items (True/False)
     gha_incorrect = gha_dict['GHA_info']['gha_incorrect']
@@ -1248,14 +1257,17 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         this_unit_acts_df = this_unit_acts.astype(
             {'item': 'int32', 'activation': 'float', 'label': 'int32'})
 
-        print(f"sequence_data: {sequence_data}")
-        print(f"y_1hot: {y_1hot}")
-        print(f"unit_index: {unit_index}")
-        print(f"timestep: {timestep}")
-        print(f"ts_name: {ts_name}")
+        if verbose:
+            print(f"sequence_data: {sequence_data}")
+            print(f"y_1hot: {y_1hot}")
+            print(f"unit_index: {unit_index}")
+            print(f"timestep: {timestep}")
+            print(f"ts_name: {ts_name}")
 
         y_letters_1ts = np.array(y_letters[:, timestep])
-        print(f"y_letters_1ts: {np.shape(y_letters_1ts)}")
+
+        if verbose:
+            print(f"y_letters_1ts: {np.shape(y_letters_1ts)}")
 
 
         if test_run:
@@ -1284,7 +1296,8 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             y_letters_1ts = [b for a, b in sorted(zip(unsorted_order, y_letters_1ts))]
             y_letters_1ts = np.array(y_letters_1ts)
             # print(f"y_letters_1ts: {y_letters_1ts}")
-            print(f"np.shape(y_letters_1ts): {np.shape(y_letters_1ts)}")
+            if verbose:
+                print(f"np.shape(y_letters_1ts): {np.shape(y_letters_1ts)}")
 
 
         # # # always normalize to range [0, 1] activations if relu
@@ -1376,8 +1389,9 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                 else:
                     letter_class_list = [this_cat if i == 1 else not_this_letter_symbol
                                          for i in np.array(letter_class_list)]
-                print(f"letter_class_list: {letter_class_list}")
-                # print(f"letter_class_list: {np.shape(letter_class_list)}")
+                if verbose:
+                    print(f"letter_class_list: {letter_class_list}")
+                    # print(f"letter_class_list: {np.shape(letter_class_list)}")
 
                 this_unit_acts_df['label'] = letter_class_list
 
@@ -1388,7 +1402,8 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                     this_class_size = 0
                 not_a_size = n_correct - this_class_size
 
-            print(f"this_unit_acts_df:\n{this_unit_acts_df.head()}")
+            if verbose:
+                print(f"this_unit_acts_df:\n{this_unit_acts_df.head()}")
 
 
             if verbose is True:
@@ -1419,7 +1434,8 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                 # print(f"ts_IPC_letters: {ts_IPC_letters}")
                 # print(f"ts_IPC_this_letter: {ts_IPC_this_letter}")
                 # print(f"ts_IPC_not_this_letter: {ts_IPC_not_this_letter}")
-                print(f"IPC_binary_letters: {IPC_binary_letters}")
+                if verbose:
+                    print(f"IPC_binary_letters: {IPC_binary_letters}")
 
                 # # get class_sel_basics (class_means, sd, prop > .5, prop @ 0)
                 class_sel_basics_dict = class_sel_basics(this_unit_acts_df=this_unit_acts_df,
@@ -1470,7 +1486,8 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                                             not_a_size=not_a_size,
                                             verbose=verbose)
 
-            print(f"roc_stuff_dict:\n{roc_stuff_dict}")
+            if verbose:
+                print(f"roc_stuff_dict:\n{roc_stuff_dict}")
 
             # # add roc_stuff_dict to unit dict
             for roc_key, roc_value in roc_stuff_dict.items():
@@ -1485,11 +1502,13 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             if True in empty_class_list:
                 an_empty_class = True
 
-            print(f"empty_class_list: {empty_class_list}\n"
-                  f"an_empty_class: {an_empty_class}")
+            if verbose:
+                print(f"empty_class_list: {empty_class_list}\n"
+                      f"an_empty_class: {an_empty_class}")
 
             if an_empty_class:
-                print(f"\nCCMA\nno items in class {this_cat} or not this cat\nccma=0")
+                if verbose:
+                    print(f"\nCCMA\nno items in class {this_cat} or not this cat\nccma=0")
                 ccma = 0
                 b_sel = 0
             else:
@@ -1502,12 +1521,13 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                 ccma_denominator = class_a_mean + not_class_a_mean
                 ccma = ccma_numerator / ccma_denominator
 
-                print(f"\nccma check\n"
-                      f"this_class_size: {this_class_size}, not_a_size: {not_a_size}\n"
-                      f"class_a:\n{class_a}\nclass_a_mean: {class_a_mean}\n"
-                      f"not_class_a:\n{not_class_a}\nnot_class_a_mean: {not_class_a_mean}\n"
-                      f"ccma_numerator: {ccma_numerator}\nccma_denominator: {ccma_denominator}\n"
-                      f"ccma: {ccma}")
+                if verbose:
+                    print(f"\nccma check\n"
+                          f"this_class_size: {this_class_size}, not_a_size: {not_a_size}\n"
+                          f"class_a:\n{class_a}\nclass_a_mean: {class_a_mean}\n"
+                          f"not_class_a:\n{not_class_a}\nnot_class_a_mean: {not_class_a_mean}\n"
+                          f"ccma_numerator: {ccma_numerator}\nccma_denominator: {ccma_denominator}\n"
+                          f"ccma: {ccma}")
 
                 # # Bowers sel
                 print("\nBowers Sel")
@@ -1542,7 +1562,8 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                 if 9 < min(IPC_letters.values()) < 100:
                     zhou_selects = min(IPC_letters.values())
 
-                print(f"\nZhou\n{IPC_letters}\n{min(IPC_letters.values())}")
+                if verbose:
+                    print(f"\nZhou\n{IPC_letters}\n{min(IPC_letters.values())}")
 
 
                 most_active = this_unit_acts_df.iloc[:zhou_selects]
@@ -1579,7 +1600,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                     del unit_ts_dict['corr_coef']
                     del unit_ts_dict['corr_p']
 
-        focussed_dict_print(unit_ts_dict, 'unit_ts_dict', )
+        focussed_dict_print(unit_ts_dict, f'unit_ts_dict: {unit_index} {ts_name}')
 
         # which class was the highest for each measure
         max_sel_p_unit_dict = sel_unit_max(unit_ts_dict, verbose=verbose)
