@@ -285,7 +285,7 @@ def simple_plot_rnn(gha_dict_path,
     if type(plot_what) is str:
         if plot_what == 'all':
             hl_dict = dict()
-        if os.path.isfile(plot_what):
+        elif os.path.isfile(plot_what):
             hl_dict = load_dict(plot_what)
             """plot_what should be:\n
                     i. 'all'\n

@@ -49,8 +49,8 @@ def nick_roc_stuff(class_list, hid_acts, this_class, class_a_size, not_a_size,
 
     :return: roc_dict: fpr, tpr, thr, ROC_AUC
     """
-
-    print("\n**** nick_roc_stuff() ****")
+    if verbose:
+        print("\n**** nick_roc_stuff() ****")
 
     # if class is not empty (no correct items)
     if class_a_size * not_a_size > 0:
@@ -131,7 +131,8 @@ def class_correlation(this_unit_acts, output_acts, verbose=False):
 
     :return: (Pearson's correlation coefficient, 2-tailed p-value)
     """
-    print("**** class_correlation() ****")
+    if verbose:
+        print("**** class_correlation() ****")
 
     coef, p_val = pearsonr(x=this_unit_acts, y=output_acts)
     round_p = round(p_val, 3)
@@ -1224,8 +1225,6 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
     for index, unit_gha in enumerate(loop_gha):
 
-        print(f"\nindex: {index}")
-
         if test_run:
             if index == 9:
                 break
@@ -1257,12 +1256,10 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         this_unit_acts_df = this_unit_acts.astype(
             {'item': 'int32', 'activation': 'float', 'label': 'int32'})
 
+        print(f"unit_index, ts: {unit_index}, {ts_name}")
         if verbose:
             print(f"sequence_data: {sequence_data}")
             print(f"y_1hot: {y_1hot}")
-            print(f"unit_index: {unit_index}")
-            print(f"timestep: {timestep}")
-            print(f"ts_name: {ts_name}")
 
         y_letters_1ts = np.array(y_letters[:, timestep])
 
@@ -1530,7 +1527,8 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                           f"ccma: {ccma}")
 
                 # # Bowers sel
-                print("\nBowers Sel")
+                if verbose:
+                    print("\nBowers Sel")
 
                 class_a_min = class_a[act_values].min()
                 not_class_a_max = not_class_a[act_values].max()
