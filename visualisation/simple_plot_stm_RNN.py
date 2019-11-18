@@ -357,6 +357,11 @@ def simple_plot_rnn(gha_dict_path,
                 print(f"{measure} not in hl_dict[{layer_name}][{unit_index}][{ts_name}]")
                 continue
 
+            if 'ts_invar' in hl_dict[layer_name][unit_index]:
+                if measure not in hl_dict[layer_name][unit_index]['ts_invar']:
+                    print(f"{measure} not in hl_dict[{layer_name}][{unit_index}]['ts_invar']")
+                    continue
+
             if test_run:
                 if test_run_counter == 3:
                     break

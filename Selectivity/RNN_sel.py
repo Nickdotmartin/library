@@ -779,7 +779,7 @@ def get_sel_summaries(max_sel_dict_path,
         "max_sel_df_name": f'{output_filename}_max_sel.csv',
         "model_mean_max_df_name": f'{output_filename}_model_mean_max.csv',
         "hl_dfs_dict_name": f"{output_filename}_hl_dfs.pickle",
-        "hl_units_dict_name": f"{output_filename}_hl_units.pickle",
+        "hl_units_dict_name": f"{output_filename}_hl_units.txt",
         "sel_dist_plot_name": f"{output_filename}_sel_dist.png",
         "get_sel_summaries_date": int(datetime.datetime.now().strftime("%y%m%d")),
         "get_sel_summaries_time": int(datetime.datetime.now().strftime("%H%M"))
