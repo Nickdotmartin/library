@@ -17,7 +17,7 @@ from sklearn.preprocessing import MinMaxScaler
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
 from tools.data import load_x_data, load_y_data, find_path_to_dir
 from tools.network import get_model_dict, get_scores
-from tools.RNN_STM import generate_STM_RNN_seqs, get_label_seqs, get_test_scores
+from tools.RNN_STM import generate_STM_RNN_seqs, get_label_seqs, get_test_scores, free_rec_acc
 from models.rnns import Bowers14rnn, SimpleRNNn, GRUn, LSTMn, Seq2Seq
 
 
@@ -37,6 +37,16 @@ various datasets (vocab, seq len, rpt)
 models (rnn, GRU, LSTM, seq2seq)
 
 '''
+
+# def mean_IoU(y_true, y_pred):
+#     mean_IoU_acc = free_rec_acc(y_true=y_true, y_pred=y_pred, get_prop_corr=False)
+#     return mean_IoU_acc
+#
+# def prop_corr(y_true, y_pred):
+#     prop_corr_acc = free_rec_acc(y_true=y_true, y_pred=y_pred, get_prop_corr=True)
+#     return prop_corr_acc
+
+
 
 
 def train_model(exp_name,
@@ -255,10 +265,18 @@ def train_model(exp_name,
     main_metric = 'binary_accuracy'
     if not serial_recall:
         main_metric = 'categorical_accuracy'
+        # mean_IoU = free_rec_acc()
+        # prop_corr_acc = prop_corr(y_true, y_pred)
+        # iou_acc = mean_IoU(y_true, y_pred)
 
-    # # compile model
-    model.compile(loss=loss_func, optimizer=this_optimizer,
-                  metrics=[main_metric])
+        # # compile model
+        model.compile(loss=loss_func, optimizer=this_optimizer,
+                      metrics=[main_metric])
+
+    else:
+        # # compile model
+        model.compile(loss=loss_func, optimizer=this_optimizer,
+                      metrics=[main_metric])
 
     optimizer_details = model.optimizer.get_config()
     # print_nested_round_floats(model_details)
@@ -285,7 +303,11 @@ def train_model(exp_name,
                                                       load_weights_on_restart=True)
 
     # patience_for_loss_change: wait this long to see if loss improves
-    patience_for_loss_change = int(max_epochs / 50)
+    # patience_for_loss_change = int(max_epochs / 50)
+
+    # todo: change this back in neccesary
+    patience_for_loss_change = int(max_epochs / 10)
+
     if patience_for_loss_change < 5:
         patience_for_loss_change = 5
 

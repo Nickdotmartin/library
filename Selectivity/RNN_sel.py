@@ -168,7 +168,8 @@ def class_sel_basics(this_unit_acts_df, items_per_cat, n_classes, hi_val_thr=.5,
     :return: class_sel_basics_dict
     """
 
-    print("\n**** class_sel_basics() ****")
+    if verbose:
+        print("\n**** class_sel_basics() ****")
 
     act_values = 'activation'
     if act_func is 'relu':
@@ -300,7 +301,8 @@ def sel_unit_max(all_sel_dict, verbose=False):
     :return: small dict with just the max class for each measure
     """
 
-    print("\n**** sel_unit_max() ****")
+    if verbose:
+        print("\n**** sel_unit_max() ****")
 
     copy_sel_dict = copy.deepcopy(all_sel_dict)
 
@@ -789,6 +791,15 @@ def get_sel_summaries(max_sel_dict_path,
 
 
 ####################################################################################################
+# todo: new sel stats
+#  count number of invariant units.
+#  count n_units with sel > 0, .1, .2, .3, .4, .5.
+#  count classes (words/letters) with sel units > 0, .1, .2, .3, .4, .5.
+
+
+
+
+####################################################################
 
 def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             save_output_to='pickle',
@@ -1344,8 +1355,9 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             classes_of_interest = coi_list(class_sel_basics_dict, verbose=verbose)
 
 
+        if verbose:
+            print('\n**** cycle through classes ****')
 
-        print('\n**** cycle through classes ****')
         cycle_this = range(len(classes_of_interest))
         if letter_sel:
             cycle_this = range(n_letters)

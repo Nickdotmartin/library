@@ -84,6 +84,7 @@ def get_X_and_Y_data_from_seq(vocab_dict,
     else:
         # x_data = [vocab_dict[item][x_data_type] for item in seq_line]
         x_data = []
+        # print(f"line 87 seq_line: {np.shape(seq_line)} {type(seq_line)} {seq_line}")
         for item in seq_line:
             this_word = vocab_dict[item][x_data_type]
             x_data.append(this_word)
@@ -246,7 +247,7 @@ def generate_STM_RNN_seqs(data_dict,
 
 
 
-# # get test scores.
+# get test scores.
 def get_test_scores(model, data_dict, test_label_seqs,
                     serial_recall=False,
                     end_seq_cue=False,
@@ -286,7 +287,8 @@ def get_test_scores(model, data_dict, test_label_seqs,
                             }
     """
 
-    print("\n**** get_test_scores() ****")
+    if verbose:
+        print("\n**** get_test_scores() ****")
 
     # # load x and y data from vocab dict.
     vocab_dict = load_dict(os.path.join(data_dict['data_path'], data_dict['vocab_dict']))
@@ -309,22 +311,23 @@ def get_test_scores(model, data_dict, test_label_seqs,
         y_test.append(get_y)
 
     x_test = np.array(x_test).astype(np.float32)
-    # x_test = np.dtype(np.int32)
     y_test = np.array(y_test).astype(np.float32)
-    # y_test = np.dtype(np.int32)
 
     if verbose:
         print(f"\nx_test: {np.shape(x_test)}\ny_test: {np.shape(y_test)}\n"
               f"labels_test: {np.shape(labels_test)}")
 
-    print(f"type(x_test): {type(x_test)}")
-    print(f"type(x_test[0][0][0]): {type(x_test[0][0][0])}")
+    # print(f"type(x_test): {type(x_test)}")
+    # print(f"type(x_test[0][0][0]): {type(x_test[0][0][0])}")
 
     # # get class labels for predictions
     if serial_recall:
         # print("predicting classes")
         all_pred_labels = model.predict_classes(x_test, batch_size=batch_size, verbose=1)
-        # print(f"all_pred_labels: {np.shape(all_pred_labels)}")
+
+        if verbose:
+            print(f"all_pred_labels: {np.shape(all_pred_labels)}")
+            print(f"y_test: {np.shape(y_test)}")
 
         # # sanitycheck
         # pred_y_values = model.predict(x_test, batch_size=batch_size, verbose=verbose)
@@ -333,7 +336,9 @@ def get_test_scores(model, data_dict, test_label_seqs,
     else:
         # print("predicting y_values")
         pred_y_values = model.predict(x_test, batch_size=batch_size, verbose=verbose)
-        # print(f"pred_y_values: {np.shape(pred_y_values)}")
+
+        if verbose:
+            print(f"pred_y_values: {np.shape(pred_y_values)}")
 
         # # get labels for classes where value is greater than .5
         all_pred_labels = []
@@ -344,6 +349,13 @@ def get_test_scores(model, data_dict, test_label_seqs,
             if len(np.shape(these_pred_labels)) > 1:
                 these_pred_labels = np.ravel(these_pred_labels).tolist()
             all_pred_labels.append(these_pred_labels)
+
+        # print(f"\npred_y_values: {np.shape(pred_y_values)}")
+        # print(f"y_test: {np.shape(y_test)}")
+        # for seq in range(n_seqs):
+        #     print(f"\npred_y_values: {pred_y_values[seq]}")
+        #     print(f"all_pred_labels: {all_pred_labels[seq]}")
+        #     print(f"y_test: {y_test[seq]}")
 
     # if verbose:
     #     print(f"\nlabels_test: {np.shape(labels_test)}"
@@ -358,7 +370,8 @@ def get_test_scores(model, data_dict, test_label_seqs,
         #       f"all_pred_labels: {all_pred_labels[0]}\n"
         #       f"pred_round: {pred_round}\n\n\n")
 
-    print("\nIoU acc")
+    if verbose:
+        print("\nIoU acc")
     iou_scores = []
     seq_corr_list = []
     for seq in range(n_seqs):
@@ -388,9 +401,10 @@ def get_test_scores(model, data_dict, test_label_seqs,
 
     # # get prop of seqs where IoU == 1.0
     n_seq_corr = sum(seq_corr_list)
-    print(f"n_seq_corr: {n_seq_corr}")
-    print(f"len(seq_corr_list): {len(seq_corr_list)}")
+    # print(f"n_seq_corr: {n_seq_corr}")
+    # print(f"len(seq_corr_list): {len(seq_corr_list)}")
     prop_seq_corr = n_seq_corr / len(seq_corr_list)
+
 
     scores_dict = {"n_seqs": n_seqs,
                    "mean_IoU": mean_IoU,
@@ -403,8 +417,8 @@ def get_test_scores(model, data_dict, test_label_seqs,
         focussed_dict_print(scores_dict, 'scores_dict')
 
     return scores_dict
-
-####################
+#
+# ####################
 # print("\nTesting get_test_scores")
 # data_dict = load_dict('/home/nm13850/Documents/PhD/python_v2/datasets/'
 #                       'RNN/bowers14_rep/vocab_30_data_load_dict.txt')
@@ -415,8 +429,8 @@ def get_test_scores(model, data_dict, test_label_seqs,
 # serial_recall = False
 # x_data_type = 'dist_letter_X'
 # end_seq_cue = False
-# batch_size = 16
-# verbose=True
+# batch_size = 32
+# verbose=False
 #
 # from tensorflow.keras.models import load_model
 # model = load_model("/home/nm13850/Documents/PhD/python_v2/experiments/"
@@ -426,19 +440,155 @@ def get_test_scores(model, data_dict, test_label_seqs,
 # # test_label_seqs = np.array([[0, 2, 3], [5, 3, 6], [0, 4, 2], [11, 12, 13]])
 # #
 # test_label_seqs = get_label_seqs(n_labels=n_cats, seq_len=timesteps,
-#                                  serial_recall=serial_recall, n_seqs=100)
+#                                  serial_recall=serial_recall, n_seqs=batch_size)
 #
 # # # call get test accracy(serial_recall,
 # test_score_dict = get_test_scores(model=model, data_dict=data_dict, test_label_seqs=test_label_seqs,
 #                 serial_recall=serial_recall,
-#                 x_data_type=x_data_type,
 #                 end_seq_cue=end_seq_cue,
-#                 # batch_size=batch_size,
+#                 batch_size=batch_size,
 #                 verbose=verbose)
 #
-# # print(test_score_dict)
+# print(test_score_dict)
 
-# # get test scores.
+##########################################
+# # free_rec_acc
+"""
+Input is y_pred and y_true arrays.
+
+If free recall these will be a single vector per item
+
+Covert y_pred to binary array where elements are greater than .5
+
+convert y+pred and y-true to lists of indices where vector is 1.
+
+Compare these to get IoU list
+
+get mean of IoU list
+
+
+"""
+
+def free_rec_acc(y_true, y_pred, get_prop_corr=False):
+    """
+    1. Input is y_pred and y_true arrays.
+        for free recall these will be a single vector per item
+    2. Covert y_pred to binary array where elements are greater than .5
+    3. convert y+pred and y-true to lists of indices where vector is 1.
+    4. Compare these to get IoU list
+
+    5. either: get mean of IoU list
+                get proportion of items where IoU == 1.0
+
+    :param y_true: array of correct class labels per sequence
+    :param y_pred: array of predicted labels per sequence
+    :param get_prop_corr: If False, return mean_IoU,
+                        if True, return proportion of seqs where IoU == 1.0
+
+    :return: accuracy (either mean_IoU or prop_corr)
+    """
+
+    if np.shape(y_true) != np.shape(y_pred):
+        print(f"\ny_pred\ntype: {type(y_pred)}\n{y_pred}")
+        print(f"\ny_true\ntype: {type(y_true)}\n{y_true}")
+        raise ValueError(f"y_true ({np.shape(y_true)}) and y_pred ({np.shape(y_pred)}) should be same shape")
+
+    n_seqs, n_cats = np.shape(y_pred)
+
+    # # check shapes
+    # print(f"\ny_pred: {np.shape(y_pred)}.  y_true: {np.shape(y_true)}")
+
+    # # get labels for classes where value is greater than .5
+    predicted_labels = []
+    true_labels = []
+    for seq in range(n_seqs):
+        these_pred_labels = np.argwhere(y_pred[seq] > .5)
+        these_true_labels = np.argwhere(y_true[seq] > .5)
+
+        # flatted predictions
+        if len(np.shape(these_pred_labels)) > 1:
+            these_pred_labels = np.ravel(these_pred_labels).tolist()
+        predicted_labels.append(these_pred_labels)
+
+        # flatted predictions
+        if len(np.shape(these_true_labels)) > 1:
+            these_true_labels = np.ravel(these_true_labels).tolist()
+        true_labels.append(these_true_labels)
+
+    # # check labels
+    # for seq in range(n_seqs):
+        # print(f"\npredicted_labels: {predicted_labels[seq]}")
+        # print(f"true_labels: {true_labels[seq]}")
+    # print(f"\npredicted_labels: {predicted_labels}")
+    # print(f"true_labels: {true_labels}")
+
+    labels_test = true_labels
+
+    iou_scores = []
+    seq_corr_list = []
+    count_corr = 0
+    for seq in range(n_seqs):
+
+        these_true_labels = labels_test[seq]
+        # make set to get intersection and union
+        these_pred_labels = set(predicted_labels[seq])
+
+        intersection = these_pred_labels.intersection(these_true_labels)
+        union = these_pred_labels.union(these_true_labels)
+
+        IoU = len(intersection) / len(union)
+
+        if get_prop_corr:
+            if IoU == 1.0:
+                count_corr += 1
+        else:
+            iou_scores.append(IoU)
+
+        # if IoU == 1.0:
+        #     seq_corr_list.append(int(1))
+        # else:
+        #     seq_corr_list.append(int(0))
+        #
+        # if verbose:
+        #     print(f"{seq}: pred: {these_pred_labels} true: {these_true_labels} len(intersection): {len(intersection)} IoU: {IoU}")
+
+    if get_prop_corr:
+        # get proportion of seqs where IoU == 1.0
+        accuracy = count_corr/n_seqs
+    else:
+        # get the average of all IoUs (per seq/batch etc
+        accuracy = sum(iou_scores) / len(iou_scores)
+
+    return accuracy
+
+# ####################
+# print("\nTesting free_rec_acc")
+# # data_dict = load_dict('/home/nm13850/Documents/PhD/python_v2/datasets/'
+# #                       'RNN/bowers14_rep/vocab_300_data_load_dict.txt')
+# # vocab_dict = load_dict(os.path.join(data_dict['data_path'], data_dict['vocab_dict']))
+#
+# n_cats = 300
+# timesteps = 3
+# serial_recall = False
+# x_data_type = 'dist_letter_X'
+# end_seq_cue = False
+# batch_size = 32
+# verbose=True
+#
+# y_true = np.load('/home/nm13850/Documents/PhD/python_v2/ideas/y_true.npy')
+# y_pred = np.load('/home/nm13850/Documents/PhD/python_v2/ideas/y_pred.npy')
+#
+# # # call get test accracy(serial_recall,
+# IoU = free_rec_acc(y_true=y_true, y_pred=y_pred, get_prop_corr=False)
+#
+# print(f"\noutput of IoU: {IoU}")
+
+
+
+
+####################
+
+
 def get_layer_acts(model, layer_name, data_dict, test_label_seqs,
                    serial_recall=False,
                    end_seq_cue=False,
@@ -474,7 +624,7 @@ def get_layer_acts(model, layer_name, data_dict, test_label_seqs,
 
     # with test_label_seqs get x and y data from get_x_and_Y_data_from_seq
     x_test = []
-    y_test = []
+    y_true = []
     for this_seq in test_label_seqs:
         get_x, get_y = get_X_and_Y_data_from_seq(vocab_dict=vocab_dict,
                                                  seq_line=this_seq,
