@@ -299,7 +299,7 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', coi_m
         # print(f"\nwhich units?: {selected_units}")
         # if selected_units != 'all':
         if selected_units is not False:
-            if gha_layer_name not in list(selected_units.keys()):
+            if gha_layer_name not in selected_units:
                 print(f"\nselected_units only, skipping layer {gha_layer_name}")
                 continue
             else:

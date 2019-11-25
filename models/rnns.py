@@ -5,6 +5,7 @@ from tensorflow.keras.layers import Activation, Conv2D, Dense, Dropout, Flatten,
 from tensorflow.keras.layers import SimpleRNN, GRU, LSTM, Input, TimeDistributed
 from tensorflow.keras import Model
 from tensorflow.keras.layers import GaussianNoise
+from tensorflow.keras.initializers import he_normal
 
 from keras import backend as K
 
@@ -21,6 +22,8 @@ hidden = 200
 outputs = 30/300
 Simultaneous recall of all items
 """
+
+# todo: weight initializations for rnns?
 
 class Bowers14rnn:
     @staticmethod
@@ -40,10 +43,14 @@ class Bowers14rnn:
         model = Sequential(name="Bowers14rnn")
 
         model.add(SimpleRNN(units=units_per_layer,
+
                             # input_shape=(timesteps, features),
+
+
                             batch_input_shape=(batch_size, timesteps, features),
 
                             return_sequences=serial_recall,  # this stops it from giving an output after each item
+
 
                             # it allows the model to learn from activations at all timesteps not just the final one.
                             # this also allows truncated backprop thru time.
@@ -59,10 +66,14 @@ class Bowers14rnn:
         return model
 
 
+# weight_init = tf.keras.initializers.he_normal(seed=None)
+
+
 class SimpleRNNn:
     @staticmethod
     def build(features, classes, timesteps, batch_size, n_layers=1, units_per_layer=200,
-              serial_recall=True, act_func='tanh', y_1hot=False, dropout=0.0):
+              serial_recall=True, act_func='tanh', y_1hot=False, dropout=0.0,
+              weight_init='GlorotUniform'):
         """
         :param features: input shape, which is n_letters (30) + 1, for end_of_seq_cue.
         :param classes: Vocab size (either 30 or 300)
@@ -91,6 +102,8 @@ class SimpleRNNn:
 
             model.add(SimpleRNN(units=units_per_layer,
 
+                                kernel_initializer=weight_init,
+
                                 batch_input_shape=(batch_size, timesteps, l_input_width),
 
                                 return_sequences=layer_seqs,  # this stops it from giving an output after each item
@@ -105,7 +118,7 @@ class SimpleRNNn:
             model.add(Dense(classes, name='output', activation='softmax'))
         else:
             # dist output classifier
-            model.add(Dense(classes, name='output', activation='sigmoid'))
+            model.add(Dense(classes, name='output', activation='sigmoid', kernel_initializer=weight_init,))
 
         return model
 

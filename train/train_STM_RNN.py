@@ -6,18 +6,19 @@ import git
 import numpy as np
 
 import tensorflow as tf
-from tensorflow.keras.optimizers import Adam, SGD, RMSprop
+from tensorflow.keras.optimizers import Adam, SGD, RMSprop, Adagrad, Adadelta, Adamax, Nadam
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.python.keras.callbacks import TensorBoard
 from keras.preprocessing.image import ImageDataGenerator
 import matplotlib.pyplot as plt
+import tensorflow.keras.backend as K
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
-from tools.data import load_x_data, load_y_data
+from tools.data import load_x_data, load_y_data, find_path_to_dir
 from tools.network import get_model_dict, get_scores
-from tools.RNN_STM import generate_STM_RNN_seqs, get_label_seqs, get_test_scores
+from tools.RNN_STM import generate_STM_RNN_seqs, get_label_seqs, get_test_scores, free_rec_acc
 from models.rnns import Bowers14rnn, SimpleRNNn, GRUn, LSTMn, Seq2Seq
 
 
@@ -38,6 +39,20 @@ models (rnn, GRU, LSTM, seq2seq)
 
 '''
 
+# def mean_IoU(y_true, y_pred):
+#     mean_IoU_acc = free_rec_acc(y_true=K.eval(y_true), y_pred=K.eval(y_pred), get_prop_corr=False)
+#     return mean_IoU_acc
+#
+# def prop_corr(y_true, y_pred):
+#     print(f"eagerly? {tf.executing_eagerly()}")
+#     print(f"numpy: {y_pred.numpy()}")
+#
+#     prop_corr_acc = free_rec_acc(y_true=K.eval(y_true), y_pred=K.eval(y_pred), get_prop_corr=True)
+#     return K.variable(prop_corr_acc)
+#
+#
+# tf.enable_eager_execution()
+
 
 def train_model(exp_name,
                 data_dict_path,
@@ -57,6 +72,8 @@ def train_model(exp_name,
                 use_batch_norm=True, use_dropout=0.0,
                 use_val_data=True,
                 timesteps=1,
+                weight_init='GlorotUniform',
+                lr=0.001,
                 exp_root='/home/nm13850/Documents/PhD/python_v2/experiments/',
                 verbose=False,
                 test_run=False
@@ -105,6 +122,8 @@ def train_model(exp_name,
     :param use_dropout: use dropout
     :param use_val_data: use validation set (either separate set, or train/val split)
     :param timesteps: if RNN length of sequence
+    :param weight_init: change the initializatation of the weights
+    :param lr: set the learning rate for the optimizer
     :param exp_root: root directory for saving experiments
 
     :param verbose: if 0, not verbose; if 1 - print basics; if 2, print all
@@ -113,6 +132,8 @@ def train_model(exp_name,
     :return: sim_dict with dataset info, model info and training info
 
     """
+
+    print("\n\n\nTraining a new model\n********************")
 
     dset_dir, data_dict_name = os.path.split(data_dict_path)
     dset_dir, dset_name = os.path.split(dset_dir)
@@ -123,9 +144,12 @@ def train_model(exp_name,
 
     # Output files
     if not cond_name:
-        output_filename = f"{exp_name}_{model_name}_{dset_name}"
+        # output_filename = f"{exp_name}_{model_name}_{dset_name}"
+        output_filename = f"{model_name}_{dset_name}"
+
     else:
-        output_filename = f"{exp_name}_{cond_name}"
+        # output_filename = f"{exp_name}_{cond_name}"
+        output_filename = cond_name
 
     print(f"\noutput_filename: {output_filename}")
 
@@ -172,19 +196,20 @@ def train_model(exp_name,
         # # if generator is true
         x_data_path = 'RNN_STM_tools/generate_STM_RNN_seqs'
         y_data_path = 'RNN_STM_tools/generate_STM_RNN_seqs'
-        n_items='unknown'
+        n_items = 'unknown'
 
 
     # # save path
     exp_cond_path = os.path.join(exp_root, exp_name, output_filename)
 
-    if test_run:
-        exp_cond_path = os.path.join(exp_cond_path, 'test')
+    train_folder = 'training'
+
+    exp_cond_path = os.path.join(exp_cond_path, train_folder)
 
     if not os.path.exists(exp_cond_path):
         os.makedirs(exp_cond_path)
     os.chdir(exp_cond_path)
-    print(f"\nsaving to: {exp_cond_path}")
+    print(f"\nsaving to exp_cond_path: {exp_cond_path}")
 
 
     # # The Model
@@ -193,17 +218,17 @@ def train_model(exp_name,
         augmentation = False
 
         models_dict = {'Bowers14rnn': Bowers14rnn,
-                      'SimpleRNNn': SimpleRNNn,
-                      'GRUn': GRUn,
-                      'LSTMn': LSTMn,
-                      'Seq2Seq': Seq2Seq}
+                       'SimpleRNNn': SimpleRNNn,
+                       'GRUn': GRUn,
+                       'LSTMn': LSTMn,
+                       'Seq2Seq': Seq2Seq}
 
         model = models_dict[model_name].build(features=x_size, classes=n_cats, timesteps=timesteps,
-                                             batch_size=batch_size, n_layers=hid_layers,
-                                             serial_recall=serial_recall, 
-                                             units_per_layer=units_per_layer, act_func=act_func,
-                                             y_1hot=serial_recall,
-                                             dropout=use_dropout)
+                                              batch_size=batch_size, n_layers=hid_layers,
+                                              serial_recall=serial_recall,
+                                              units_per_layer=units_per_layer, act_func=act_func,
+                                              y_1hot=serial_recall,
+                                              dropout=use_dropout, weight_init=weight_init)
     else:
         print("model_dir not recognised")
 
@@ -215,22 +240,52 @@ def train_model(exp_name,
 
 
     # optimizer
-    sgd_lr = 0.01  # initialize learning rate
-    sgd = SGD(lr=sgd_lr, momentum=.9)  # decay=sgd_lr / max_epochs)
+    sgd = SGD(lr=lr, momentum=.9)  # decay=sgd_lr / max_epochs)
     this_optimizer = sgd
-    if use_optimizer == 'adam':
-        this_optimizer = Adam(lr=0.001)
-    elif use_optimizer == 'rmsprop':
-        this_optimizer = RMSprop(lr=0.0001, decay=1e-6)
+
+    if use_optimizer == 'SGD_Nesterov':
+        this_optimizer = SGD(lr=lr, momentum=.1, nesterov=True)  # decay=sgd_lr / max_epochs)
+
+    elif use_optimizer == 'adam':
+        this_optimizer = Adam(lr=lr, amsgrad=True)
+
+    elif use_optimizer == 'RMSprop':
+        this_optimizer = RMSprop(lr=lr)
+
+    elif use_optimizer == 'Adagrad':
+        this_optimizer = Adagrad()
+
+    elif use_optimizer == 'Adadelta':
+        this_optimizer = Adadelta()
+
+    elif use_optimizer == 'Adamax':
+        this_optimizer = Adamax(lr=lr)
+
+    elif use_optimizer == 'Nadam':
+        this_optimizer = Nadam()
+
+
 
     # # metrics
     main_metric = 'binary_accuracy'
     if not serial_recall:
         main_metric = 'categorical_accuracy'
+        # mean_IoU = free_rec_acc()
+        # prop_corr_acc = prop_corr(y_true, y_pred)
+        # iou_acc = mean_IoU(y_true, y_pred)
 
-    # # compile model
-    model.compile(loss=loss_func, optimizer=this_optimizer,
-                  metrics=[main_metric])
+        # # compile model
+        model.compile(loss=loss_func, optimizer=this_optimizer,
+                      metrics=[main_metric])
+
+    else:
+        # # compile model
+        model.compile(loss=loss_func, optimizer=this_optimizer,
+                      metrics=[main_metric])
+
+    optimizer_details = model.optimizer.get_config()
+    # print_nested_round_floats(model_details)
+    focussed_dict_print(optimizer_details, 'optimizer_details')
 
 
     # # get model dict
@@ -253,7 +308,11 @@ def train_model(exp_name,
                                                       load_weights_on_restart=True)
 
     # patience_for_loss_change: wait this long to see if loss improves
-    patience_for_loss_change = int(max_epochs / 50)
+    # patience_for_loss_change = int(max_epochs / 50)
+
+    # todo: change this back in neccesary
+    patience_for_loss_change = int(max_epochs / 10)
+
     if patience_for_loss_change < 5:
         patience_for_loss_change = 5
 
@@ -388,14 +447,23 @@ def train_model(exp_name,
     #         if data_dict["test_label_seqs"][-3:] == 'npy':
     #             test_label_seqs = np.load(data_dict["test_label_seqs"])
     # else:
-    #     # # get labels for 100 sequences
-    test_label_seqs = get_label_seqs(n_labels=n_cats, seq_len=timesteps,
-                                     serial_recall=serial_recall, n_seqs=10*batch_size)
+
+    # #     # # get labels for 100 sequences
+    # test_label_seqs = get_label_seqs(n_labels=n_cats, seq_len=timesteps,
+    #                                  serial_recall=serial_recall, n_seqs=10*batch_size)
+
+    # # load test label seqs
+    data_path = data_dict['data_path']
+    test_filename = f'seq{timesteps}_v{n_cats}_960_test_seq_labels.npy'
+    test_seq_path = os.path.join(data_path, test_filename)
+
+    # if os.path.isfile(test_seq_path):
+    test_label_seqs = np.load(test_seq_path)
+
 
     # # call get test accracy(serial_recall,
     scores_dict = get_test_scores(model=model, data_dict=data_dict, test_label_seqs=test_label_seqs,
                                   serial_recall=serial_recall,
-                                  x_data_type=x_data_type,
                                   end_seq_cue=end_seq_cue,
                                   batch_size=batch_size,
                                   verbose=verbose)
@@ -431,6 +499,10 @@ def train_model(exp_name,
 
     repo = git.Repo('/home/nm13850/Documents/PhD/code/library')
 
+    sim_dict_name = f"{output_filename}_sim_dict.txt"
+
+    sim_dict_path = os.path.join(exp_cond_path, sim_dict_name)
+
     # # simulation_info_dict
     sim_dict = {"topic_info": {"output_filename": output_filename, "cond": cond, "run": run,
                                "data_dict_path": data_dict_path, "model_path": model_path,
@@ -444,12 +516,12 @@ def train_model(exp_name,
                                   'scores': scores_dict,
                                   "trained_date": trained_date, "trained_time": trained_time,
                                   'x_data_path': x_data_path, 'y_data_path': y_data_path,
+                                  'sim_dict_path': sim_dict_path,
                                   'tensorboard_path': tensorboard_path,
                                   'commit': repo.head.object.hexsha,
                                   }
                 }
 
-    sim_dict_name = f"{output_filename}_sim_dict.txt"
 
     if not use_val_data:
         sim_dict['training_info']['end_val_acc'] = 'NaN'
@@ -486,9 +558,15 @@ def train_model(exp_name,
                      ]
 
 
-    exp_path = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
+    # exp_path = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
+    # os.chdir(exp_path)
+
+    # # save sel summary in exp folder not condition folder
+    exp_path = find_path_to_dir(long_path=exp_cond_path, target_dir=exp_name)
     os.chdir(exp_path)
+
     print(f"save_summaries: {exp_path}")
+
 
     # check if training_info.csv exists
     if not os.path.isfile(f"{exp_name}_training_summary.csv"):
@@ -524,7 +602,7 @@ def train_model(exp_name,
           f'tensorboard --logdir={tensorboard_path}'
           '\nthen click link')
 
-    print("\ntrain_STM_RNN_14102019 finished")
+    print("\ntrain_model() finished")
 
 
-    return training_info, sim_dict
+    return sim_dict

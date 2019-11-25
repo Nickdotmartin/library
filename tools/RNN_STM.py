@@ -1,10 +1,10 @@
 import os
 import numpy as np
 import more_itertools
+import pandas as pd
 from tensorflow.keras.models import load_model, Model
 
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
-from tools.network import get_model_dict
 
 
 
@@ -82,7 +82,12 @@ def get_X_and_Y_data_from_seq(vocab_dict,
 
             x_data.append(this_word)
     else:
-        x_data = [vocab_dict[item][x_data_type] for item in seq_line]
+        # x_data = [vocab_dict[item][x_data_type] for item in seq_line]
+        x_data = []
+        # print(f"line 87 seq_line: {np.shape(seq_line)} {type(seq_line)} {seq_line}")
+        for item in seq_line:
+            this_word = vocab_dict[item][x_data_type]
+            x_data.append(this_word)
 
     # # Y data
     if serial_recall:
@@ -112,7 +117,7 @@ def get_X_and_Y_data_from_seq(vocab_dict,
 
     return np.array(x_data), np.array(y_data)
 
-# # test get_X_and_Y_data_from_seq
+# # # test get_X_and_Y_data_from_seq
 # print("\ntest get_X_and_Y_data_from_seq")
 # vocab_dict = load_dict('/home/nm13850/Documents/PhD/python_v2/datasets/RNN/bowers14_rep/vocab_30_dict.txt')
 #
@@ -126,8 +131,9 @@ def get_X_and_Y_data_from_seq(vocab_dict,
 # # print(f"x: {get_x}\ny:{get_y}")
 #
 # # many sequences
-# these_seqs = get_label_seqs(n_labels=3, seq_len=3, serial_recall=False, n_seqs=3)
+# # these_seqs = get_label_seqs(n_labels=3, seq_len=3, serial_recall=False, n_seqs=3)
 # # these_seqs = [[0, 2, 3], [5, 3, 6], [0, 4, 2]]
+# these_seqs = [[0], [2], [3], [5], [3], [6], [0], [4], [2]]
 # x_seqs = []
 # y_seqs = []
 # # for index, this_seq in enumerate(these_seqs):
@@ -165,7 +171,6 @@ def generate_STM_RNN_seqs(data_dict,
     although the other functions work one at a time.)
 
     :param data_dict: dict for this dataset with links to vocab_dict
-    :param vocab_dict: Dict containing the codes for Y and Y data
     :param seq_len: Or time-steps.  number of items per seq.
     :param batch_size: Generator outputs in batches - this sets their size
     :param serial_recall: default=false. free recall, y is a single n-hot vector where n=seq_len.
@@ -176,7 +181,6 @@ def generate_STM_RNN_seqs(data_dict,
     :param x_data_type: 'local_word_X', 'local_letter_X', 'dist_letter_X'.
                 Note for 1hot Y data use local_word_X
     :param end_seq_cue: if True, add input unit which is activated for the last item in each seq
-    :param sequences_to_use: if None, generate sequences.  Else, add sequences here.
 
     :Yeild: X_array and Y_array
     """
@@ -243,10 +247,9 @@ def generate_STM_RNN_seqs(data_dict,
 
 
 
-# # get test scores.
+# get test scores.
 def get_test_scores(model, data_dict, test_label_seqs,
                     serial_recall=False,
-                    x_data_type='dist_letter_X',
                     end_seq_cue=False,
                     batch_size=16,
                     verbose=True):
@@ -270,14 +273,10 @@ def get_test_scores(model, data_dict, test_label_seqs,
     For free recall - IoU is already set up/ (sort Y-True)
     For serial, turn predictions into seq labels (don't sort)
 
-    # todo: think about checking accuracy per item
-
-
     :param model: trained model
     :param data_dict: dict with relevant info including link to vocab dict
     :param test_label_seqs: sequence of labels to test on
     :param serial_recall: Type of recall
-    :param x_data_type:
     :param end_seq_cue:
     :param batch_size:
     :param verbose:
@@ -288,7 +287,8 @@ def get_test_scores(model, data_dict, test_label_seqs,
                             }
     """
 
-    print("\n**** get_test_scores() ****")
+    if verbose:
+        print("\n**** get_test_scores() ****")
 
     # # load x and y data from vocab dict.
     vocab_dict = load_dict(os.path.join(data_dict['data_path'], data_dict['vocab_dict']))
@@ -310,28 +310,35 @@ def get_test_scores(model, data_dict, test_label_seqs,
         x_test.append(get_x)
         y_test.append(get_y)
 
-    x_test = np.array(x_test)
-    y_test = np.array(y_test)
+    x_test = np.array(x_test).astype(np.float32)
+    y_test = np.array(y_test).astype(np.float32)
 
     if verbose:
         print(f"\nx_test: {np.shape(x_test)}\ny_test: {np.shape(y_test)}\n"
               f"labels_test: {np.shape(labels_test)}")
 
+    # print(f"type(x_test): {type(x_test)}")
+    # print(f"type(x_test[0][0][0]): {type(x_test[0][0][0])}")
 
     # # get class labels for predictions
     if serial_recall:
         # print("predicting classes")
         all_pred_labels = model.predict_classes(x_test, batch_size=batch_size, verbose=1)
-        # print(f"all_pred_labels: {np.shape(all_pred_labels)}")
+
+        if verbose:
+            print(f"all_pred_labels: {np.shape(all_pred_labels)}")
+            print(f"y_test: {np.shape(y_test)}")
 
         # # sanitycheck
-        pred_y_values = model.predict(x_test, batch_size=batch_size, verbose=verbose)
+        # pred_y_values = model.predict(x_test, batch_size=batch_size, verbose=verbose)
 
 
     else:
         # print("predicting y_values")
         pred_y_values = model.predict(x_test, batch_size=batch_size, verbose=verbose)
-        # print(f"pred_y_values: {np.shape(pred_y_values)}")
+
+        if verbose:
+            print(f"pred_y_values: {np.shape(pred_y_values)}")
 
         # # get labels for classes where value is greater than .5
         all_pred_labels = []
@@ -343,6 +350,13 @@ def get_test_scores(model, data_dict, test_label_seqs,
                 these_pred_labels = np.ravel(these_pred_labels).tolist()
             all_pred_labels.append(these_pred_labels)
 
+        # print(f"\npred_y_values: {np.shape(pred_y_values)}")
+        # print(f"y_test: {np.shape(y_test)}")
+        # for seq in range(n_seqs):
+        #     print(f"\npred_y_values: {pred_y_values[seq]}")
+        #     print(f"all_pred_labels: {all_pred_labels[seq]}")
+        #     print(f"y_test: {y_test[seq]}")
+
     # if verbose:
     #     print(f"\nlabels_test: {np.shape(labels_test)}"
     #           # f"\n{labels_test}"
@@ -352,9 +366,12 @@ def get_test_scores(model, data_dict, test_label_seqs,
 
         # print("sanity check - first item")
         # pred_round = [np.round(i, 2) for i in pred_y_values[0]]
-        # print(f"\n\n\nlabels_test: {labels_test[0]}\nall_pred_labels: {all_pred_labels[0]}\npred_round: {pred_round}\n\n\n")
+        # print(f"\n\n\nlabels_test: {labels_test[0]}\n"
+        #       f"all_pred_labels: {all_pred_labels[0]}\n"
+        #       f"pred_round: {pred_round}\n\n\n")
 
-    print("\nIoU acc")
+    if verbose:
+        print("\nIoU acc")
     iou_scores = []
     seq_corr_list = []
     for seq in range(n_seqs):
@@ -384,9 +401,10 @@ def get_test_scores(model, data_dict, test_label_seqs,
 
     # # get prop of seqs where IoU == 1.0
     n_seq_corr = sum(seq_corr_list)
-    print(f"n_seq_corr: {n_seq_corr}")
-    print(f"len(seq_corr_list): {len(seq_corr_list)}")
+    # print(f"n_seq_corr: {n_seq_corr}")
+    # print(f"len(seq_corr_list): {len(seq_corr_list)}")
     prop_seq_corr = n_seq_corr / len(seq_corr_list)
+
 
     scores_dict = {"n_seqs": n_seqs,
                    "mean_IoU": mean_IoU,
@@ -399,8 +417,8 @@ def get_test_scores(model, data_dict, test_label_seqs,
         focussed_dict_print(scores_dict, 'scores_dict')
 
     return scores_dict
-
-####################
+#
+# ####################
 # print("\nTesting get_test_scores")
 # data_dict = load_dict('/home/nm13850/Documents/PhD/python_v2/datasets/'
 #                       'RNN/bowers14_rep/vocab_30_data_load_dict.txt')
@@ -411,8 +429,8 @@ def get_test_scores(model, data_dict, test_label_seqs,
 # serial_recall = False
 # x_data_type = 'dist_letter_X'
 # end_seq_cue = False
-# batch_size = 16
-# verbose=True
+# batch_size = 32
+# verbose=False
 #
 # from tensorflow.keras.models import load_model
 # model = load_model("/home/nm13850/Documents/PhD/python_v2/experiments/"
@@ -422,22 +440,157 @@ def get_test_scores(model, data_dict, test_label_seqs,
 # # test_label_seqs = np.array([[0, 2, 3], [5, 3, 6], [0, 4, 2], [11, 12, 13]])
 # #
 # test_label_seqs = get_label_seqs(n_labels=n_cats, seq_len=timesteps,
-#                                  serial_recall=serial_recall, n_seqs=100)
+#                                  serial_recall=serial_recall, n_seqs=batch_size)
 #
 # # # call get test accracy(serial_recall,
 # test_score_dict = get_test_scores(model=model, data_dict=data_dict, test_label_seqs=test_label_seqs,
 #                 serial_recall=serial_recall,
-#                 x_data_type=x_data_type,
 #                 end_seq_cue=end_seq_cue,
-#                 # batch_size=batch_size,
+#                 batch_size=batch_size,
 #                 verbose=verbose)
 #
-# # print(test_score_dict)
+# print(test_score_dict)
 
-# # get test scores.
+##########################################
+# # free_rec_acc
+"""
+Input is y_pred and y_true arrays.
+
+If free recall these will be a single vector per item
+
+Covert y_pred to binary array where elements are greater than .5
+
+convert y+pred and y-true to lists of indices where vector is 1.
+
+Compare these to get IoU list
+
+get mean of IoU list
+
+
+"""
+
+def free_rec_acc(y_true, y_pred, get_prop_corr=False):
+    """
+    1. Input is y_pred and y_true arrays.
+        for free recall these will be a single vector per item
+    2. Covert y_pred to binary array where elements are greater than .5
+    3. convert y+pred and y-true to lists of indices where vector is 1.
+    4. Compare these to get IoU list
+
+    5. either: get mean of IoU list
+                get proportion of items where IoU == 1.0
+
+    :param y_true: array of correct class labels per sequence
+    :param y_pred: array of predicted labels per sequence
+    :param get_prop_corr: If False, return mean_IoU,
+                        if True, return proportion of seqs where IoU == 1.0
+
+    :return: accuracy (either mean_IoU or prop_corr)
+    """
+
+    if np.shape(y_true) != np.shape(y_pred):
+        print(f"\ny_pred\ntype: {type(y_pred)}\n{y_pred}")
+        print(f"\ny_true\ntype: {type(y_true)}\n{y_true}")
+        raise ValueError(f"y_true ({np.shape(y_true)}) and y_pred ({np.shape(y_pred)}) should be same shape")
+
+    n_seqs, n_cats = np.shape(y_pred)
+
+    # # check shapes
+    # print(f"\ny_pred: {np.shape(y_pred)}.  y_true: {np.shape(y_true)}")
+
+    # # get labels for classes where value is greater than .5
+    predicted_labels = []
+    true_labels = []
+    for seq in range(n_seqs):
+        these_pred_labels = np.argwhere(y_pred[seq] > .5)
+        these_true_labels = np.argwhere(y_true[seq] > .5)
+
+        # flatted predictions
+        if len(np.shape(these_pred_labels)) > 1:
+            these_pred_labels = np.ravel(these_pred_labels).tolist()
+        predicted_labels.append(these_pred_labels)
+
+        # flatted predictions
+        if len(np.shape(these_true_labels)) > 1:
+            these_true_labels = np.ravel(these_true_labels).tolist()
+        true_labels.append(these_true_labels)
+
+    # # check labels
+    # for seq in range(n_seqs):
+        # print(f"\npredicted_labels: {predicted_labels[seq]}")
+        # print(f"true_labels: {true_labels[seq]}")
+    # print(f"\npredicted_labels: {predicted_labels}")
+    # print(f"true_labels: {true_labels}")
+
+    labels_test = true_labels
+
+    iou_scores = []
+    seq_corr_list = []
+    count_corr = 0
+    for seq in range(n_seqs):
+
+        these_true_labels = labels_test[seq]
+        # make set to get intersection and union
+        these_pred_labels = set(predicted_labels[seq])
+
+        intersection = these_pred_labels.intersection(these_true_labels)
+        union = these_pred_labels.union(these_true_labels)
+
+        IoU = len(intersection) / len(union)
+
+        if get_prop_corr:
+            if IoU == 1.0:
+                count_corr += 1
+        else:
+            iou_scores.append(IoU)
+
+        # if IoU == 1.0:
+        #     seq_corr_list.append(int(1))
+        # else:
+        #     seq_corr_list.append(int(0))
+        #
+        # if verbose:
+        #     print(f"{seq}: pred: {these_pred_labels} true: {these_true_labels} len(intersection): {len(intersection)} IoU: {IoU}")
+
+    if get_prop_corr:
+        # get proportion of seqs where IoU == 1.0
+        accuracy = count_corr/n_seqs
+    else:
+        # get the average of all IoUs (per seq/batch etc
+        accuracy = sum(iou_scores) / len(iou_scores)
+
+    return accuracy
+
+# ####################
+# print("\nTesting free_rec_acc")
+# # data_dict = load_dict('/home/nm13850/Documents/PhD/python_v2/datasets/'
+# #                       'RNN/bowers14_rep/vocab_300_data_load_dict.txt')
+# # vocab_dict = load_dict(os.path.join(data_dict['data_path'], data_dict['vocab_dict']))
+#
+# n_cats = 300
+# timesteps = 3
+# serial_recall = False
+# x_data_type = 'dist_letter_X'
+# end_seq_cue = False
+# batch_size = 32
+# verbose=True
+#
+# y_true = np.load('/home/nm13850/Documents/PhD/python_v2/ideas/y_true.npy')
+# y_pred = np.load('/home/nm13850/Documents/PhD/python_v2/ideas/y_pred.npy')
+#
+# # # call get test accracy(serial_recall,
+# IoU = free_rec_acc(y_true=y_true, y_pred=y_pred, get_prop_corr=False)
+#
+# print(f"\noutput of IoU: {IoU}")
+
+
+
+
+####################
+
+
 def get_layer_acts(model, layer_name, data_dict, test_label_seqs,
                    serial_recall=False,
-                   x_data_type='dist_letter_X',
                    end_seq_cue=False,
                    batch_size=16,
                    verbose=True):
@@ -456,7 +609,6 @@ def get_layer_acts(model, layer_name, data_dict, test_label_seqs,
     :param data_dict: dict with relevant info including link to vocab dict
     :param test_label_seqs: sequence of labels to test on
     :param serial_recall: Type of recall
-    :param x_data_type: how to convert labels to input data
     :param end_seq_cue: whether extra input unit is added
     :param batch_size: batch to predict at once
     :param verbose:
@@ -472,7 +624,7 @@ def get_layer_acts(model, layer_name, data_dict, test_label_seqs,
 
     # with test_label_seqs get x and y data from get_x_and_Y_data_from_seq
     x_test = []
-    y_test = []
+    y_true = []
     for this_seq in test_label_seqs:
         get_x, get_y = get_X_and_Y_data_from_seq(vocab_dict=vocab_dict,
                                                  seq_line=this_seq,
@@ -491,8 +643,6 @@ def get_layer_acts(model, layer_name, data_dict, test_label_seqs,
     # # make new model
     gha_model = Model(inputs=model.input, outputs=model.get_layer(layer_name).output)
 
-    # # get model dict for loaded model
-    gha_model_config = gha_model.get_config()
 
     # # get hid acts for each timestep even if output is free-recall
     # print("\nchanging layer attribute: return_sequnces")
@@ -570,3 +720,252 @@ def get_layer_acts(model, layer_name, data_dict, test_label_seqs,
 #
 # print(f"end\nlayer_acts: {np.shape(test_get_layer_acts)}")
 
+
+def seq_items_per_class(label_seqs, vocab_dict):
+    """
+    Script to calculate number of items per class in a given sequence of items.
+
+    Output is 4 dicts
+    1. Word count overall
+    2. word count per timestep
+
+    3. letter count overall
+    4. letter count per timestep.
+
+    :param label_seqs: Sequence of labels to get IPC for.
+    :param vocab_dict: Vocab dict containing letter codes for words.
+
+    :return: IPC_dict
+    """
+    print("\n****running seq_items_per_class()****")
+
+    # print(f"\nseq_labels: {np.shape(seq_labels)}")
+    # print(f"\nseq_labels:\n{seq_labels}")
+    # focussed_dict_print(vocab_dict, 'vocab_dict')
+
+    # # get variables
+    n_seqs, n_ts = np.shape(label_seqs)
+    ts_labels = [f"ts{i}" for i in range(n_ts)]
+
+    # # 1. word ocurrence in whole seq
+    whole_seq = np.ravel(label_seqs)
+    unique, counts = np.unique(whole_seq, return_counts=True)
+    word_p_class_all = dict(zip(unique, counts))
+    # print(f"\nword_p_class_all\n{word_p_class_all}")
+
+
+    # # 2. word_p_class_p_ts
+    word_p_class_p_ts = dict()
+    for index, ts in enumerate(ts_labels):
+        ts_items = label_seqs[:, index]
+        unique, counts = np.unique(ts_items, return_counts=True)
+        word_p_class_ts = dict(zip(unique, counts))
+        word_p_class_p_ts[ts] = word_p_class_ts
+    # focussed_dict_print(word_p_class_p_ts, 'word_p_class_p_ts')
+
+    # # get array with letters, shape (word_len, n_seqs, n_ts)
+    seq_letters = []
+    for ts in range(n_ts):
+        ts_items = label_seqs[:, ts]
+        ts_letters = []
+        for seq in range(n_seqs):
+            word = ts_items[seq]
+            letter_vector = vocab_dict[word]['letters']
+            ts_letters.append(letter_vector)
+        seq_letters.append(ts_letters)
+
+    # # 3. letter occurence in whole seq
+    whole_seq = np.ravel(seq_letters)
+    unique, counts = np.unique(whole_seq, return_counts=True)
+    letter_p_class_all = dict(zip(unique, counts))
+    # print(f"\nletter_p_class_all\n{letter_p_class_all}")
+
+    # # # 4. letter occurence per timestep
+    letter_p_class_p_ts = dict()
+    for index, ts in enumerate(ts_labels):
+        ts_letters = np.ravel(seq_letters[index])
+        unique, counts = np.unique(ts_letters, return_counts=True)
+        letter_p_class_ts = dict(zip(unique, counts))
+        letter_p_class_p_ts[ts] = letter_p_class_ts
+    # focussed_dict_print(letter_p_class_p_ts, 'letter_p_class_p_ts')
+
+    IPC_seq_dict = {'word_p_class_all': word_p_class_all,
+                    'word_p_class_p_ts': word_p_class_p_ts,
+                    'letter_p_class_all': letter_p_class_all,
+                    'letter_p_class_p_ts': letter_p_class_p_ts,
+                    }
+
+    return IPC_seq_dict
+
+
+#####
+# print(f"\n\n\ntesting IPC from bottom of script\n\n\n")
+#
+# seq_label_path = '/home/nm13850/Documents/PhD/python_v2/experiments/' \
+#                  'STM_RNN/STM_RNN_test_v30_free_recall/test/all_generator_gha/test/' \
+#                  'STM_RNN_test_v30_free_recall_320_test_label_seqs.npy'
+# seq_labels = np.load(seq_label_path)
+# # print(f"seq_labels: {np.shape(seq_labels)}")
+#
+# vocab_dict = load_dict(os.path.join('/home/nm13850/Documents/PhD/python_v2/datasets/RNN/bowers14_rep',
+#                                     'vocab_30_dict.txt'))
+# # focussed_dict_print(vocab_dict)
+#
+# IPC_dict = seq_items_per_class(label_seqs=seq_labels, vocab_dict=vocab_dict)
+#
+# focussed_dict_print(IPC_dict, 'IPC_dict')
+
+
+def spell_label_seqs(test_label_seqs, vocab_dict,
+                     test_label_name='test_label_words', save_csv=True):
+    """
+    input a list of sequence labels and return list of english words.
+
+    :param test_label_seqs: sequence of ints to convert to words
+    :param vocab_dict: vocab dict to map ints to words
+    :param test_label_name: name to save file
+    :param save_csv: whether to save file
+
+    :return: spelled_label_seqs_df: dataframe of words with
+                                    timesteps as columns, items as rows
+    """
+
+    if save_csv:
+        if test_label_name is None:
+            raise ValueError("Enter a name/path to save the file")
+
+    if type(test_label_seqs) == str:
+        if os.path.isfile(test_label_seqs):
+            test_labels = np.load(test_label_seqs)
+    elif type(test_label_seqs) == np.ndarray:
+        test_labels = test_label_seqs
+    else:
+        raise TypeError("test_label_seqs should be path or np.ndarray")
+    # print(test_labels)
+    # print(np.shape(test_labels))
+    # print(len(np.shape(test_labels)))
+    # print(type(test_labels))
+    if len(np.shape(test_labels)) is 2:
+        items, seqs = np.shape(test_labels)
+    elif len(np.shape(test_labels)) is 1:
+        seqs = 1
+    else:
+        raise ValueError("expecting 1d or 2d np.ndarray for test_labels\n"
+                         f"This array is shape {np.shape(test_labels)}")
+
+    # focussed_dict_print(vocab_dict)
+
+    df_headers = [f"ts{seq}" for seq in list(range(seqs))]
+    test_label_df = pd.DataFrame(data=test_labels,
+                                 columns=df_headers)
+    # print(test_label_df.head())
+    # test_label_df.to_csv(os.path.join(np_dir, csv_name), index=False)
+
+    spelled_label_seqs = []
+    for index, row in test_label_df.iterrows():
+        row_seqs = []
+        # print(index, row.tolist())
+        for label in row.tolist():
+            this_word = vocab_dict[label]['word']
+            # print(label, this_word)
+            row_seqs.append(this_word)
+        spelled_label_seqs.append(row_seqs)
+
+
+    spelled_label_seqs_df = pd.DataFrame(data=spelled_label_seqs,
+                                         columns=df_headers)
+    # print(spelled_label_seqs_df.head())
+
+    if save_csv:
+        spelled_label_seqs_df.to_csv(test_label_name, index=False)
+
+    return spelled_label_seqs_df
+
+# print("\n\n\n*********testing spell_label_seqs()\n\n")
+# free_test_label_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/STM_RNN_test_v30_free_recall/test/all_generator_gha/test/STM_RNN_test_v30_free_recall_lett_320_corr_test_label_seqs.npy'
+# seri_test_label_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/STM_RNN_test_v30_serial_recall/test/all_generator_gha/test/STM_RNN_test_v30_serial_recall_320_corr_test_label_seqs.npy'
+# seri_3l_test_label_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/STM_RNN_test_v30_serial_recall_3l/test/all_generator_gha/test/STM_RNN_test_v30_serial_recall_3l_320_corr_test_label_seqs.npy'
+#
+# this_one = seri_3l_test_label_path
+# np_dir, np_name = os.path.split(this_one)
+# csv_name = os.path.join(np_dir, f"{np_name[:-8]}spelled.csv")
+#
+# vocab_dict = load_dict(os.path.join('/home/nm13850/Documents/PhD/python_v2/datasets/RNN/bowers14_rep',
+#                                     'vocab_30_dict.txt'))
+# get_words = spell_label_seqs(test_label_seqs=this_one,
+#                              test_label_name=csv_name,
+#                              vocab_dict=vocab_dict, save_csv=True)
+
+
+##########################################
+
+def letter_in_seq(letter, test_label_seqs, vocab_dict):
+    """
+    input a list of sequence labels and a letter to search for.
+    Return a binary array showing whether the letter in question is present in each time.
+
+    :param letter:  to search for
+    :param test_label_seqs: items to search in
+    :param vocab_dict: to check it all out.
+
+    :return: binary numpy array
+    """
+
+    print(f"letter: {letter}\n"
+          f"test_label_seqs: {np.shape(test_label_seqs)}\n"
+          # f"{test_label_seqs}"
+          )
+
+    letter_id_dict = load_dict('/home/nm13850/Documents/PhD/python_v2/datasets/'
+                               'RNN/bowers14_rep/letter_id_dict.txt')
+
+    if type(letter) is int:
+        letter_id = letter
+        letter = letter_id_dict[letter_id]
+    elif type(letter) is str:
+        all_letters = list(letter_id_dict.values())
+        print(all_letters)
+        letter_id = all_letters.index(letter)
+    else:
+        raise TypeError("letter to search for should be string or int")
+
+    print(f"letter: {letter}  id: {letter_id}")
+
+    letter_present_list = []
+    for row in test_label_seqs:
+        # print(row)
+        new_row = []
+        for item in row:
+            spelled_word = vocab_dict[item]['letters']
+            if letter in spelled_word:
+                print(spelled_word, letter)
+                new_row.append(1)
+            else:
+                print(spelled_word, )
+                new_row.append(0)
+        letter_present_list.append(new_row)
+
+    letter_present_array = np.array(letter_present_list)
+
+    return letter_present_array
+
+# print("\n\n\n*********testing letter_in_seq()\n\n")
+# free_test_label_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/' \
+#                        'STM_RNN_test_v30_free_recall/test/all_generator_gha/test/' \
+#                        'STM_RNN_test_v30_free_recall_lett_320_corr_test_label_seqs.npy'
+# seri_test_label_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/' \
+#                        'STM_RNN_test_v30_serial_recall/test/all_generator_gha/test/' \
+#                        'STM_RNN_test_v30_serial_recall_320_corr_test_label_seqs.npy'
+# seri_3l_test_label_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/' \
+#                           'STM_RNN_test_v30_serial_recall_3l/test/all_generator_gha/test/' \
+#                           'STM_RNN_test_v30_serial_recall_3l_320_corr_test_label_seqs.npy'
+#
+# this_one = free_test_label_path
+# np_dir, np_name = os.path.split(this_one)
+# # csv_name = os.path.join(np_dir, f"{np_name[:-8]}spelled.csv")
+#
+# test_label_seqs = np.load(free_test_label_path)
+#
+# vocab_dict = load_dict(os.path.join('/home/nm13850/Documents/PhD/python_v2/datasets/RNN/bowers14_rep',
+#                                     'vocab_30_dict.txt'))
+# get_letters = letter_in_seq(letter='ea', test_label_seqs=test_label_seqs, vocab_dict=vocab_dict)

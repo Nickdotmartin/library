@@ -11,6 +11,8 @@ from tensorflow.keras.models import load_model, Model
 
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
 from tools.RNN_STM import get_label_seqs, get_test_scores, get_layer_acts
+from tools.RNN_STM import seq_items_per_class, spell_label_seqs
+from tools.data import find_path_to_dir
 
 
 def kernel_to_2d(layer_activation_4d, reduce_type='max', verbose=False):
@@ -81,8 +83,6 @@ def rnn_gha(sim_dict_path,
     4. run on 2nd model to get hid acts
 
     :param sim_dict_path: path to the dictionary for this experiment condition
-    :param get_classes: which types of layer are we interested in?
-            I've changed this to just use certain layer names rather than layer classes.
     :param gha_incorrect: GHA for ALL items (True) or just correct items (False)
     :param use_dataset: GHA for train/test data
     :param get_layer_list: if None, gha all layers, else list of layer names to gha
@@ -97,16 +97,23 @@ def rnn_gha(sim_dict_path,
 
     # # # PART 1 # # #
     # # load details from dict
-    if os.path.isfile(sim_dict_path):
-        print(f"sim_dict_path: {sim_dict_path}")
-        sim_dict = load_dict(sim_dict_path)
-        full_exp_cond_path, sim_dict_name = os.path.split(sim_dict_path)
+    if type(sim_dict_path) is str:
+        if os.path.isfile(sim_dict_path):
+            print(f"sim_dict_path: {sim_dict_path}")
+            sim_dict = load_dict(sim_dict_path)
+            full_exp_cond_path, sim_dict_name = os.path.split(sim_dict_path)
 
-    elif os.path.isfile(os.path.join(exp_root, sim_dict_path)):
-        sim_dict_path = os.path.join(exp_root, sim_dict_path)
-        print(f"sim_dict_path: {sim_dict_path}")
-        sim_dict = load_dict(sim_dict_path)
-        full_exp_cond_path, sim_dict_name = os.path.split(sim_dict_path)
+        elif os.path.isfile(os.path.join(exp_root, sim_dict_path)):
+            sim_dict_path = os.path.join(exp_root, sim_dict_path)
+            print(f"sim_dict_path: {sim_dict_path}")
+            sim_dict = load_dict(sim_dict_path)
+            full_exp_cond_path, sim_dict_name = os.path.split(sim_dict_path)
+
+    elif type(sim_dict_path) is dict:
+        sim_dict = sim_dict_path
+        sim_dict_path = sim_dict['training_info']['sim_dict_path']
+        full_exp_cond_path = sim_dict['topic_info']['exp_cond_path']
+
     else:
         raise FileNotFoundError(sim_dict_path)
 
@@ -123,32 +130,32 @@ def rnn_gha(sim_dict_path,
                                             data_dict["vocab_dict"]))
         n_cats = data_dict["n_cats"]
         x_data_path = sim_dict['training_info']['x_data_path']
-        y_data_path = sim_dict['training_info']['y_data_path']
-        n_items = 'unknown'
+        # y_data_path = sim_dict['training_info']['y_data_path']
+        # n_items = 'unknown'
 
     else:
         # load data from somewhere
-        n_items = data_dict["n_items"]
+        # n_items = data_dict["n_items"]
         n_cats = data_dict["n_cats"]
         hdf5_path = sim_dict['topic_info']["dataset_path"]
 
         x_data_path = hdf5_path
-        y_data_path = '/home/nm13850/Documents/PhD/python_v2/datasets/' \
-                      'objects/ILSVRC2012/imagenet_hdf5/y_df.csv'
+        # y_data_path = '/home/nm13850/Documents/PhD/python_v2/datasets/' \
+        #               'objects/ILSVRC2012/imagenet_hdf5/y_df.csv'
 
         seq_data = pd.read_csv(data_dict["seqs"], header=None, names=['seq1', 'seq2', 'seq3'])
         print(f"\nseq_data: {seq_data.shape}\n{seq_data.head()}")
 
-        X_data = np.load(data_dict["X_data"])
-        print("\nshape of X_data: {}".format(np.shape(X_data)))
+        x_data = np.load(data_dict["x_data"])
+        print("\nshape of x_data: {}".format(np.shape(x_data)))
 
-        Y_labels = np.loadtxt(data_dict["Y_labels"], delimiter=',').astype('int8')
-        print(f"\nY_labels:\n{Y_labels}")
-        print(np.shape(Y_labels))
+        y_labels = np.loadtxt(data_dict["y_labels"], delimiter=',').astype('int8')
+        print(f"\ny_labels:\n{y_labels}")
+        print(np.shape(y_labels))
 
-        Y_data = to_categorical(Y_labels, num_classes=30)
-        print(f"\nY_data:\n{Y_data}")
-        print(np.shape(Y_data))
+        y_data = to_categorical(y_labels, num_classes=30)
+        print(f"\ny_data:\n{y_data}")
+        print(np.shape(y_data))
 
     # # # data preprocessing
     # # # if network is cnn but data is 2d (e.g., MNIST)
@@ -159,7 +166,7 @@ def rnn_gha(sim_dict_path,
     #         print(f"\nRESHAPING x_data to: {np.shape(x_data)}")
 
     # # other details
-    hid_units = sim_dict['model_info']['layers']['hid_layers']['hid_totals']["analysable"]
+    # hid_units = sim_dict['model_info']['layers']['hid_layers']['hid_totals']["analysable"]
     optimizer = sim_dict['model_info']["overview"]["optimizer"]
     loss_func = sim_dict['model_info']["overview"]["loss_func"]
     batch_size = sim_dict['model_info']["overview"]["batch_size"]
@@ -168,8 +175,8 @@ def rnn_gha(sim_dict_path,
     x_data_type = sim_dict['model_info']["overview"]["x_data_type"]
     end_seq_cue = sim_dict['model_info']["overview"]["end_seq_cue"]
     act_func = sim_dict['model_info']["overview"]["act_func"]
-    input_dim = data_dict["X_size"]
-    output_dim = data_dict["n_cats"]
+    # input_dim = data_dict["X_size"]
+    # output_dim = data_dict["n_cats"]
 
     # Output files
     output_filename = sim_dict["topic_info"]["output_filename"]
@@ -180,7 +187,16 @@ def rnn_gha(sim_dict_path,
     # # # # PART 2 # # #
     print("\n**** THE MODEL ****")
     model_name = sim_dict['model_info']['overview']['trained_model']
-    loaded_model = load_model(model_name)
+
+    if os.path.isfile(model_name):
+        loaded_model = load_model(model_name)
+    else:
+        training_dir, sim_dict_name = os.path.split(sim_dict_path)
+        print(f"training_dir: {training_dir}\n"
+              f"sim_dict_name: {sim_dict_name}")
+        if os.path.isfile(os.path.join(training_dir, model_name)):
+            loaded_model = load_model(os.path.join(training_dir, model_name))
+
     loaded_model.trainable = False
 
     model_details = loaded_model.get_config()
@@ -232,7 +248,7 @@ def rnn_gha(sim_dict_path,
     # # make new df with just layers of interest
     if get_layer_list is None:
         key_layers_df = model_df
-        get_layer_list = model_df['name'].tolist()
+        get_layer_list = key_layers_df['name'].tolist()
 
 
     key_layers_df = model_df.loc[model_df['name'].isin(get_layer_list)]
@@ -263,10 +279,12 @@ def rnn_gha(sim_dict_path,
     if not gha_incorrect:
         hid_act_items = 'correct'
     gha_folder = f'{hid_act_items}_{use_dataset}_gha'
-
     if test_run:
         gha_folder = os.path.join(gha_folder, 'test')
-    gha_path = os.path.join(full_exp_cond_path, gha_folder)
+
+    cond_name = sim_dict['topic_info']['output_filename']
+    condition_path = find_path_to_dir(long_path=full_exp_cond_path, target_dir=cond_name)
+    gha_path = os.path.join(condition_path, gha_folder)
 
     if not os.path.exists(gha_path):
         os.makedirs(gha_path)
@@ -281,32 +299,62 @@ def rnn_gha(sim_dict_path,
     #     # model_details['layers'][layer]['config']['return_sequences'] = True
     #     if hasattr(layer, 'return_sequences'):
     #         layer.return_sequences = True
-    #
     #         print(layer.name, layer.return_sequences)
-
-        # if verbose:
-        #     print(f"Model layer {layer}: {model_details['layers'][layer]}")
+    #
+    #     if verbose:
+    #         print(f"Model layer {layer}: {model_details['layers'][layer]}")
 
     # # # PART 3 get_scores() # # #
     loaded_model.compile(loss=loss_func, optimizer=optimizer, metrics=['accuracy'])
 
-    test_label_seqs = get_label_seqs(n_labels=n_cats, seq_len=timesteps,
-                                     serial_recall=serial_recall, n_seqs=10*batch_size)
+    # # load test_seqs if they are there, else generate some
+    data_path = sim_dict['data_info']['data_path']
+    test_filename = f'seq{timesteps}_v{n_cats}_960_test_seq_labels.npy'
+    test_seq_path = os.path.join(data_path, test_filename)
 
-    test_label_name = f"{output_filename}_{np.shape(test_label_seqs)[0]}_test_label_seqs.npy"
-    print(f"test_label_name: {test_label_name}")
-    np.save(test_label_name, test_label_seqs)
+    # if os.path.isfile(test_seq_path):
+    test_label_seqs = np.load(test_seq_path)
+    test_label_name = os.path.join(sim_dict['data_info']['data_path'],
+                                   test_filename[:-10])
+
+    seq_words_df = pd.read_csv(f"{test_label_name}words.csv")
+
+    test_IPC_name = os.path.join(data_path,
+                                 f"seq{timesteps}_v{n_cats}_960_test_IPC.pickle")
+    IPC_dict = load_dict(test_IPC_name)
+
+    # else:
+    #
+    #     n_seqs = 30*batch_size
+    #
+    #     test_label_seqs = get_label_seqs(n_labels=n_cats, seq_len=timesteps,
+    #                                      serial_recall=serial_recall, n_seqs=n_seqs)
+    #     test_label_name = f"{output_filename}_{np.shape(test_label_seqs)[0]}_test_seq_"
+    #
+    #
+    #     # print(f"test_label_name: {test_label_name}")
+    #     np.save(f"{test_label_name}labels.npy", test_label_seqs)
+    #
+    #     seq_words_df = spell_label_seqs(test_label_seqs=test_label_seqs,
+    #                                     test_label_name=f"{test_label_name}words.csv",
+    #                                     vocab_dict=vocab_dict, save_csv=True)
+    if verbose:
+        print(seq_words_df.head())
 
     scores_dict = get_test_scores(model=loaded_model, data_dict=data_dict,
                                   test_label_seqs=test_label_seqs,
                                   serial_recall=serial_recall,
-                                  x_data_type=x_data_type,
                                   end_seq_cue=end_seq_cue,
                                   batch_size=batch_size,
                                   verbose=verbose)
 
     mean_IoU = scores_dict['mean_IoU']
     prop_seq_corr = scores_dict['prop_seq_corr']
+
+    # IPC_dict = seq_items_per_class(label_seqs=test_label_seqs, vocab_dict=vocab_dict)
+    # test_IPC_name = f"{output_filename}_{n_seqs}_test_IPC.pickle"
+    # with open(test_IPC_name, "wb") as pickle_out:
+    #     pickle.dump(IPC_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
 
 
     # # PART 5
@@ -334,7 +382,6 @@ def rnn_gha(sim_dict_path,
                                                data_dict=data_dict,
                                                test_label_seqs=test_label_seqs,
                                                serial_recall=serial_recall,
-                                               x_data_type=x_data_type,
                                                end_seq_cue=end_seq_cue,
                                                batch_size=batch_size,
                                                verbose=verbose
@@ -416,6 +463,7 @@ def rnn_gha(sim_dict_path,
                 "GHA_info": {"use_dataset": use_dataset,
                              'x_data_path': x_data_path,
                              'y_data_path': test_label_name,
+                             'IPC_dict_path': test_IPC_name,
                              'gha_path': gha_path,
                              'gha_dict_path': gha_dict_path,
                              "gha_incorrect": gha_incorrect,
@@ -434,20 +482,9 @@ def rnn_gha(sim_dict_path,
         focussed_dict_print(gha_dict, 'gha_dict', ['GHA_info'])
 
 
-    # make a list of dict names to do sel on
-    if not os.path.isfile(f"{output_filename}_dict_list_for_sel.csv"):
-        dict_list = open(f"{output_filename}_dict_list_for_sel.csv", 'w')
-        mywriter = csv.writer(dict_list)
-    else:
-        dict_list = open(f"{output_filename}_dict_list_for_sel.csv", 'a')
-        mywriter = csv.writer(dict_list)
-
-    mywriter.writerow([gha_dict_name[:-7]])
-    dict_list.close()
-
-    print(f"\nadded to list for selectivity analysis: {gha_dict_name[:-7]}")
-
-    gha_info = [cond, run, output_filename, n_layers, hid_units, dataset, use_dataset,
+    gha_info = [cond, run, output_filename,
+                sim_dict['model_info']['overview']['model_name'],
+                n_layers, hid_units, dataset, use_dataset,
                 gha_incorrect, n_cats,
                 timesteps,
                 x_data_type,
@@ -457,19 +494,18 @@ def rnn_gha(sim_dict_path,
                 test_run, gha_date, gha_time]
 
     # # check if gha_summary.csv exists
-    # # save summary file in exp folder (grandparent dir to gha folder: exp/cond/gha)
-    # to move up to parent just use '..' rather than '../..'
 
-    # exp_name = exp_dir.strip('/')
+    # # save sel summary in exp folder not condition folder
     exp_name = sim_dict['topic_info']['exp_name']
+    exp_path = find_path_to_dir(long_path=gha_path, target_dir=exp_name)
+    os.chdir(exp_path)
 
-    os.chdir('../..')
-    exp_path = os.getcwd()
 
     if not os.path.isfile(exp_name + "_GHA_summary.csv"):
         gha_summary = open(exp_name + "_GHA_summary.csv", 'w')
         mywriter = csv.writer(gha_summary)
-        summary_headers = ["cond", "run", 'filename', "n_layers", "hid_units", "dataset", "GHA_on",
+        summary_headers = ["cond", "run", 'filename', 'model', "n_layers",
+                           "hid_units", "dataset", "GHA_on",
                            'incorrect', "n_cats",
                            "timesteps",
                            "x_data_type",
@@ -489,9 +525,23 @@ def rnn_gha(sim_dict_path,
     mywriter.writerow(gha_info)
     gha_summary.close()
 
+
+    # make a list of dict names to do sel on
+    if not os.path.isfile(f"{exp_name}_dict_list_for_sel.csv"):
+        dict_list = open(f"{exp_name}_dict_list_for_sel.csv", 'w')
+        mywriter = csv.writer(dict_list)
+    else:
+        dict_list = open(f"{exp_name}_dict_list_for_sel.csv", 'a')
+        mywriter = csv.writer(dict_list)
+
+    mywriter.writerow([gha_dict_name[:-7]])
+    dict_list.close()
+
+    print(f"\nadded to list for selectivity analysis: {gha_dict_name[:-7]}")
+
     print("\nend of ff_gha")
 
-    return gha_info, gha_dict
+    return gha_dict
 
 ###############################
 # print("\n\n\n\n\nWarning\n\n\n\n\nrunning script from bottom of page!\n\n\!!!!!")

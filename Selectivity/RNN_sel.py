@@ -1,6 +1,7 @@
 import copy
 import csv
 import datetime
+import json
 import os
 import pickle
 import shelve
@@ -8,11 +9,16 @@ import shelve
 import h5py
 import numpy as np
 import pandas as pd
-from scipy.stats.stats import pearsonr
+import seaborn as sns
+import matplotlib.pyplot as plt
+from scipy.stats.stats import pearsonr, rankdata
 from sklearn.metrics import roc_curve, auc
 
-from tools.hdf import hdf_df_string_clean
-from tools.dicts import load_dict, focussed_dict_print
+from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
+from tools.RNN_STM import get_X_and_Y_data_from_seq, seq_items_per_class, spell_label_seqs
+from tools.data import nick_read_csv, find_path_to_dir
+from tools.network import loop_thru_acts
+
 
 '''This script uses shelve instead of pickle for sel_p_unit dict.
 
@@ -39,23 +45,25 @@ def nick_roc_stuff(class_list, hid_acts, this_class, class_a_size, not_a_size,
         If Relu: y_true = 0-1, use normed acts?
         If tanh: y_true = -1-1, use raw acts
 
-
     :param verbose: how much to print to screen
 
     :return: roc_dict: fpr, tpr, thr, ROC_AUC
     """
-
-    print("**** nick_roc_stuff() ****")
+    if verbose:
+        print("\n**** nick_roc_stuff() ****")
 
     # if class is not empty (no correct items)
-    if class_a_size > 0:
+    if class_a_size * not_a_size > 0:
+
+        if verbose:
+            print(f"this_class: {this_class}, class_a_size: {class_a_size}, not_a_size: {not_a_size}")
+
         # convert class list to binary one vs all
         if act_func is 'tanh':
             binary_array = [1 if i == this_class else -1 for i in np.array(class_list)]
         else:
             binary_array = [1 if i == this_class else 0 for i in np.array(class_list)]
         hid_act_array = np.array(hid_acts)
-        n_items = sum([class_a_size, not_a_size])
 
         # # get ROC curve
         fpr, tpr, thr = roc_curve(binary_array, hid_act_array)
@@ -64,7 +72,6 @@ def nick_roc_stuff(class_list, hid_acts, this_class, class_a_size, not_a_size,
         tp_count_dict = [class_a_size * i for i in tpr]
         fp_count_dict = [not_a_size * i for i in fpr]
         abv_thr_count_dict = [x + y for x, y in zip(tp_count_dict, fp_count_dict)]
-        # prop_above_thr_dict = [i / n_items for i in abv_thr_count_dict]
         precision_dict = [x / y if y else 0 for x, y in zip(tp_count_dict, abv_thr_count_dict)]
         recall_dict = [i / class_a_size for i in tp_count_dict]
         recall2_dict = recall_dict[:-1]
@@ -77,27 +84,6 @@ def nick_roc_stuff(class_list, hid_acts, this_class, class_a_size, not_a_size,
         ave_prec = np.sum(my_ave_prec_vals_dict)
         pr_auc = auc(recall_dict, precision_dict)
 
-        # # no longer need TCS or NZ_AP, NZ_pr
-        # # # to sort out noZero scores
-        # nz_ave_prec = np.sum(my_ave_prec_vals_dict[:-1])
-        # if len(recall_dict[:-1]) > 1:
-        #     nz_pr_auc = auc(recall_dict[:-1], precision_dict[:-1])
-        # else:
-        #     nz_pr_auc = 0.0
-        #
-        # # top_class_sel
-        # top_class_sel_rows = precision_dict.count(1)
-        # # todo: revisit this or remove it.  Should I be setting tcs_thr to 1 for most classes?
-        # top_roc_stuff_dict = 'None'
-        # if top_class_sel_rows > 0:
-        #     top_class_sel_recall = recall_dict[top_class_sel_rows]
-        #     top_class_sel_recall_thr = thr[top_class_sel_rows]
-        #     top_class_sel_items = int(tp_count_dict[top_class_sel_rows])
-        # else:
-        #     top_class_sel_recall = 0
-        #     top_class_sel_recall_thr = 1
-        #     top_class_sel_items = 0
-
         # # Informedness
         get_informed_dict = [a + (1 - b) - 1 for a, b in zip(tpr, fpr)]
         max_informed = max(get_informed_dict)
@@ -109,40 +95,24 @@ def nick_roc_stuff(class_list, hid_acts, this_class, class_a_size, not_a_size,
         max_info_spec = 1 - fpr[max_informed_count]
         max_informed_prec = precision_dict[max_informed_count]
 
-        # # no longer need max_info f1
-        # if max_informed_prec + max_info_sens == 0.0:
-        #     max_info_f1 = 0.0
-        # else:
-        #     max_info_f1 = 2 * (max_informed_prec * max_info_sens) / (max_informed_prec + max_info_sens)
-        # if np.isnan(max_info_f1):
-        #     max_info_f1 = 0.0
-        # if np.isfinite(max_info_f1):
-        #     max_info_f1 = 0.0
-        # if type(max_info_f1) is not float:
-        #     max_info_f1 = 0.0
-
 
     else:  # if there are not items in this class
-        roc_auc = ave_prec = pr_auc = nz_ave_prec = nz_pr_auc = 0
-        top_class_sel_items = top_class_sel_recall_thr = top_class_sel_recall = 0
+        if verbose:
+            print(f"\nROC\nno items in class {this_class} (n={class_a_size}) "
+                  f"or not_a (n={not_a_size})")
+        roc_auc = ave_prec = pr_auc = 0
         max_informed = max_informed_count = max_informed_thr = 0
-        max_info_sens = max_info_spec = max_informed_prec = max_info_f1 = 0
+        max_info_sens = max_info_spec = max_informed_prec = 0
 
     roc_sel_dict = {'roc_auc': roc_auc,
                     'ave_prec': ave_prec,
                     'pr_auc': pr_auc,
-                    # 'nz_ave_prec': nz_ave_prec,
-                    # 'nz_pr_auc': nz_pr_auc,
-                    # 'tcs_items': top_class_sel_items,
-                    # 'tcs_thr': top_class_sel_recall_thr,
-                    # 'tcs_recall': top_class_sel_recall,
                     'max_informed': max_informed,
                     'max_info_count': max_informed_count,
                     'max_info_thr': max_informed_thr,
                     'max_info_sens': max_info_sens,
                     'max_info_spec': max_info_spec,
                     'max_info_prec': max_informed_prec,
-                    # 'max_info_f1': max_info_f1,
                     }
 
     return roc_sel_dict
@@ -161,7 +131,8 @@ def class_correlation(this_unit_acts, output_acts, verbose=False):
 
     :return: (Pearson's correlation coefficient, 2-tailed p-value)
     """
-    print("**** class_correlation() ****")
+    if verbose:
+        print("**** class_correlation() ****")
 
     coef, p_val = pearsonr(x=this_unit_acts, y=output_acts)
     round_p = round(p_val, 3)
@@ -173,7 +144,7 @@ def class_correlation(this_unit_acts, output_acts, verbose=False):
     return corr
 
 
-def class_sel_basics(this_unit_acts_df, items_per_cat, hi_val_thr=.5,
+def class_sel_basics(this_unit_acts_df, items_per_cat, n_classes, hi_val_thr=.5,
                      act_func='relu',
                      verbose=False):
     """
@@ -187,7 +158,8 @@ def class_sel_basics(this_unit_acts_df, items_per_cat, hi_val_thr=.5,
 
     :param this_unit_acts_df: dataframe containing the activations for this unit
     :param items_per_cat: Number of items in each class
-                        (of correct items or all items depending on hid acts)
+                        (or correct items or all items depending on hid acts)
+    :param n_classes: Number of classes
     :param hi_val_thr: threshold above which an item is considered to be 'strongly active'.
     :param act_func: relu, sigmoid or tanh.  If Relu use normed acts, else use regular.
 
@@ -196,23 +168,50 @@ def class_sel_basics(this_unit_acts_df, items_per_cat, hi_val_thr=.5,
     :return: class_sel_basics_dict
     """
 
-    print("**** class_sel_basics() ****")
+    if verbose:
+        print("\n**** class_sel_basics() ****")
 
     act_values = 'activation'
     if act_func is 'relu':
         act_values = 'normed'
+    if act_func is 'sigmoid':
+        hi_val_thr = .75
+
+    if not n_classes:
+        n_classes = max(list(items_per_cat.keys()))
+
+    if type(n_classes) is int:
+        class_list = list(range(n_classes))
+    elif type(n_classes) is list:
+        class_list = n_classes
+        n_classes = len(class_list)
 
     # # means
-    means_dict = dict(this_unit_acts_df.groupby('class')[act_values].mean())
-    sd_dict = dict(this_unit_acts_df.groupby('class')[act_values].std())
+    means_dict = dict(this_unit_acts_df.groupby('label')[act_values].mean())
+
+    # # sd.  will give value of nan if there is no variance rather then 0.
+    sd_dict = dict(this_unit_acts_df.groupby('label')[act_values].std())
+    sd_dict = {k: v if not np.isnan(v) else 0 for k, v in sd_dict.items()}
+
+
+    # print(f"\nidiot check sd\n"
+    #       f"means: {len(means_dict.values())} {means_dict}\n"
+    #       f"sd: {len(sd_dict.values())} {sd_dict}\n"
+    #       f"items_per_cat: {items_per_cat}\n"
+    #       f"this_unit_acts_df:\n{this_unit_acts_df}")
+    # for cat in range(n_classes):
+    #     print(f"\ncat: {cat}\n"
+    #           f"{this_unit_acts_df[this_unit_acts_df['label'] == cat]}")
+    # # if all(list(sd_dict.values())) == 'Nan'
 
     # # non-zero_count
     nz_count_dict = dict(this_unit_acts_df[this_unit_acts_df[act_values]
-                                           > 0.0].groupby('class')[act_values].count())
+                                           > 0.0].groupby('label')[act_values].count())
 
-    for i in range(max(list(items_per_cat.keys()))):
-        if i not in nz_count_dict:
-            nz_count_dict[i] = 0
+    if len(list(nz_count_dict.keys())) < n_classes:
+        for i in class_list:
+            if i not in nz_count_dict:
+                nz_count_dict[i] = 0
 
     # nz_perplexity = sum(1 for i in nz_count_dict.values() if i >= 0)
     non_zero_count_total = this_unit_acts_df[this_unit_acts_df[act_values] > 0][act_values].count()
@@ -226,15 +225,16 @@ def class_sel_basics(this_unit_acts_df, items_per_cat, hi_val_thr=.5,
 
     # # hi val count
     hi_val_count_dict = dict(this_unit_acts_df[this_unit_acts_df[act_values] >
-                                               hi_val_thr].groupby('class')[act_values].count())
-    for i in range(max(list(items_per_cat.keys()))):
-        if i not in hi_val_count_dict:
-            hi_val_count_dict[i] = 0
+                                               hi_val_thr].groupby('label')[act_values].count())
+    if len(list(hi_val_count_dict.keys())) < n_classes:
+        for i in class_list:
+            if i not in hi_val_count_dict:
+                hi_val_count_dict[i] = 0
 
     hi_val_total = this_unit_acts_df[this_unit_acts_df[act_values] > hi_val_thr][act_values].count()
 
     # # hi vals precision
-    hi_val_prec_dict = {k: v / hi_val_total for k, v in hi_val_count_dict.items()}
+    hi_val_prec_dict = {k: (0 if v == 0 else v / hi_val_total) for k, v in hi_val_count_dict.items()}
 
     hi_val_prop_dict = {k: (0 if items_per_cat[k] == 0 else hi_val_count_dict[k] / items_per_cat[k])
                         for k in items_per_cat.keys() & hi_val_count_dict}
@@ -301,7 +301,8 @@ def sel_unit_max(all_sel_dict, verbose=False):
     :return: small dict with just the max class for each measure
     """
 
-    print("\n**** sel_unit_max() ****")
+    if verbose:
+        print("\n**** sel_unit_max() ****")
 
     copy_sel_dict = copy.deepcopy(all_sel_dict)
 
@@ -315,6 +316,9 @@ def sel_unit_max(all_sel_dict, verbose=False):
         measure_c_name = f"{measure}_c"
         classes = list(class_dict.keys())
         values = list(class_dict.values())
+
+        # print("\nidiot check\n"
+        #       f"measure: {measure}\nvalues:\n{values}")
         max_val = max(values)
         max_class = classes[values.index(max_val)]
         # print(measure, measure_c_name)
@@ -323,12 +327,6 @@ def sel_unit_max(all_sel_dict, verbose=False):
         max_sel_dict[measure] = max_val
         max_sel_dict[measure_c_name] = max_class
 
-    # # edit items (where max should be based on main sel value, e.g., not  max threshold).
-    # remove unnecessary items
-    # max_sel_dict['tcs_thr'] = copy_sel_dict['tcs_thr'][max_sel_dict["tcs_recall_c"]]
-    # del max_sel_dict['tcs_thr_c']
-    # max_sel_dict['tcs_items'] = copy_sel_dict['tcs_items'][max_sel_dict["tcs_recall_c"]]
-    # del max_sel_dict['tcs_items_c']
 
     max_sel_dict['max_info_count'] = copy_sel_dict['max_info_count'][max_sel_dict["max_informed_c"]]
     del max_sel_dict['max_info_count_c']
@@ -340,37 +338,34 @@ def sel_unit_max(all_sel_dict, verbose=False):
     del max_sel_dict['max_info_spec_c']
     max_sel_dict['max_info_prec'] = copy_sel_dict['max_info_prec'][max_sel_dict["max_informed_c"]]
     del max_sel_dict['max_info_prec_c']
-    # max_sel_dict['max_info_f1'] = copy_sel_dict['max_info_f1'][max_sel_dict["max_informed_c"]]
-    # del max_sel_dict['max_info_f1_c']
-
     max_sel_dict['zhou_selects'] = copy_sel_dict['zhou_selects'][max_sel_dict["zhou_prec_c"]]
     del max_sel_dict['zhou_selects_c']
     max_sel_dict['zhou_thr'] = copy_sel_dict['zhou_thr'][max_sel_dict["zhou_prec_c"]]
     del max_sel_dict['zhou_thr_c']
 
-    # # max corr_coef shold be the absolute max (e.g., including negative) where p < .05.
-    # get all values into df
-    coef_array = []  # [corr_coef, abs(corr_coef), p, class]
-    for coef_k, coef_v in copy_sel_dict['corr_coef'].items():
-        abs_coef = abs(coef_v)
-        p = copy_sel_dict['corr_p'][coef_k]
-        coef_array.append([coef_v, abs_coef, p, coef_k])
-    coef_df = pd.DataFrame(data=coef_array, columns=['coef', 'abs', 'p', 'class'])
-
-    # # filter and sort df
-    coef_df = coef_df.loc[coef_df['p'] < 0.05]
-
-    if not len(coef_df):  # if there are not items with that p_value
-        max_sel_dict['corr_coef'] = float('NaN')
-        max_sel_dict['corr_coef_c'] = float('NaN')
-        max_sel_dict['corr_p'] = float('NaN')
-    else:
-        coef_df = coef_df.sort_values(by=['abs'], ascending=False).reset_index()
-        max_sel_dict['corr_coef'] = coef_df['coef'].iloc[0]
-        max_sel_dict['corr_coef_c'] = coef_df['class'].iloc[0]
-        max_sel_dict['corr_p'] = coef_df['p'].iloc[0]
-
-    del max_sel_dict['corr_p_c']
+    # # # max corr_coef shold be the absolute max (e.g., including negative) where p < .05.
+    # # get all values into df
+    # coef_array = []  # [corr_coef, abs(corr_coef), p, class]
+    # for coef_k, coef_v in copy_sel_dict['corr_coef'].items():
+    #     abs_coef = abs(coef_v)
+    #     p = copy_sel_dict['corr_p'][coef_k]
+    #     coef_array.append([coef_v, abs_coef, p, coef_k])
+    # coef_df = pd.DataFrame(data=coef_array, columns=['coef', 'abs', 'p', 'class'])
+    #
+    # # # filter and sort df
+    # coef_df = coef_df.loc[coef_df['p'] < 0.05]
+    #
+    # if not len(coef_df):  # if there are not items with that p_value
+    #     max_sel_dict['corr_coef'] = float('NaN')
+    #     max_sel_dict['corr_coef_c'] = float('NaN')
+    #     max_sel_dict['corr_p'] = float('NaN')
+    # else:
+    #     coef_df = coef_df.sort_values(by=['abs'], ascending=False).reset_index()
+    #     max_sel_dict['corr_coef'] = coef_df['coef'].iloc[0]
+    #     max_sel_dict['corr_coef_c'] = coef_df['class'].iloc[0]
+    #     max_sel_dict['corr_p'] = coef_df['p'].iloc[0]
+    #
+    # del max_sel_dict['corr_p_c']
 
     # # round values
     for k, v in max_sel_dict.items():
@@ -383,190 +378,505 @@ def sel_unit_max(all_sel_dict, verbose=False):
     return max_sel_dict
 
 
-####################################################################################################
+def new_sel_dict_layout(sel_dict, all_or_max='max'):
+    """
+    for 'all' (sel_per_unit_dict) there are 5 layers:
+        Original dict layout: layer, unit, ts, measure, classes
+        New layout: measure, layer, unit, ts, classes
 
-# @profile
-def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
-           layer_classes=("Conv2D", "Dense", "Activation"),
-           verbose=False, test_run=False):
+    for 'max' (max_sel_p_unit_dict) there are 4 layers:
+        Original dict layout: layer, unit, ts, measure
+        New layout: measure, layer, unit, ts
+
+    :param sel_dict:
+    :param all_or_max: for each unit/timestep, dict contains either:
+        sel values for all classes or just max_sel_class
+
+    :return: new_sel_dict
+    """
+
+    new_dict = dict()
+    layer_list = list(sel_dict.keys())
+    unit_list = list(sel_dict[layer_list[0]].keys())
+    timestep_list = list(sel_dict[layer_list[0]][0].keys())
+    sel_measure_list = list(sel_dict[layer_list[0]][0]['ts0'].keys())
+
+    if all_or_max is 'all':
+        class_list = list(sel_dict[layer_list[0]][0]['ts0'][sel_measure_list[0]].keys())
+
+    for measure in sel_measure_list:
+        new_dict[measure] = dict()
+
+        for layer in layer_list:
+            new_dict[measure][layer] = dict()
+
+            for unit in unit_list:
+                new_dict[measure][layer][unit] = dict()
+
+                for ts in timestep_list:
+
+                    if all_or_max is 'max':
+                        ts_sel_score = sel_dict[layer][unit][ts][measure]
+                        new_dict[measure][layer][unit][ts] = ts_sel_score
+
+                    elif all_or_max is 'all':
+                        new_dict[measure][layer][unit][ts] = dict()
+
+                        for label in class_list:
+                            class_sel_score = sel_dict[layer][unit][ts][measure][label]
+                            new_dict[measure][layer][unit][ts][label] = class_sel_score
+
+    return new_dict
+
+
+###############################
+
+def get_sel_summaries(max_sel_dict_path,
+                      top_n=3,
+                      high_sel_thr=1.0,
+                      verbose=False):
+    """
+    max sel dict is a nested dict [layers][units][timesteps][measures] = floats.
+    Use this to make the following
+
+    1. max_sel_df: from max_sel_dict make df.  multi-indexed for layer, units, ts as rows.
+        Cols are all sel measures
+
+    2. model_mean_max_df: use max_sel_df to get mean and max sel scores for:
+        a) whole model, b) each layer and c) each timestep (ts)
+
+    3. for_summ_csv_dict: get model means and max's for a couple of measures
+        (max_info, ccma, precision, means) to use on the summary df.
+
+    4. highlights dicts
+        a) hl_dfs_dict (highlights_dataframe_dict):
+            df with top_n units/timesteps for each sel measure.
+            keys: measures; values: dataframes
+
+        b) hl_units_dict (highlights unit dict).  nested keys: [layer][unit][timestep];
+            values at unit: list of measures where it is timestep invariant
+            (e.g., for a given measure, max sel class is the same at all timesteps)
+            values at timesteps: tuple(measure, score, label) from hl_dfs_dict.
+
+    5. get_sel_summaries_dict: details of everything in this function (e.g., paths to files)
+
+    1-4 are all saved directly.
+    5 is returned.
+
+    :param max_sel_dict_path:
+    :param top_n: how many of the most selective units to save in highlights
+    :param high_sel_thr: above what threshold should all units be saved
+    :param verbose: How much to print to screen
+
+    :return: get_sel_summaries_dict
+    """
+
+    # # use max_sel_dict_path to get exp_cond_gha_path, max_sel_dict_name,
+    exp_cond_gha_path, max_sel_dict_name = os.path.split(max_sel_dict_path)
+    output_filename = max_sel_dict_name[:-22]
+
+    print(f"\n**** get_sel_summaries ({output_filename}) ****")
+
+    os.chdir(exp_cond_gha_path)
+
+    max_sel_dict = load_dict(max_sel_dict_path)
+
+    focussed_dict_print(max_sel_dict, 'max_sel_dict')
+
+    # # max_sel_p_unit layout
+    """print("\nORIG max_sel_p_unit dict")
+    print(f"\nFirst nest is Layers: {len(list(max_sel_dict.keys()))} keys."
+          f"\n{list(max_sel_dict.keys())}"
+          f"\neach with value is a dict.")
+    second_layer = max_sel_dict[list(max_sel_dict.keys())[0]]
+    print(f"\nsecond nest is Units: {len(list(second_layer.keys()))} keys."
+          f"\n{list(second_layer.keys())}"
+          f"\neach with value is a dict.")
+    third_layer = second_layer[list(second_layer.keys())[0]]
+    print(f"\nThird nest is Timesteps: {len(list(third_layer.keys()))} keys."
+          f"\n{list(third_layer.keys())}"
+          f"\neach with value is a dict.")
+    fourth_layer = third_layer[list(third_layer.keys())[0]]
+    print(f"\nfourth nest is measures: {len(list(fourth_layer.keys()))} keys."
+          f"\n{list(fourth_layer.keys())}"
+          f"\neach with value is a single item.  "
+          f"{fourth_layer[list(fourth_layer.keys())[0]]}\n")"""
+
+    '''get a list of relevant sel measures'''
+    # # list of all keys (sel_measures)
+    all_sel_measures_list = list(max_sel_dict[list(max_sel_dict.keys())[0]][0]['ts0'].keys())
+
+    # # remove measures that don't have an associated class-label
+    # # also removing nz_count and hi-val count as they have scores > 1.
+    drop_these_measures = ['max_info_count', 'max_info_thr', 'max_info_sens',
+                           'max_info_spec', 'max_info_prec', 'zhou_selects', 'zhou_thr',
+                           # # remove nz and hi val for rnn stuff.  not informative
+                           "nz_count", 'nz_count_c', "nz_prop", "nz_prop_c", "nz_prec", "nz_prec_c",
+                           'hi_val_count', 'hi_val_count_c',
+                           "hi_val_prop", "hi_val_prop_c", "hi_val_prec", "hi_val_prec_c",
+                           ]
+
+    sel_measures_list = [measure for measure in all_sel_measures_list if measure not in drop_these_measures]
+
+    # # remove max_sel_class labels associated with sel measures
+    sel_measures_list = [measure for measure in sel_measures_list if measure[-2:] != '_c']
+    if verbose:
+        print(f"{len(sel_measures_list)} items in sel_measures_list.\n{sel_measures_list}")
+
+    '''1. max_sel_df: from max_sel_dict
+    reform nested dict first
+    https://stackoverflow.com/questions/30384581/nested-dictionary-to-multiindex-pandas-dataframe-3-level
+    '''
+    reform_nested_sel_dict = {(level1_key, level2_key, level3_key): values
+                              for level1_key, level2_dict in max_sel_dict.items()
+                              for level2_key, level3_dict in level2_dict.items()
+                              for level3_key, values in level3_dict.items()}
+
+    max_sel_df = pd.DataFrame(reform_nested_sel_dict).T
+    sel_df_index_names = ['Layer', 'Unit', 'Timestep']
+    max_sel_df.index.set_names(sel_df_index_names, inplace=True)
+
+    # # convert max_sel_class labels ('_c') columns to int
+    class_cols_list = [measure for measure in all_sel_measures_list if measure[-2:] == '_c']
+    class_cols_dict = {i: 'int32' for i in class_cols_list}
+    max_sel_df = max_sel_df.astype(class_cols_dict)
+
+    max_sel_df.to_csv(f'{output_filename}_max_sel.csv')
+
+    if verbose:
+        print(f"\nmax_sel_df:\n{max_sel_df}")
+
+    '''use max_sel_df.xs (cross-section) to select info in multi-indexed dataframes'''
+    # layer_df = max_sel_df.xs('hid2', level='Layer')
+    # unit_df = max_sel_df.xs(1, level='Unit')
+    # ts_df = max_sel_df.xs('ts2', level='Timestep')
+    # layer_unit_df = max_sel_df.xs(('hid2', 2), level=('Layer', 'Unit'))
+    # layer_ts_df = max_sel_df.xs(('hid2', 'ts2'), level=('Layer', 'Timestep'))
+    # unit_ts_df = max_sel_df.xs((2, 'ts2'), level=('Unit', 'Timestep'))
+    # print(unit_ts_df)
+
+    '''2a. model_mean_max_df: get means and max for the whole model'''
+    # # sel_measures_df just contains sel values, not max_sel_class labels
+    sel_measures_df = max_sel_df[sel_measures_list]
+    model_means_s = sel_measures_df.mean().rename('model_means')
+    model_max_s = sel_measures_df.max().rename('model_max')
+
+
+    # # plot distribution of selectivity scores
+    colours = sns.color_palette('husl', n_colors=len(sel_measures_list))
+    plt.figure()
+    for index, measure in enumerate(sel_measures_list):
+
+        # print(f"\nindex: {index}: measure: {measure}\n{sel_measures_df[measure]}")
+        check_values = sel_measures_df[measure].to_list()
+        # print(f"check_values: {check_values}")
+
+        sel_measures_df.dropna(subset=[measure], inplace=True)
+        # print(f"\ndropna:\n{sel_measures_df[measure]}")
+
+        if not sel_measures_df.empty:
+            ax = sns.kdeplot(sel_measures_df[measure], color=colours[index], shade=True)
+    plt.legend(sel_measures_list)
+    plt.title('Density Plot of Selectivity measures')
+    ax.set(xlabel='Selectivity')
+    ax.set_xlim(right=1)
+    plt.savefig(f"{output_filename}_sel_dist.png")
+    # plt.show()
+    plt.close()
+
+    # # don't make df yet, put here so layers and timesteps can be added too
+    mean_max_arrays = [model_means_s, model_max_s]
+
+    '''2b. model_mean_max_df: get means and max per layer'''
+    layer_names_list = sorted(list(set(max_sel_df.index.get_level_values('Layer'))))
+    units_names_list = sorted(list(set(max_sel_df.index.get_level_values('Unit'))))
+    ts_names_list = sorted(list(set(max_sel_df.index.get_level_values('Timestep'))))
+
+    if len(layer_names_list) > 1:
+        for this_layer in layer_names_list:
+
+            # # check that relevant timestep is present
+            layer_check = sorted(list(set(sel_measures_df.index.get_level_values('Layer'))))
+
+            if this_layer in layer_check:
+
+                # # select relevant rows from list
+                layer_measure_df = sel_measures_df.xs(this_layer, level='Layer')
+
+                # # get means and max vales series
+                layer_means_s = layer_measure_df.mean().rename(f'{this_layer}_means')
+                layer_max_s = layer_measure_df.max().rename(f'{this_layer}_max')
+            else:
+                headers = list(sel_measures_df)
+                values = [0] * len(headers)
+                layer_means_s = pd.Series(dict(zip(headers, values))).rename(f'{this_layer}_means')
+                layer_max_s = pd.Series(dict(zip(headers, values))).rename(f'{this_layer}_max')
+
+            mean_max_arrays.append(layer_means_s)
+            mean_max_arrays.append(layer_max_s)
+
+    '''2c. model_mean_max_df: get means and max per timestep'''
+    if len(ts_names_list) > 1:
+        for this_ts in ts_names_list:
+
+            # # check that relevant timestep is present
+            ts_check = sorted(list(set(sel_measures_df.index.get_level_values('Timestep'))))
+            # print(f"\nts_checl: {ts_check}")
+
+            if this_ts in ts_check:
+
+                # # select relevant rows from list
+                ts_measure_df = sel_measures_df.xs(this_ts, level='Timestep')
+
+                # # get means and max vales series
+                ts_means_s = ts_measure_df.mean().rename(f'{this_ts}_means')
+                ts_max_s = ts_measure_df.max().rename(f'{this_ts}_max')
+
+            else:
+                # print("idiot check ts missing")
+                headers = list(sel_measures_df)
+                values = [0] * len(headers)
+                ts_means_s = pd.Series(dict(zip(headers, values))).rename(f'{this_ts}_means')
+                ts_max_s = pd.Series(dict(zip(headers, values))).rename(f'{this_ts}_max')
+
+            # print(f"\nmodel_means_s:\n{model_means_s}")
+
+            mean_max_arrays.append(ts_means_s)
+            mean_max_arrays.append(ts_max_s)
+
+    model_mean_max_df = pd.concat(mean_max_arrays, axis='columns')
+
+    model_mean_max_df.to_csv(f'{output_filename}_model_mean_max.csv')
+
+    if verbose:
+        print(f"model_mean_max_df: \n{model_mean_max_df}")
+
+    '''3. for_summ_csv_dict: summary values from model means and max serieses'''
+    for_summ_csv_dict = {"mi_mean": model_means_s.loc['max_informed'],
+                         "mi_max": model_max_s.loc['max_informed'],
+                         "ccma_mean": model_means_s.loc['ccma'],
+                         "ccma_max": model_max_s.loc['ccma'],
+                         "prec_mean": model_means_s.loc['zhou_prec'],
+                         "prec_max": model_max_s.loc['zhou_prec'],
+                         "means_mean": model_means_s.loc['means'],
+                         "means_max": model_max_s.loc['means'],
+                         "b_sel_mean": model_means_s.loc['b_sel'],
+                         "b_sel_max": model_max_s.loc['b_sel'],
+                         }
+
+    '''4a. hl_dfs_dict (highlights_dataframe_dict):  
+        df with top_n units/timesteps for each sel measure.
+        keys: measures; values: dataframes
+
+       4b. hl_units_dict (highlights unit dict).  nested keys: [layer][unit][timestep];
+            values at timesteps: tuple(measure, score, label) from hl_dfs_dict.'''
+
+    hl_dfs_dict = dict()
+    hl_units_dict = dict()
+
+    for measure in sel_measures_list:
+        # # save all units at or above high_sel_threshold
+        if len(max_sel_df[max_sel_df[measure] >= high_sel_thr]) > top_n:
+            top_units = max_sel_df[max_sel_df[measure] >= high_sel_thr]
+        else:
+            # # just take top_n highest scores
+            top_units = max_sel_df.nlargest(n=top_n, columns=measure)
+
+        # # only include relevant measure and class label on this df
+        m_label = f"{measure}_c"
+        cols_to_keep = [measure, m_label]
+        top_units = top_units[cols_to_keep]
+
+        # # get ranks for scores
+        check_values = top_units.loc[:, measure].to_list()
+
+        if all(check_values) == 0:
+            print(f"\nthese values are all 0\nmeasure: {measure}\n{check_values}")
+            continue
+        if all(check_values) == 0.0:
+            print(f"\nthese values are all 0.0\nmeasure: {measure}\n{check_values}")
+            continue
+
+        rank_values = rankdata([int(-100 * i) for i in check_values], method='dense')
+
+        top_units['rank'] = rank_values
+
+        # # append to hl_dfs_dict
+        hl_dfs_dict[measure] = top_units
+
+        # # loop through top units to populate hl_units_dict
+        for index, row in top_units.iterrows():
+            # add indices to dict (0: layer, 1: unit, 2: timestep)
+            if row.name[0] not in hl_units_dict.keys():
+                hl_units_dict[row.name[0]] = dict()
+            if row.name[1] not in hl_units_dict[row.name[0]].keys():
+                hl_units_dict[row.name[0]][row.name[1]] = dict()
+            if row.name[2] not in hl_units_dict[row.name[0]][row.name[1]].keys():
+                hl_units_dict[row.name[0]][row.name[1]][row.name[2]] = []
+
+            # # add values to dict (0: measure, 1: label, 2: rank)
+            hl_units_dict[row.name[0]][row.name[1]][row.name[2]].append(
+                (measure, round(row.values[0], 3), int(row.values[1]), f'rank_{int(row.values[2])}'))
+
+    # save hl_dfs_dict here
+    with open(f"{output_filename}_hl_dfs.pickle", "wb") as pickle_out:
+        pickle.dump(hl_dfs_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
+
+    if verbose:
+        focussed_dict_print(hl_dfs_dict, 'hl_dfs_dict')
+
+    '''4b. hl_units_dict (highlights unit dict).  nested keys: [layer][unit][timestep];
+            values at unit: list of measures where it is timestep invariant'''
+
+    for layer in layer_names_list:
+        for unit in units_names_list:
+            # # get array for this layer, unit - all timesteps
+            layer_unit_df = max_sel_df.xs((layer, unit), level=('Layer', 'Unit'))
+
+            if verbose:
+                print(f"\nlayer_unit_df:\n{layer_unit_df}")
+
+            for measure in sel_measures_list:
+                # # get max sel label for these timesteps
+                check_classes = layer_unit_df.loc[:, f'{measure}_c'].to_list()
+                # # if there is only 1 label (i.e., all timesteps have same max_sel_class)
+                if len(set(check_classes)) == 1:
+
+                    # # check vals are not all zero
+                    check_values = layer_unit_df.loc[:, measure].to_list()
+
+                    if verbose:
+                        print(f"\ncheck_values ({measure}): {check_values}")
+
+                    if all(check_values) > 0:
+
+                        # # add indices/keys to dict
+                        if layer not in hl_units_dict.keys():
+                            hl_units_dict[layer] = dict()
+                        if unit not in hl_units_dict[layer].keys():
+                            hl_units_dict[layer][unit] = dict()
+                        if 'ts_invar' not in hl_units_dict[layer][unit]:
+                            hl_units_dict[layer][unit]['ts_invar'] = []
+
+                        # # add measure name to dict
+                        hl_units_dict[layer][unit]['ts_invar'].append(measure)
+
+    # save hl_units_dict here as json for easy reading
+    # with open(f"{output_filename}_hl_units.pickle", "wb") as pickle_out:
+    #     pickle.dump(hl_units_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
+    with open(f"{output_filename}_hl_units.txt", 'w') as fp:
+        json.dump(hl_units_dict, fp, indent=4, separators=(',', ':'))
+
+    if verbose:
+        print_nested_round_floats(hl_units_dict, 'hl_units_dict')
+
+    '''5. get_sel_summaries_dict: details of everything in this function 
+        (e.g., paths to files) '''
+
+    get_sel_summaries_dict = {
+        "max_sel_dict_path": max_sel_dict_path,
+        "top_n": top_n,
+        "high_sel_thr": high_sel_thr,
+        "for_summ_csv_dict": for_summ_csv_dict,
+        "max_sel_df_name": f'{output_filename}_max_sel.csv',
+        "model_mean_max_df_name": f'{output_filename}_model_mean_max.csv',
+        "hl_dfs_dict_name": f"{output_filename}_hl_dfs.pickle",
+        "hl_units_dict_name": f"{output_filename}_hl_units.txt",
+        "sel_dist_plot_name": f"{output_filename}_sel_dist.png",
+        "get_sel_summaries_date": int(datetime.datetime.now().strftime("%y%m%d")),
+        "get_sel_summaries_time": int(datetime.datetime.now().strftime("%H%M"))
+    }
+
+    return get_sel_summaries_dict
+
+
+####################################################################################################
+# todo: new sel stats
+#  count number of invariant units.
+#  count n_units with sel > 0, .1, .2, .3, .4, .5.
+#  count classes (words/letters) with sel units > 0, .1, .2, .3, .4, .5.
+
+
+
+
+####################################################################
+
+def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
+            save_output_to='pickle',
+            letter_sel=False,
+            verbose=False, test_run=False):
     """
     Analyse hidden unit activations.
-    1. load dict from study (GHA dict)
-    2. from dict get x, y, num of items, IPC, hidden activations etc
-    3. load hidden activations.  Check that items were correct - if not - use correct_y-labels
-    4. loop through all layers:
-        loop through all units:
-            loop through all classes:
-                run selectivity measures : CCMA, zn_AP, pr(full), zhou_prec, top_class, informedness
-                save dicts with values for all measures
-                save dict with top class/value for all measures
+    1. get basic study details from gha_dict
+    2. load y, sort out incorrect responses
+        get y_labels for letter-level analysis
+    3. get output-activations for class-corr (if y_1hot == True)
+    4. set place to save results (per unit/timestep)
+        - set a way to check if layers/units have been analysed.
+            json dict.  key: layer_name, value: max_unit_completed number or 'all'
+    5. loop thru with loop_gha - get loop dict
+    6. from loop dict, transform data in necessary
+    7. call sel functions and test by class
+        - also run sel on letters if relevant
+        - call plot unit if meets some criterea
+    8. save sel all units, al measures, all classes
+        save max_sel class per unit, all measures
 
     :param gha_dict_path: path of the gha dict
     :param correct_items_only: Whether selectivity considered incorrect items
     :param all_classes: Whether to test for selectivity of all classes or a subset
                         (e.g., most active classes)
-    :param layer_classes: Which layers to analyse
+    :param letter_sel: if False, test sel for words (class-labels).
+            If True, test for letters (parts) using 'local_word_X' for each word when looping through classes
     :param verbose: how much to print to screen
+    :param save_output_to: file-type to use, deault piclke
     :param test_run: if True, only do subset, e.g., 3 units from 3 layers
 
     :return: master dict: contains 'sel_path' (e.g., dir),
-                                    'sel_per_unit_pickle_name',
-                                    'sel_highlights_list_dict_name',
+                                    'all_sel_dict_name',
 
-        :return: sel_p_unit_dict. dict with all selectivity results in it.
-            all sel values:                 [layer names][unit number][sel measure][class]
-            max_sel_p_u values(and class):  [layer names][unit number]['max'][sel measure]
-            layer means:                    [layer name]['means'][measure]
-
-
-        :return: sel_highlights: keys are sel_measures.
-                                Values are DataFrames with the 10 highest scoring units for
-                                each sel measure.
+    :return: all_sel_dict. dict with all selectivity results in it.
+             all sel values:                 [layer names][unit number][sel measure][class]
+             max_sel_p_u values(and class):  [layer names][unit number]['max'][sel measure]
+             layer means:                    [layer name]['means'][measure]
 
     """
 
-    # todo: split this into two functions.
-    #  1. loop thru model pickle. (to be developed here but
-    #  then moved to tools and used else wherer) Can be used with other dicts
-    #  to loop through probably (gha, visualization, lesioning etc
-    #  2. get unit sel.
-    #  the output of 2 is saved to dict by 1. dict now keeps its name.
-    #  1. can have a separate hd5 version or add thsat as a funtion for saving.
-    # Set save to file regularity by data size.
 
-    # todo: add act_func as a param, can be updated if necessary.
+    if letter_sel:
+        print("\n**** running rnn_sel() on letters ****")
+    else:
+        print("\n**** running rnn_sel() on words ****")
 
-    print("\n**** running ff_sel() ****")
+    if type(gha_dict_path) is str:
+        if os.path.isfile(gha_dict_path):
+            print(f"gha_dict_path: {gha_dict_path}")
 
-    exp_cond_gha_path, gha_dict_name = os.path.split(gha_dict_path)
-    os.chdir(exp_cond_gha_path)
-    current_wd = os.getcwd()
+            # # use gha-dict_path to get exp_cond_gha_path, gha_dict_name,
+            exp_cond_gha_path, gha_dict_name = os.path.split(gha_dict_path)
+            os.chdir(exp_cond_gha_path)
+            current_wd = os.getcwd()
 
-    print(f"current_wd: {current_wd}")
+            # # part 1. load dict from study (should run with sim, GHA or sel dict)
+            gha_dict = load_dict(gha_dict_path)
+        else:
+            raise FileNotFoundError(gha_dict_path)
 
-    # # part 1. load dict from study (should run with sim, GHA or sel dict)
-    gha_dict = load_dict(gha_dict_path)
+    elif type(gha_dict_path) is dict:
+        gha_dict = gha_dict_path
+        exp_cond_gha_path = gha_dict['topic_info']['exp_cond_path']
+        os.chdir(exp_cond_gha_path)
+        current_wd = os.getcwd()
+    else:
+        raise FileNotFoundError(gha_dict_path)
+
+    assert 'GHA_info' in gha_dict
     focussed_dict_print(gha_dict, 'gha_dict')
 
-    # Output files
+    # get topic_info from dict
     output_filename = gha_dict["topic_info"]["output_filename"]
-    print(f"\noutput_filename: {output_filename}")
-
-    hdf_name = f'{output_filename}_gha.h5'
-
-    # # # load item_correct (y_data)
-    # todo: check this is correct y label data
-    # todo: add letter labels and/or word labels.
-    y_scores_df = pd.read_hdf(hdf_name, key='item_correct_df', more='r')
-    y_scores_df = hdf_df_string_clean(y_scores_df)
-    # use y_df for analysis
-    y_df = y_scores_df
-
-    # get other info from dict
-    hid_acts_pickle = gha_dict["GHA_info"]["hid_act_files"]['2d']
-    n_cats = gha_dict["data_info"]["n_cats"]
-    all_items = gha_dict['GHA_info']['scores_dict']['n_items']
-    n_correct = gha_dict['GHA_info']['scores_dict']['n_correct']
-    n_incorrect = all_items - n_correct
-    items_per_cat = gha_dict['GHA_info']['scores_dict']['corr_per_cat_dict']
-    timesteps = gha_dict['model_info']["timesteps"]
-
-    # # get basic COI list
-    if all_classes is True:
-        if type(items_per_cat) is int:
-            classes_of_interest = list(range(n_cats))
-        else:
-            classes_of_interest = list({k: v for (k, v) in items_per_cat.items() if v > 0})
-
-        if len(classes_of_interest) == n_cats:
-            print(f"\nall {n_cats} classes have some correct items")
-        else:
-            print(f"\nclasses_of_interest (all classes with correct items):\n{classes_of_interest}")
-
-    # # # get values for correct/incorrect items (1/0 or True/False)
-    full_model_values = y_scores_df.full_model.unique()
-    if len(full_model_values) != 2:
-        print(f"TYPE_ERROR!: what are the scores/acc for items? {full_model_values}")
-    else:
-        correct_item = 1
-    if 1 not in full_model_values:
-        correct_item = True
-
-    # # i need to check whether this analysis should include incorrect items
-    # therefore only have correct items so remove all incorrect responses from y_correct df
-    gha_incorrect = gha_dict['GHA_info']['gha_incorrect']
-
-    if gha_incorrect:
-        if correct_items_only:
-            print("\ngha_incorrect: True (I have incorrect responses)\n"
-                  "correct_items_only: True (I only want correct responses)")
-            print(f"remove {n_incorrect} incorrect from hid_acts & output using y_scores_df.")
-            y_correct_df = y_scores_df.loc[y_scores_df['full_model'] == correct_item]
-            y_df = y_correct_df
-            print("use y_correct for y_df")
-        else:
-            print("\ngha_incorrect: True (I have incorrect responses)\n"
-                  "correct_items_only: False (I want incorrect responses)")
-            print("no changes needed - don't remove anything from hid_acts, output and "
-                  "use y scores as y_df")
-    else:
-        if correct_items_only:
-            print("\ngha_incorrect: False (I only have correct responses)\n"
-                  "correct_items_only: True (I only want correct responses)")
-            print("no changes needed - don't remove anything from hid_acts or output.  "
-                  "Use y_correct as y_df")
-            y_correct_df = y_scores_df.loc[y_scores_df['full_model'] == correct_item]
-            y_df = y_correct_df
-        else:
-            print("\ngha_incorrect: False (I only have correct responses)\n"
-                  "correct_items_only: False (I want incorrect responses)")
-            print("I can not complete this as desried"
-                  "change correct_items_only to True"
-                  "for analysis  - don't remove anything from hid_acts, output and "
-                  "use y scores as y_df")
-            correct_items_only = True
-
-    if verbose is True:
-        print(f"\ny_df: {y_df.shape}\n{y_df.head()}")
-
-    # # open hid_acts.pickle
-    '''
-    1. get layer number for last layer
-    2. get output layer activations (these are held in memory, but could be loaded for each unit)
-    3. * add get list of hid act dict keys - loop thought this rather than actual dict.
-    '''
-
-    print("\n**** opening hid_acts.pickle ****")
-    with open(hid_acts_pickle, 'rb') as pkl:
-        hid_acts_dict = pickle.load(pkl)
-
-    hid_acts_keys_list = list(hid_acts_dict.keys())
-
-    if verbose:
-        print(f"hid_acts_pickle: {hid_acts_pickle}")
-        focussed_dict_print(hid_acts_dict, 'hid_acts_dict')
-        # print(f"hid_acts_pickle: {hid_acts_pickle}\n"
-        #       f"hid_acts_dict: {hid_acts_dict}\n"
-        #       f"hid_acts_dict.keys(): {hid_acts_dict.keys()}")
-
-    # # get output activations for class correlation
-    last_layer_num = hid_acts_keys_list[-1]
-    last_layer_name = hid_acts_dict[last_layer_num]['layer_name']
-
-    with h5py.File(hdf_name, 'r') as my_hdf:
-        output_layer_acts = my_hdf['hid_acts_2d'][last_layer_name]
-        output_layer_df = pd.DataFrame(output_layer_acts)
-
-    if correct_items_only:
-        if gha_incorrect:
-            output_layer_df['full_model'] = y_scores_df['full_model']
-            output_layer_df = output_layer_df.loc[output_layer_df['full_model'] == 1]
-            output_layer_df = output_layer_df.drop(['full_model'], axis=1)
-            print(f"\nremoving {n_incorrect} incorrect responses from output_layer_df: "
-                  f"{output_layer_df.shape}\n")
-
-    # # close hid act dict to save memory space?
-    # hid_acts_dict = dict()
+    if letter_sel:
+        output_filename = f"{output_filename}_lett"
 
     # # where to save files
     analyse_items = 'all'
@@ -575,262 +885,572 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     sel_folder = f'{analyse_items}_sel'
     if test_run:
         sel_folder = f'{analyse_items}_sel/test'
-    sel_path = os.path.join(current_wd, sel_folder)
+
+    cond_name = gha_dict['topic_info']['output_filename']
+    condition_path = find_path_to_dir(long_path=current_wd, target_dir=cond_name)
+    sel_path = os.path.join(condition_path, sel_folder)
 
     if not os.path.exists(sel_path):
         os.makedirs(sel_path)
 
-    # # save output activations
-    # print(f"output_lyer_df shape: {output_layer_df.shape}")
-    # print(output_layer_df.head())
-    # output_layer_df.to_csv(f'{sel_path}/{output_filename}_output_acts.csv', index=False)
+    if verbose:
+        print(f"\ncurrent_wd: {current_wd}")
+        print(f"output_filename: {output_filename}")
+        print(f"sel_path (to save): {sel_path}")
 
-    # # # sel_p_unit_dict
-    # sel_per_unit_pickle_name = f"{sel_path}/{output_filename}_sel_per_unit.pickle"
-    # if not os.path.isfile(sel_per_unit_pickle_name):
-    #     sel_p_unit_dict = dict()
-    #     # save sel_p_unit_dict here to be opened and appended to
-    #     with open(sel_per_unit_pickle_name, "wb") as pickle_out:
-    #         pickle.dump(sel_p_unit_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
 
-    # # # sel_p_unit_dict
-    sel_per_unit_db_name = f"{sel_path}/{output_filename}_sel_per_unit"
-    if not os.path.isfile(sel_per_unit_db_name):
-        # sel_p_unit_dict = dict()
-        # save sel_p_unit_dict here to be opened and appended to
-        with shelve.open(sel_per_unit_db_name, protocol=pickle.HIGHEST_PROTOCOL) as db:
-            db['test_key'] = 'test_value'
+    # # get data info from dict
+    n_cats = gha_dict["data_info"]["n_cats"]
+    if verbose:
+        print(f"\nthere are {n_cats} word classes")
 
-    # # # layer_sel_mean_dict
-    layer_sel_mean_dict = dict()
+    if letter_sel:
+        n_letters = gha_dict['data_info']["X_size"]
+        n_cats = n_letters
+        print(f"the are {n_letters} letters classes\nn_cats now set as n_letters")
 
-    # # layer means csv path
-    layer_means_path = os.path.join(sel_path, f"{output_filename}_layer_means.csv")
-
-    # # highlights_dict
-    sel_highlights_list_dict_name = f"{sel_path}/{output_filename}_hl_list.pickle"
-    if not os.path.isfile(sel_highlights_list_dict_name):
-        # # save highlights_dict here to be opened and appended to
-        highlights_dict = {"roc_auc": [['value', 'class', 'layer', 'unit']],
-                           "ave_prec": [['value', 'class', 'layer', 'unit']],
-                           "pr_auc": [['value', 'class', 'layer', 'unit']],
-                           # "nz_ave_prec": [['value', 'class', 'layer', 'unit']],
-                           # "nz_pr_auc": [['value', 'class', 'layer', 'unit']],
-                           # "tcs_recall": [['value', 'class', 'thr', 'items', 'layer', 'unit']],
-                           "max_informed": [['value', 'class', 'count', 'thr', 'sens', 'spec',
-                                             'prec',
-                                             # 'f1',
-                                             'layer', 'unit']],
-                           "ccma": [['value', 'class', 'layer', 'unit']],
-                           "zhou_prec": [['value', 'class', 'thr', 'selects', 'layer', 'unit']],
-                           "corr_coef": [['value', 'class', 'p', 'layer', 'unit']],
-                           "means": [['value', 'class', 'sd', 'layer', 'unit']],
-                           "nz_count": [['value', 'class', 'layer', 'unit']],
-                           "nz_prop": [['value', 'class', 'layer', 'unit']],
-                           "nz_prec": [['value', 'class', 'layer', 'unit']],
-                           "hi_val_count": [['value', 'class', 'layer', 'unit']],
-                           "hi_val_prop": [['value', 'class', 'layer', 'unit']],
-                           "hi_val_prec": [['value', 'class', 'layer', 'unit']],
-                           }
-
-        with open(sel_highlights_list_dict_name, "wb") as pickle_out:
-            pickle.dump(highlights_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
-
-    # # loop through dict/layers
-    print("\n*** looping through layers ***")
-
-    n_layers = len(gha_dict['GHA_info']['model_dict'])
-
-    if test_run:
-        layer_counter = 0
-
-    for layer_number in hid_acts_keys_list:
-
-        layer_dict = hid_acts_dict[layer_number]
-        layer_name = layer_dict['layer_name']
-
-        # todo: get act func
-
-        print(f"\nlayer {layer_number}: {layer_name}")
-
-        if layer_dict['layer_class'] not in layer_classes:
-            print(f"\tskip this layer!: {layer_dict['layer_class']} not in {layer_classes}")
-            continue  # skip this layer
-
-        # # don't run sel on output layer
-        if layer_number == last_layer_num:
-            print(f"\tskip output layer!: {layer_number} == {last_layer_num}")
-            continue
-
-        if test_run is True:
-            layer_counter = layer_counter + 1
-            if layer_counter > 3:
-                print(f"\tskip this layer!: test_run, only running subset of layers")
-                continue
-
-        # todo: write results script which will take the input dict/csv,
-        #  put it into a pandas df, have versions for sort by order of x variable,
-        #  select top n, etc.  use that to then output a list of units to visualise.
-        #  Can add call visualise unit
+        letter_id_dict = load_dict(os.path.join(gha_dict['data_info']['data_path'],
+                                                'letter_id_dict.txt'))
+        print(f"\nletter_id_dict:\n{letter_id_dict}")
 
 
 
-        # # check if layer totals have already been done for sel_p_unit_dict and highlights dict
-        sel_p_u_layer_done = False
-        # with open(sel_per_unit_pickle_name, "rb") as pickle_load:
-        #     sel_p_unit_dict = pickle.load(pickle_load)
-        #     sel_p_unit_keys = sel_p_unit_dict.keys()
 
-        with shelve.open(sel_per_unit_db_name) as db:
-            sel_p_unit_keys = list(db.keys())
-            print(sel_p_unit_keys)
+    # # get model info from dict
+    n_layers = gha_dict['model_info']['overview']['hid_layers']
+    model_dict = gha_dict['model_info']['config']
+    if verbose:
+        focussed_dict_print(model_dict, 'model_dict')
 
-        if layer_name in sel_p_unit_keys:
-            sel_p_u_layer_done = True
 
-        highlights_layer_done = False
-        with open(sel_highlights_list_dict_name, "rb") as pickle_load:
-            # read dict as it is so far
-            highlights_dict = pickle.load(pickle_load)
-            check_roc = highlights_dict['roc_auc']
-        if any(layer_name in sublist for sublist in check_roc):
-            highlights_layer_done = True
+    # # check for sequences/rnn
+    sequence_data = False
+    y_1hot = True
 
-        layer_means_csv_done = False
-        already_done_means_total = False
-        if os.path.isfile(layer_means_path):
-            layer_means_csv = pd.read_csv(layer_means_path)
-            layer_names = layer_means_csv.loc[:, 'name'].to_list()
-            if layer_name in layer_names:
-                layer_means_csv_done = True
-            if 'Total' in layer_names:
-                already_done_means_total = True
+    if 'timesteps' in gha_dict['model_info']['overview']:
+        sequence_data = True
+        timesteps = gha_dict['model_info']["overview"]["timesteps"]
+        serial_recall = gha_dict['model_info']["overview"]["serial_recall"]
+        y_1hot = serial_recall
+        vocab_dict = load_dict(os.path.join(gha_dict['data_info']["data_path"],
+                                            gha_dict['data_info']["vocab_dict"]))
 
-        layer_done = [sel_p_u_layer_done, highlights_layer_done, layer_means_csv_done]
+    # # I can't do class correlations for letters, (as it is the equivillent of
+    # having a dist output for letters
+    if letter_sel:
+        y_1hot = False
 
-        if layer_done == [True, True, True]:
-            print(f"\tdocs layer has already been completed\n"
-                  f"\t(sel_p_u_layer_done, highlights_layer_done, layer_means_csv_done)")
-            continue
+    # # get gha info from dict
+    hid_acts_filename = gha_dict["GHA_info"]["hid_act_files"]['2d']
+
+
+    '''Part 2 - load y, remove incorrect responses'''
+    print("\n\nPart 2: loading labels")
+    # # load y_labels to go with hid_acts and item_correct for sequences
+    if 'seq_corr_list' in gha_dict['GHA_info']['scores_dict']:
+        n_seqs = gha_dict['GHA_info']['scores_dict']['n_seqs']
+        n_seq_corr = gha_dict['GHA_info']['scores_dict']['n_seq_corr']
+        n_incorrect = n_seqs - n_seq_corr
+
+        test_label_seq_name = gha_dict['GHA_info']['y_data_path']
+        seqs_corr = gha_dict['GHA_info']['scores_dict']['seq_corr_list']
+
+        test_label_seqs = np.load(f"{test_label_seq_name}labels.npy")
+
+        if verbose:
+            print(f"test_label_seqs: {np.shape(test_label_seqs)}")
+            print(f"seqs_corr: {np.shape(seqs_corr)}")
+            print(f"n_seq_corr: {n_seq_corr}")
+
+
+        # # get 1hot item vectors for 'words' and 3 hot for letters
+        '''Always use serial_recall True. as I want a separate 1hot vector for each item.
+        Always use x_data_type 'local_letter_X' as I want 3hot vectors'''
+        y_letters = []
+        y_words = []
+        for this_seq in test_label_seqs:
+            get_letters, get_words = get_X_and_Y_data_from_seq(vocab_dict=vocab_dict,
+                                                               seq_line=this_seq,
+                                                               serial_recall=True,
+                                                               end_seq_cue=False,
+                                                               x_data_type='local_letter_X')
+            y_letters.append(get_letters)
+            y_words.append(get_words)
+
+
+            # print(f"\nthis_seq: {this_seq}\nget_letters: {get_letters}\nget_words: {get_words}\n")
+
+        y_letters = np.array(y_letters)
+        y_words = np.array(y_words)
+        if verbose:
+            print(f"\ny_letters: {type(y_letters)}  {np.shape(y_letters)}")
+            print(f"y_words: {type(y_words)}  {np.shape(y_words)}")
+
+        # print(f"y letters idio check"
+        #       f"test_label_seqs: {test_label_seqs}"
+        #       f"y_letters[:10]:\n{y_letters[:10]}"
+        #       f"y_words[:10]:\n{y_words[:10]}"
+        #
+        #       f"")
+
+        y_df_headers = [f"ts{i}" for i in range(timesteps)]
+        y_scores_df = pd.DataFrame(data=test_label_seqs, columns=y_df_headers)
+        y_scores_df['full_model'] = seqs_corr
+        if verbose:
+            print(f"\ny_scores_df: {y_scores_df.shape}\n{y_scores_df.head()}")
+
+
+    # # if not sequence data, load y_labels to go with hid_acts and item_correct for items
+    # elif 'item_correct_name' in list(gha_dict['GHA_info']['scores_dict'].keys()):
+    elif 'item_correct_name' in gha_dict['GHA_info']['scores_dict']:
+        # # load item_correct (y_data)
+        item_correct_name = gha_dict['GHA_info']['scores_dict']['item_correct_name']
+        # y_df = pd.read_csv(item_correct_name)
+        y_scores_df = nick_read_csv(item_correct_name)
+
+
+    # todo: don't use list(dict.keys()) unless making a list.
+
+    """# # get rid of incorrect items if required"""
+    print("\n\nRemoving incorrect responses")
+    # # # get values for correct/incorrect items (1/0 or True/False)
+    item_correct_list = y_scores_df['full_model'].tolist()
+    full_model_values = list(set(item_correct_list))
+
+    correct_symbol = 1
+    if len(full_model_values) != 2:
+        TypeError(f"TYPE_ERROR!: what are the scores/acc for items? {full_model_values}")
+    if 1 not in full_model_values:
+        if True in full_model_values:
+            correct_symbol = True
         else:
-            print(f"\tNot yet completed this layer\n"
-                  f"\tsel_p_u_layer_done: {sel_p_u_layer_done}\n"
-                  f"\thighlights_layer_done: {highlights_layer_done}\n"
-                  f"\tlayer_means_csv_done: {layer_means_csv_done}")
+            TypeError(f"TYPE_ERROR!: what are the scores/acc for items? {full_model_values}")
 
-        # layer_number = key
-        with h5py.File(hdf_name, 'r') as gha_data:
-            hid_acts_array = gha_data['hid_acts_2d'][layer_name]
-            hid_acts_df = pd.DataFrame(hid_acts_array)
+    if verbose:
+        print(f"len(full_model_values): {len(full_model_values)}")
+        print(f"correct_symbol: {correct_symbol}")
 
-        print(f"\nloaded hidden_activation_file: {hdf_name}, {hid_acts_df.shape}")
-        units_per_layer = len(hid_acts_df.columns)
+    # # i need to check whether this analysis should include incorrect items (True/False)
+    gha_incorrect = gha_dict['GHA_info']['gha_incorrect']
 
-        with shelve.open(sel_per_unit_db_name, protocol=pickle.HIGHEST_PROTOCOL) as db:
-            db[layer_name] = dict()
+    # # get item indeces for correct and incorrect items
+    item_index = list(range(n_seq_corr))
 
-        # # remove incorrect responses
+    incorrect_items = []
+    correct_items = []
+    for index in range(len(item_correct_list)):
+        if item_correct_list[index] == 0:
+            incorrect_items.append(index)
+        else:
+            correct_items.append(index)
+    if correct_items_only:
+        item_index == correct_items
+
+    if gha_incorrect:
+        if correct_items_only:
+            if verbose:
+                print("\ngha_incorrect: True (I have incorrect responses)\n"
+                      "correct_items_only: True (I only want correct responses)")
+                print(f"remove {n_incorrect} incorrect from hid_acts & output using y_scores_df.")
+                print("use y_correct for y_df")
+
+            y_correct_df = y_scores_df.loc[y_scores_df['full_model'] == correct_symbol]
+            y_df = y_correct_df
+
+            mask = np.ones(shape=len(seqs_corr), dtype=bool)
+            mask[incorrect_items] = False
+            test_label_seqs = test_label_seqs[mask]
+
+            if letter_sel:
+                y_letters = y_letters[mask]
+
+        else:
+            if verbose:
+                print("\ngha_incorrect: True (I have incorrect responses)\n"
+                      "correct_items_only: False (I want incorrect responses)")
+                print("no changes needed - don't remove anything from hid_acts, output and "
+                      "use y scores as y_df")
+    else:
+        if correct_items_only:
+            if verbose:
+                print("\ngha_incorrect: False (I only have correct responses)\n"
+                      "correct_items_only: True (I only want correct responses)")
+                print("no changes needed - don't remove anything from hid_acts or output.  "
+                      "Use y_correct as y_df")
+            y_correct_df = y_scores_df.loc[y_scores_df['full_model'] == correct_symbol]
+            y_df = y_correct_df
+        else:
+            if verbose:
+                print("\ngha_incorrect: False (I only have correct responses)\n"
+                      "correct_items_only: False (I want incorrect responses)")
+                raise TypeError("I can not complete this as desried"
+                                "change correct_items_only to True"
+                                "for analysis  - don't remove anything from hid_acts, output and "
+                                "use y scores as y_df")
+
+            # correct_items_only = True
+
+    if verbose is True:
+        print(f"\ny_df: {y_df.shape}\n{y_df.head()}")
+        print(f"\ntest_label_seqs: {np.shape(test_label_seqs)}")  # \n{test_label_seqs}")
+        if letter_sel:
+            y_letters = np.asarray(y_letters)
+            print(f"y_letters: {np.shape(y_letters)}")  # \n{test_label_seqs}")
+
+    n_correct, timesteps = np.shape(test_label_seqs)
+    corr_test_seq_name = f"{output_filename}_{n_correct}_corr_test_label_seqs.npy"
+    np.save(corr_test_seq_name, test_label_seqs)
+    corr_test_letters_name = 'not_processed_yet'
+    if letter_sel:
+        corr_test_letters_name = f"{output_filename}_{n_correct}_corr_test_letter_seqs.npy"
+        np.save(corr_test_letters_name, y_letters)
+
+
+    # # get items per class
+    IPC_dict = seq_items_per_class(label_seqs=test_label_seqs, vocab_dict=vocab_dict)
+    focussed_dict_print(IPC_dict, 'IPC_dict for correct responses')
+    corr_test_IPC_name = f"{output_filename}_{n_correct}_corr_test_IPC.pickle"
+    with open(corr_test_IPC_name, "wb") as pickle_out:
+        pickle.dump(IPC_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
+
+    '''get output activations'''
+    # # get output activations for class-corr if y_1hot == True
+    if y_1hot:
+        print("getting output activations to use for class_correlation")
+        acts_saved_as = 'pickle'
+        if '.pickle' == hid_acts_filename[-7:]:
+            with open(hid_acts_filename, 'rb') as pkl:
+                hid_acts_dict = pickle.load(pkl)
+
+            hid_acts_keys_list = list(hid_acts_dict.keys())
+            print(f"hid_acts_keys_list: {hid_acts_keys_list}")
+
+            last_layer_num = hid_acts_keys_list[-1]
+            last_layer_name = hid_acts_dict[last_layer_num]['layer_name']
+
+            # output_layer_acts = hid_acts_dict['hid_acts_2d'][last_layer_name]
+            if 'hid_acts' in hid_acts_dict[last_layer_num]:
+                output_layer_acts = hid_acts_dict[last_layer_num]['hid_acts']
+            elif 'hid_acts_2d' in hid_acts_dict[last_layer_num]:
+                output_layer_acts = hid_acts_dict[last_layer_num]['hid_acts_2d']
+
+        elif '.h5' == hid_acts_filename[-3:]:
+            acts_saved_as = 'h5'
+            with h5py.File(hid_acts_filename, 'r') as hid_acts_dict:
+                hid_acts_keys_list = list(hid_acts_dict.keys())
+                last_layer_num = hid_acts_keys_list[-1]
+                last_layer_name = hid_acts_dict[last_layer_num]['layer_name']
+                # output_layer_acts = hid_acts_dict['hid_acts_2d'][last_layer_name]
+                if 'hid_acts' in hid_acts_dict[last_layer_num]:
+                    output_layer_acts = hid_acts_dict[last_layer_num]['hid_acts']
+                elif 'hid_acts_2d' in hid_acts_dict[last_layer_num]:
+                    output_layer_acts = hid_acts_dict[last_layer_num]['hid_acts_2d']
+
+        # close hid act dict to save memory space?
+        hid_acts_dict.clear()
+
+
+        # # output acts need to by npy because it can be 3d (seqs, ts, classes).
         if correct_items_only:
             if gha_incorrect:
-                print(f"\nremoving {n_incorrect} incorrect responses from "
-                      f"hid_acts_df: {hid_acts_df.shape}")
-                hid_acts_df['full_model'] = y_scores_df['full_model']
-                hid_acts_df = hid_acts_df.loc[hid_acts_df['full_model'] == 1]
-                hid_acts_df = hid_acts_df.drop(['full_model'], axis=1)
-                print(f"(cleaned) hid_acts_df: {hid_acts_df.shape}\n{hid_acts_df.head()}")
+                mask = np.ones(shape=len(seqs_corr), dtype=bool)
+                mask[incorrect_items] = False
+                output_layer_acts = output_layer_acts[mask]
+                if verbose:
+                    print(f"\nremoving {n_incorrect} incorrect responses from output_layer_acts: "
+                          f"{np.shape(output_layer_acts)}\n")
 
-        layer_dict = dict()
-        max_sel_dict = dict()
 
-        print("\n**** loop through units ****")
-        for unit_index, unit in enumerate(hid_acts_df.columns):
+        # save output activations
+        output_acts_name = f'{sel_path}/{output_filename}_output_acts.npy'
+        np.save(output_acts_name, output_layer_acts)
 
-            if test_run is True:
-                if unit_index > 3:
+        # # clear memory
+        output_layer_acts = []
+
+    '''save results
+    either make a new empty place to save.
+    or load previous version and get the units I have already completed'''
+    already_completed = dict()
+    all_sel_dict = dict()
+    max_sel_dict = dict()
+
+    if save_output_to is 'pickle':
+        all_sel_dict_name = f"{sel_path}/{output_filename}_sel_per_unit.pickle"
+        max_sel_dict_name = f"{sel_path}/{output_filename}_max_sel_p_unit.pickle"
+
+        if not os.path.isfile(all_sel_dict_name):
+            # save all_sel_dict here to be opened and appended to
+            with open(all_sel_dict_name, "wb") as pickle_out:
+                pickle.dump(all_sel_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
+            with open(max_sel_dict_name, "wb") as pickle_out:
+                pickle.dump(max_sel_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
+        else:
+            all_sel_dict = load_dict(all_sel_dict_name)
+            max_sel_dict = load_dict(max_sel_dict_name)
+
+            for key, value in all_sel_dict.items():
+                unit_list = list(value.keys())
+                if 'means' in unit_list:
+                    unit_list.remove('means')
+                max_unit = max(unit_list)
+                already_completed[key] = max_unit
+
+    if save_output_to is 'shelve':
+        all_sel_dict_name = f"{sel_path}/{output_filename}_sel_per_unit"
+        max_sel_dict_name = f"{sel_path}/{output_filename}_max_sel_p_unit"
+
+        if not os.path.isfile(all_sel_dict_name):
+            # # for shelve we just add the keys and values directly not the actual dict
+            with shelve.open(all_sel_dict_name, protocol=pickle.HIGHEST_PROTOCOL) as db:
+                # # make a test item just to establish the db
+                db['test_key'] = 'test_value'
+        else:
+            with shelve.open(all_sel_dict_name) as db:
+                all_sel_dict = db['all_sel_dict']
+                keys_list = list(all_sel_dict.keys())
+                for key in keys_list:
+                    if 'test_key' in keys_list:
+                        continue
+                    if 'means' in keys_list:
+                        keys_list.remove('means')
+                    max_unit = max(keys_list)
+                    already_completed[key] = max_unit
+
+
+    if test_run:
+        already_completed = dict()
+    print(f"\nlayers/units already_completed: {already_completed}")
+
+
+    '''
+    part 3   - get gha for each unit
+    '''
+    loop_gha = loop_thru_acts(gha_dict_path=gha_dict_path,
+                              correct_items_only=correct_items_only,
+                              letter_sel=letter_sel,
+                              already_completed=already_completed,
+                              verbose=verbose,
+                              test_run=test_run
+                              )
+
+    for index, unit_gha in enumerate(loop_gha):
+
+        if test_run:
+            if index == 9:
+                break
+
+        unit_ts_dict = {'roc_auc': {}, 'ave_prec': {}, 'pr_auc': {},
+                        'max_informed': {}, 'max_info_count': {},
+                        'max_info_thr': {}, 'max_info_sens': {},
+                        'max_info_spec': {}, 'max_info_prec': {},
+                        'ccma': {}, 'b_sel': {}, 'zhou_prec': {},
+                        'zhou_selects': {}, 'zhou_thr': {},
+                        'corr_coef': {}, 'corr_p': {},
+                        }
+
+        # print(f"\n\n{index}:\n{unit_gha}\n")
+        sequence_data = unit_gha["sequence_data"]
+        y_1hot = unit_gha["y_1hot"]
+        act_func = unit_gha["act_func"]
+        layer_name = unit_gha["layer_name"]
+        unit_index = unit_gha["unit_index"]
+        timestep = unit_gha["timestep"]
+        ts_name = f"ts{timestep}"
+        item_act_label_array = unit_gha["item_act_label_array"]
+        IPC_words = IPC_dict['word_p_class_p_ts'][ts_name]
+        IPC_letters = IPC_dict['letter_p_class_p_ts'][ts_name]
+
+        # #  make df
+        this_unit_acts = pd.DataFrame(data=item_act_label_array,
+                                      columns=['item', 'activation', 'label'])
+        this_unit_acts_df = this_unit_acts.astype(
+            {'item': 'int32', 'activation': 'float', 'label': 'int32'})
+
+        print(f"unit_index, ts: {unit_index}, {ts_name}")
+        if verbose:
+            print(f"sequence_data: {sequence_data}")
+            print(f"y_1hot: {y_1hot}")
+
+        y_letters_1ts = np.array(y_letters[:, timestep])
+
+        if verbose:
+            print(f"y_letters_1ts: {np.shape(y_letters_1ts)}")
+
+
+        if test_run:
+            # # get word ids to check results more easily.
+            unit_ts_labels = this_unit_acts_df['label'].tolist()
+            # print(f"unit_ts_labels:\n{unit_ts_labels}")
+
+            seq_words_df = spell_label_seqs(test_label_seqs=np.asarray(unit_ts_labels),
+                                            vocab_dict=vocab_dict, save_csv=False)
+            seq_words_list = seq_words_df.iloc[:, 0].tolist()
+            # print(f"seq_words_list:\n{seq_words_list}")
+            this_unit_acts_df['words'] = seq_words_list
+            # print(f"this_unit_acts_df:\n{this_unit_acts_df.head()}")
+
+
+        # sort by descending hid act values (per item)
+        this_unit_acts_df = this_unit_acts_df.sort_values(by='activation', ascending=False)
+        if letter_sel:
+            sorted_items = this_unit_acts_df['item'].to_list()
+            sorted_idx = list(range(len(sorted_items)))
+
+            # # unsort sorted_idx back into order of ascending items
+            unsorted_order = [b for a, b in sorted(zip(sorted_items, sorted_idx))]
+
+            # # put y_letters into same order as sorted_items
+            y_letters_1ts = [b for a, b in sorted(zip(unsorted_order, y_letters_1ts))]
+            y_letters_1ts = np.array(y_letters_1ts)
+            # print(f"y_letters_1ts: {y_letters_1ts}")
+            if verbose:
+                print(f"np.shape(y_letters_1ts): {np.shape(y_letters_1ts)}")
+
+
+        # # # always normalize to range [0, 1] activations if relu
+        if act_func in ['relu', 'ReLu', 'Relu']:
+            just_act_values = this_unit_acts_df['activation'].tolist()
+            max_act = max(just_act_values)
+            normed_acts = np.true_divide(just_act_values, max_act)
+            this_unit_acts_df.insert(2, column='normed', value=normed_acts)
+
+        # # if tanh, use activation except ccma which needs normed values in range [0, 1]
+        if act_func == 'tanh':
+            print("act func == tanh")
+            just_act_values = this_unit_acts_df['activation'].tolist()
+            act_plus_one = [i+1 for i in just_act_values]
+            max_act = max(act_plus_one)
+            normed_acts = np.true_divide(act_plus_one, max_act)
+            this_unit_acts_df.insert(2, column='normed', value=normed_acts)
+
+
+        if verbose is True:
+            print(f"\nthis_unit_acts_df: {this_unit_acts_df.shape}\n")
+            print(f"this_unit_acts_df:\n{this_unit_acts_df.head()}")
+
+        # # run class_sel_basics here for words, further down for letters
+        if not letter_sel:
+            # # get class_sel_basics (class_means, sd, prop > .5, prop @ 0)
+            class_sel_basics_dict = class_sel_basics(this_unit_acts_df=this_unit_acts_df,
+                                                     items_per_cat=IPC_words,
+                                                     n_classes=n_cats,
+                                                     act_func=act_func,
+                                                     verbose=verbose)
+
+            if verbose:
+                focussed_dict_print(class_sel_basics_dict, 'class_sel_basics_dict')
+
+            # # add class_sel_basics_dict to unit dict
+            for csb_key, csb_value in class_sel_basics_dict.items():
+                if csb_key == 'total':
                     continue
+                if csb_key == 'perplexity':
+                    continue
+                unit_ts_dict[csb_key] = csb_value
 
-            print(f"\n*************\nrunning layer {layer_number} of {n_layers} ({layer_name}): "
-                  f"unit {unit} of {units_per_layer}\n************")
+        classes_of_interest = list(range(n_cats))
+        if all_classes is False:
+            # # I don't want to use all classes, just ones that are worth testing
+            classes_of_interest = coi_list(class_sel_basics_dict, verbose=verbose)
 
-            unit_dict = {'roc_auc': {},
-                         'ave_prec': {},
-                         'pr_auc': {},
-                         # 'nz_ave_prec': {},
-                         # 'nz_pr_auc': {},
-                         # 'tcs_items': {},
-                         # 'tcs_thr': {},
-                         # 'tcs_recall': {},
-                         'max_informed': {},
-                         'max_info_count': {},
-                         'max_info_thr': {},
-                         'max_info_sens': {},
-                         'max_info_spec': {},
-                         'max_info_prec': {},
-                         # 'max_info_f1': {},
-                         'ccma': {},
-                         'zhou_prec': {},
-                         'zhou_selects': {},
-                         'zhou_thr': {},
-                         'corr_coef': {},
-                         'corr_p': {},
-                         }
 
-            this_unit_just_acts = list(hid_acts_df.loc[:, unit])
+        if verbose:
+            print('\n**** cycle through classes ****')
 
-            # todo: get unit/layer act func
+        cycle_this = range(len(classes_of_interest))
+        if letter_sel:
+            cycle_this = range(n_letters)
 
-            # # 1st check its not a dead unit
-            # check for dead units, if dead, all details to 0/na/nan/-999 etc
-            if sum(this_unit_just_acts) != 0:
+        for this_cat in cycle_this:
 
-                print("not dead - sorting activations for analysis")
+            if letter_sel:
+                this_letter = letter_id_dict[this_cat]
+                print(f"\nthis_cat: {this_cat} this_letter: {this_letter}")
+                if this_letter in IPC_letters:
+                    this_class_size = IPC_letters[this_letter]
+                else:
+                    this_class_size = 0
+                not_a_size = n_correct - this_class_size
 
-                # todo: add timesteps (from line 188 of sel_stm_RNN)
-                """
-                for timestep in range(timesteps):
-                    print("unit {} step {} (of {})".format(this_unit, timestep, timesteps))
-    
-                    one_unit_one_timestep = one_unit_all_timesteps[:, timestep]
-                    print(" - one_unit_one_timestep shape: (n seqs) {}".format(np.shape(one_unit_one_timestep)))
-    
-                    # y_labels_one_timestep_float = combo_data[:, timestep]
-                    y_labels_one_timestep_float = Y_labels[:, timestep]
-    
-                    y_labels_one_timestep = [int(q) for q in y_labels_one_timestep_float]
-                    print(" - y_labels_one_timestep shape: {}".format(np.shape(y_labels_one_timestep)))
-                    # print(y_labels_one_timestep)
-    
-                    index = list(range(n_items))
-    
-                    # insert act values in middle of labels (item, act, cat)
-                    this_unit_acts = np.vstack((index, one_unit_one_timestep, y_labels_one_timestep)).T
-                    print(" - this_unit_acts shape: {}".format(np.shape(this_unit_acts)))
-                    print(f"this_unit_acts: (seq_index, hid_acts, y_label)\n{this_unit_acts}")
-                """
+                # # make binary letter class list
+                letter_class_list = y_letters_1ts[:, this_cat]
 
-                # insert act values in middle of labels (item, act, cat)
-                this_unit_acts = y_df.copy()
+                # print(f"\n idiot check\n"
+                #       f"y_letters: {y_letters.shape}\n{list(y_letters)}"
+                #       f"\ny_letters_1ts: {y_letters_1ts.shape}\n{list(y_letters_1ts)}"
+                #
+                #       # f"y_letters_1ts\n{list(y_letters_1ts)}\n"
+                #       f"original lettter class list\n{letter_class_list}\n"
+                #       f"this_letter: {this_letter}, this_class_size: {this_class_size}, not_a_size: {not_a_size}\n"
+                #       f"{this_unit_acts_df.sort_values(by='words')}\n"
+                #       f"")
 
-                this_unit_acts.insert(2, column='activation', value=this_unit_just_acts, )
+                # # changes '1's to this_cat
+                # print(f"letter_class_list: {letter_class_list}")
 
-                # # sort by descending hid act values
-                this_unit_acts_df = this_unit_acts.sort_values(by='activation', ascending=False)
+                not_this_letter_symbol = 0
 
-                # # # normalize activations
-                # todo: I don't need to normalize them if they are tanh units?
+                if this_cat == 0:
+                    not_this_letter_symbol = -4
+                    letter_class_list = [this_cat if i == 1 else not_this_letter_symbol
+                                         for i in np.array(letter_class_list)]
+                else:
+                    letter_class_list = [this_cat if i == 1 else not_this_letter_symbol
+                                         for i in np.array(letter_class_list)]
+                if verbose:
+                    print(f"letter_class_list: {letter_class_list}")
+                    # print(f"letter_class_list: {np.shape(letter_class_list)}")
 
-                just_act_values = this_unit_acts_df['activation'].tolist()
-                max_act = max(just_act_values)
-                normed_acts = np.true_divide(just_act_values, max_act)
-                this_unit_acts_df.insert(2, column='normed', value=normed_acts)
+                this_unit_acts_df['label'] = letter_class_list
 
-                if verbose is True:
-                    print(f"\nthis_unit_acts_df: {this_unit_acts_df.shape}\n"
-                          f"{this_unit_acts_df.head()}")
+            else:
+                if this_cat in IPC_words:
+                    this_class_size = IPC_words[this_cat]
+                else:
+                    this_class_size = 0
+                not_a_size = n_correct - this_class_size
 
-                # # get class_sel_basics
-                # todo: add act_func
-                class_sel_basics_dict = class_sel_basics(this_unit_acts_df, items_per_cat,
+            if verbose:
+                print(f"this_unit_acts_df:\n{this_unit_acts_df.head()}")
+
+
+            if verbose is True:
+                print(f"\nclass_{this_cat}: {this_class_size} items, "
+                      f"not_{this_cat}: {not_a_size} items")
+
+
+            # # running selectivity measures
+
+            # # run class_sel_basics here for letters, further up page ^ for words
+            if letter_sel:
+                # # make new IPC_dict
+                ts_IPC_letters = copy.copy(IPC_dict['letter_p_class_p_ts'][ts_name])
+                # print(f"ts_IPC_letters:\n{ts_IPC_letters}")
+
+                if this_letter in ts_IPC_letters.keys():
+                    ts_IPC_this_letter = ts_IPC_letters[this_letter]
+                    ts_IPC_this_letter = ts_IPC_letters.pop(this_letter)
+
+                else:
+                    ts_IPC_this_letter = 0
+
+                ts_IPC_not_this_letter = sum(list(ts_IPC_letters.values()))
+
+                IPC_binary_letters = {this_cat: ts_IPC_this_letter,
+                                      not_this_letter_symbol: ts_IPC_not_this_letter}
+
+                # print(f"ts_IPC_letters: {ts_IPC_letters}")
+                # print(f"ts_IPC_this_letter: {ts_IPC_this_letter}")
+                # print(f"ts_IPC_not_this_letter: {ts_IPC_not_this_letter}")
+                if verbose:
+                    print(f"IPC_binary_letters: {IPC_binary_letters}")
+
+                # # get class_sel_basics (class_means, sd, prop > .5, prop @ 0)
+                class_sel_basics_dict = class_sel_basics(this_unit_acts_df=this_unit_acts_df,
+                                                         items_per_cat=IPC_binary_letters,
+                                                         n_classes=[this_cat, not_this_letter_symbol],
+                                                         act_func=act_func,
                                                          verbose=verbose)
 
                 if verbose:
@@ -842,573 +1462,294 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                         continue
                     if csb_key == 'perplexity':
                         continue
-                    unit_dict[csb_key] = csb_value
 
-                classes_of_interest = list(range(n_cats))
-                if all_classes is False:
-                    # # I don't want to use all classes, just ones that are worth testing
-                    classes_of_interest = coi_list(class_sel_basics_dict, verbose=verbose)
+                    if csb_key not in unit_ts_dict.keys():
+                        unit_ts_dict[csb_key] = dict()
 
-                print('\n**** cycle through classes ****')
-                for this_cat in range(len(classes_of_interest)):
+                    print(f"\nthis_cat: {this_cat}")
+                    print(f"not_this_letter_symbol: {not_this_letter_symbol}")
+                    print(f"csb_key: {csb_key}")
+                    print(f"csb_value: {csb_value}")
 
-                    this_class_size = items_per_cat[this_cat]
-                    not_a_size = n_correct - this_class_size
+                    if this_cat in csb_value.keys():
+                        unit_ts_dict[csb_key][this_cat] = csb_value[this_cat]
+                    else:
+                        unit_ts_dict[csb_key][this_cat] = 0
 
-                    if verbose is True:
-                        print(f"\nclass_{this_cat}: {this_class_size} items, "
-                              f"not_{this_cat}: {not_a_size} items")
 
-                    # # running selectivity measures
 
-                    # # ROC_stuff includes:
-                    # roc_auc, ave_prec, pr_auc, nz_ave_prec, nz_pr_auc, top_class_sel, informedness
-                    # todo: add act_func.  If not relu.  don't use normed acts
-                    act_values = 'activation'
-                    if act_func is 'relu':
-                        act_values = 'normed'
+                        # # ROC_stuff includes:
+            # roc_auc, ave_prec, pr_auc, nz_ave_prec, nz_pr_auc, top_class_sel, informedness
 
-                    roc_stuff_dict = nick_roc_stuff(class_list=this_unit_acts_df['class'],
-                                                    hid_acts=this_unit_acts_df[act_values],
-                                                    this_class=this_cat,
-                                                    class_a_size=this_class_size,
-                                                    not_a_size=not_a_size,
-                                                    verbose=verbose)
+            # # if relu, always use normed values. Otherwise use original values,
+            # # except for tanh which must be normalised for ccma
+            act_values = 'activation'
+            if act_func == 'relu':
+                act_values = 'normed'
 
-                    # # add class_sel_basics_dict to unit dict
-                    for roc_key, roc_value in roc_stuff_dict.items():
-                        unit_dict[roc_key][this_cat] = roc_value
 
-                    # # CCMA
-                    class_a = this_unit_acts_df.loc[this_unit_acts_df['class'] == this_cat]
-                    class_a_mean = class_a[act_values].mean()
-                    not_class_a = this_unit_acts_df.loc[this_unit_acts_df['class'] != this_cat]
-                    not_class_a_mean = not_class_a[act_values].mean()
-                    ccma = (class_a_mean - not_class_a_mean) / (class_a_mean + not_class_a_mean)
-                    unit_dict["ccma"][this_cat] = ccma
+            roc_stuff_dict = nick_roc_stuff(class_list=this_unit_acts_df['label'],
+                                            hid_acts=this_unit_acts_df[act_values],
+                                            this_class=this_cat,
+                                            class_a_size=this_class_size,
+                                            not_a_size=not_a_size,
+                                            verbose=verbose)
 
-                    # # zhou_prec
-                    zhou_cut_off = .005
-                    if n_correct < 20000:
-                        zhou_cut_off = 100 / n_correct
-                    zhou_selects = int(n_correct * zhou_cut_off)
-                    most_active = this_unit_acts_df.iloc[:zhou_selects]
+            if verbose:
+                print(f"roc_stuff_dict:\n{roc_stuff_dict}")
+
+            # # add roc_stuff_dict to unit dict
+            for roc_key, roc_value in roc_stuff_dict.items():
+                unit_ts_dict[roc_key][this_cat] = roc_value
+
+            # # CCMA
+            class_a = this_unit_acts_df.loc[this_unit_acts_df['label'] == this_cat]
+            not_class_a = this_unit_acts_df.loc[this_unit_acts_df['label'] != this_cat]
+
+            empty_class_list = [class_a.empty, not_class_a.empty]
+            an_empty_class = False
+            if True in empty_class_list:
+                an_empty_class = True
+
+            if verbose:
+                print(f"empty_class_list: {empty_class_list}\n"
+                      f"an_empty_class: {an_empty_class}")
+
+            if an_empty_class:
+                if verbose:
+                    print(f"\nCCMA\nno items in class {this_cat} or not this cat\nccma=0")
+                ccma = 0
+                b_sel = 0
+            else:
+                class_a_mean = class_a[act_values].mean()
+                not_class_a_mean = not_class_a[act_values].mean()
+                if act_func == 'tanh':
+                    class_a_mean = class_a['normed'].mean()
+                    not_class_a_mean = not_class_a['normed'].mean()
+                ccma_numerator = class_a_mean - not_class_a_mean
+                ccma_denominator = class_a_mean + not_class_a_mean
+                ccma = ccma_numerator / ccma_denominator
+
+                if verbose:
+                    print(f"\nccma check\n"
+                          f"this_class_size: {this_class_size}, not_a_size: {not_a_size}\n"
+                          f"class_a:\n{class_a}\nclass_a_mean: {class_a_mean}\n"
+                          f"not_class_a:\n{not_class_a}\nnot_class_a_mean: {not_class_a_mean}\n"
+                          f"ccma_numerator: {ccma_numerator}\nccma_denominator: {ccma_denominator}\n"
+                          f"ccma: {ccma}")
+
+                # # Bowers sel
+                if verbose:
+                    print("\nBowers Sel")
+
+                class_a_min = class_a[act_values].min()
+                not_class_a_max = not_class_a[act_values].max()
+                if act_func in ['tanh', 'relu', 'ReLu']:
+                    class_a_min = class_a['normed'].min()
+                    not_class_a_max = not_class_a['normed'].max()
+
+                b_sel = class_a_min - not_class_a_max
+
+                if verbose:
+                    print(f"class_a_min: {class_a_min}, not_class_a_max: {not_class_a_max}\n"
+                          f"b_sel: {b_sel}")
+
+            unit_ts_dict["ccma"][this_cat] = ccma
+            unit_ts_dict["b_sel"][this_cat] = b_sel
+
+
+            # # zhou_prec
+            if an_empty_class:
+                zhou_prec = zhou_selects = zhou_thr = 0
+            else:
+                zhou_cut_off = .005
+                if n_correct < 20000:
+                    zhou_cut_off = 100 / n_correct
+                if n_correct < 100:
+                    zhou_cut_off = 1 / n_correct
+                zhou_selects = int(n_correct * zhou_cut_off)
+
+                if 9 < min(IPC_letters.values()) < 100:
+                    zhou_selects = min(IPC_letters.values())
+
+                if verbose:
+                    print(f"\nZhou\n{IPC_letters}\n{min(IPC_letters.values())}")
+
+
+                most_active = this_unit_acts_df.iloc[:zhou_selects]
+
+                if act_func in ['relu', 'ReLu', 'Relu']:
                     zhou_thr = list(most_active["normed"])[-1]
-                    zhou_prec = sum([1 for i in most_active['class'] if i == this_cat]) / zhou_selects
-                    unit_dict["zhou_prec"][this_cat] = zhou_prec
-                    unit_dict["zhou_selects"][this_cat] = zhou_selects
-                    unit_dict["zhou_thr"][this_cat] = zhou_thr
+                else:
+                    zhou_thr = list(most_active["activation"])[-1]
 
-                    # # class correlation
-                    # get output activations for class correlation
-                    # output_layer_df = pd.read_csv(f'{sel_path}/{output_filename}_output_acts.csv')
-                    # print(f"output_lyer_df shape: {output_layer_df.shape}")
-                    # print(output_layer_df.head())
-                    # print(output_layer_df.iloc[:, this_cat])
+                zhou_prec = sum([1 for i in most_active['label'] if i == this_cat]) / zhou_selects
+            unit_ts_dict["zhou_prec"][this_cat] = zhou_prec
+            unit_ts_dict["zhou_selects"][this_cat] = zhou_selects
+            unit_ts_dict["zhou_thr"][this_cat] = zhou_thr
+
+            # class correlation
+            # get output activations for class correlation
+            # # can only run this on y_1hot
+            if y_1hot:
+                if an_empty_class:
+                    class_corr = {'coef': 0, 'p': 1}
+                else:
+                    output_layer_acts = np.load(output_acts_name)
+                    # print(f"np.shape(output_layer_acts): {np.shape(output_layer_acts)}")
+                    output_acts_ts = output_layer_acts[:, timestep, :]
+                    # print(f"np.shape(output_acts_ts): {np.shape(output_acts_ts)}")
 
                     class_corr = class_correlation(this_unit_acts=this_unit_acts_df[act_values],
-                                                   output_acts=output_layer_df[this_cat],
+                                                   output_acts=output_acts_ts[:, this_cat],
                                                    verbose=verbose)
-                    unit_dict["corr_coef"][this_cat] = class_corr['coef']
-                    unit_dict["corr_p"][this_cat] = class_corr['p']
-
-                    # del output_layer_df
-
-                if verbose:
-                    focussed_dict_print(unit_dict, f'unit_dict {unit}')
-
-                # # # for each sel variable - get the class with the highest values and add to per_unit
-                max_sel_p_unit_dict = sel_unit_max(unit_dict, verbose=verbose)
-                unit_dict['max'] = max_sel_p_unit_dict
-                max_sel_dict[unit] = max_sel_p_unit_dict
-
-                # # check to see if this unit has any thing for highlights
-                if verbose:
-                    focussed_dict_print(max_sel_p_unit_dict, f'max_sel_p_unit_dict, unit {unit}')
-
-                # # ADD UNIT DICT TO LAYER
-                # layer_dict[unit] = unit_dict
-
-                # todo: saving for [layer_name][unit][timestep]
-
-                with shelve.open(sel_per_unit_db_name, protocol=pickle.HIGHEST_PROTOCOL,
-                                 writeback=True) as db:
-                    db[layer_name][unit] = unit_dict
-
+                unit_ts_dict["corr_coef"][this_cat] = class_corr['coef']
+                unit_ts_dict["corr_p"][this_cat] = class_corr['p']
             else:
-                print("dead unit found")
-                unit_dict = 'dead_unit'
+                if 'corr_coef' in unit_ts_dict:
+                    del unit_ts_dict['corr_coef']
+                    del unit_ts_dict['corr_p']
 
-        print(f"********\n"
-              f"finished looping through units in {layer_name}\n"
-              f"************")
+        focussed_dict_print(unit_ts_dict, f'unit_ts_dict: {unit_index} {ts_name}')
 
-        # todo: will max sel per unit collapse across timesteps?
-        #  or have separate sheets for each timestep?
+        # which class was the highest for each measure
+        max_sel_p_unit_dict = sel_unit_max(unit_ts_dict, verbose=verbose)
 
 
-        # # make max per unit csv
-        max_sel_csv_name = f'{sel_path}/{output_filename}_{layer_name}_sel_p_unit.csv'
-        max_sel_df = pd.DataFrame.from_dict(data=max_sel_dict, orient='index')
-        max_sel_df.index.rename('unit', inplace=True)
-        max_sel_df.to_csv(max_sel_csv_name)
-        print("\n\nmax sel df")
-        print(max_sel_df.head())
-        # nick_to_csv(max_sel_df, max_sel_csv_name)
 
-        # # get layer_sel_mean_dict
-        # # for each unit, for each measure, the max_value.
-        # # add all these up for the layer.
-        # focussed_dict_print(max_sel_dict, 'max_sel_dict')
+        # # # # once sel analysis has been done for this hid_act array
 
-        # todo: will means collapse across timesteps?
-        #  or have separate sheets for each timestep?
+        # # sort dicts to save
+        # # add layer to all_sel_dict
+        if layer_name not in all_sel_dict:
+            all_sel_dict[layer_name] = dict()
+            max_sel_dict[layer_name] = dict()
 
-        if unit_dict != 'dead_unit':
-            for measure in list(unit_dict.keys()):
-                layer_unit_sel_list = []
-                if measure == 'max':
-                    continue
-                for unit, unit_sel_dict in max_sel_dict.items():
-                    layer_unit_sel_list.append(unit_sel_dict[measure])
-                layer_measure_mean = np.mean(layer_unit_sel_list)
-                layer_sel_mean_dict[measure] = layer_measure_mean
+        # # add unit index to sel_p_unit dict
+        if unit_index not in all_sel_dict[layer_name]:
+            all_sel_dict[layer_name][unit_index] = dict()
+            max_sel_dict[layer_name][unit_index] = dict()
 
-        focussed_dict_print(layer_sel_mean_dict, 'layer_sel_mean_dict')
-        # layer_dict['means'] = layer_sel_mean_dict
+        # # if not sequences data, add this unit to all_sel_dict
+        if not sequence_data:
+            all_sel_dict[layer_name][unit_index] = unit_ts_dict
+            max_sel_dict[layer_name][unit_index] = max_sel_p_unit_dict
 
-        # # append layer dict to model dict
-        '''make sure I use the right command to read and write here.'''
-        # with open(sel_per_unit_pickle_name, "rb") as pickle_load:
-        #     # read dict as it is so far
-        #     sel_p_unit_dict = pickle.load(pickle_load)
-        #
-        # # # save sel_p_unit_dict here
-        # with open(sel_per_unit_pickle_name, "wb") as pickle_out:
-        #     pickle.dump(sel_p_unit_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
+        else:  # # if sequence data
+            # # add timestep to max sel_p_unit dict
+            if timestep not in all_sel_dict[layer_name][unit_index]:
+                all_sel_dict[layer_name][unit_index][ts_name] = dict()
+                max_sel_dict[layer_name][unit_index][ts_name] = dict()
 
-        # with shelve.open(sel_per_unit_db_name, protocol=pickle.HIGHEST_PROTOCOL, writeback=True) as db:
-        #     db[layer_name] = layer_dict
+            # # add this timestep to all_sel_dict
+            all_sel_dict[layer_name][unit_index][ts_name] = unit_ts_dict
+            max_sel_dict[layer_name][unit_index][ts_name] = max_sel_p_unit_dict
 
-        with shelve.open(sel_per_unit_db_name, protocol=pickle.HIGHEST_PROTOCOL,
-                         writeback=True) as db:
-            db[layer_name]['means'] = layer_sel_mean_dict
 
-        # # # clear layer_dict to save memory
-        # layer_dict.clear()
-        layer_sel_mean_dict.clear()
 
-        # # layer means
-        layer_means_list = list(layer_sel_mean_dict.values())
-        layer_means_list = [layer_name, unit_index + 1] + layer_means_list
+        # # save unit/timestep to disk
+        if save_output_to is 'pickle':
+            with open(all_sel_dict_name, "wb") as pickle_out:
+                pickle.dump(all_sel_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
+            with open(max_sel_dict_name, "wb") as pickle_out:
+                pickle.dump(max_sel_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
+        if save_output_to is 'shelve':
+            with shelve.open(all_sel_dict_name, protocol=pickle.HIGHEST_PROTOCOL) as db:
+                # # make a test item just to establish the db
+                db['all_sel_dict'] = all_sel_dict
+                db['max_sel_dict'] = max_sel_dict
 
-        layer_means_headers = list(layer_sel_mean_dict.keys())
-        layer_means_headers = ['name', 'units'] + layer_means_headers
+        print("saved to disk")
 
-        # already_done_means_total = False
-        if not os.path.isfile(layer_means_path):
-            # already_done_means_total = False
-            layer_means_csv = open(layer_means_path, 'w')
-            mywriter = csv.writer(layer_means_csv)
-            mywriter.writerow(layer_means_headers)
-            mywriter.writerow(layer_means_list)
-            layer_means_csv.close()
-            print(f"\ncreating layer_means csv at: {output_filename}")
-        else:
-            check_it = pd.read_csv(layer_means_path)
-            if layer_name not in check_it['name'].to_list():
-                layer_means_csv = open(layer_means_path, 'a')
-                mywriter = csv.writer(layer_means_csv)
-                mywriter.writerow(layer_means_list)
-                layer_means_csv.close()
-                print(f"\nappending to layer_means csv at: {output_filename}")
-            else:
-                if check_it['name'].to_list()[-1] == 'Total':
-                    print("\nAlready have layer means for this cond")
-                    already_done_means_total = True
 
-        # # # get top three highlights for each feature
-        # todo: Highlights should include timestep as a variable.
-        #  e.g., unit 1, timestep 3 has max ROC score
-        with open(sel_highlights_list_dict_name, "rb") as pickle_load:
-            # read dict as it is so far
-            highlights_dict = pickle.load(pickle_load)
+    print(f"********\nfinished looping through units************")
 
-            highlights_list = list(highlights_dict.keys())
 
-        for measure in highlights_list:
-            # sort max_sel_df by sel measure for this layer
-            layer_top_3_df = max_sel_df.sort_values(by=measure, ascending=False).reset_index()
-
-            # then select info for highlights dict for top 3 items
-
-            print(f"layer_top_3_df\n{layer_top_3_df}")
-            print(f"layer_top_3_df.loc[{measure}]\n{layer_top_3_df[measure]}")
-
-            # if measure == 'tcs_recall':
-            #     print('tcs_recall')  # "tcs_recall": [['value', 'class', 'thr', 'items', 'layer', 'unit']],
-            #     for i in range(2):
-            #         top_val = layer_top_3_df[measure].iloc[i]
-            #         if len(list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])) > 1:
-            #             top_class = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, f'{measure}_c'])[i]
-            #             thr = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'tcs_thr'])[i]
-            #             items = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'tcs_items'])[i]
-            #             top_unit_name = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])[i]
-            #         else:
-            #             top_class = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, f'{measure}_c'].item()
-            #             thr = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'tcs_thr'].item()
-            #             items = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'tcs_items'].item()
-            #             top_unit_name = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'].item()
-            #
-            #         new_row = [top_val, top_class, thr, items, layer_name, top_unit_name]
-            #         # print(f"new_row\n{new_row}")
-            #         # highlights_dict[measure].append(new_row)
-
-            if measure == 'max_informed':
-                print('max_informed')
-                # "max_informed": [['value', 'class', 'count', 'thr', 'sens', 'spec',
-                #                                          'prec', 'f1', 'count', 'layer', 'unit']],
-                for i in range(2):
-                    top_val = layer_top_3_df[measure].iloc[i]
-                    if len(list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                   'unit'])) > 1:
-                        top_class = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                            f'{measure}_c'])[i]
-                        count = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                        'max_info_count'])[i]
-                        thr = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                      'max_info_thr'])[i]
-                        sens = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                       'max_info_sens'])[i]
-                        spec = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                       'max_info_spec'])[i]
-                        prec = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                       'max_info_prec'])[i]
-                        # f1 = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                        # 'max_info_f1'])[i]
-                        top_unit_name = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                                'unit'])[i]
-                    else:
-                        top_class = layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                       f'{measure}_c'].item()
-                        count = layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                   'max_info_count'].item()
-                        thr = layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                 'max_info_thr'].item()
-                        sens = layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                  'max_info_sens'].item()
-                        spec = layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                  'max_info_spec'].item()
-                        prec = layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                  'max_info_prec'].item()
-                        # f1 = layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                        # 'max_info_f1'].item()
-                        top_unit_name = layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                           'unit'].item()
-
-                    # new_row = [top_val, top_class, count, thr, sens, spec, prec, f1, layer_name, top_unit_name]
-                    new_row = [top_val, top_class, count, thr, sens,
-                               spec, prec, layer_name, top_unit_name]
-
-                    # print(f"new_row\n{new_row}")
-                    # highlights_dict[measure].append(new_row)
-
-            elif measure == 'zhou_prec':
-                print('zhou_prec')
-                # "zhou_prec": [['value', 'class', 'thr', 'selects', 'layer', 'unit']],
-                for i in range(2):
-                    top_val = layer_top_3_df[measure].iloc[i]
-                    if len(list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                   'unit'])) > 1:
-                        top_class = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                            f'{measure}_c'])[i]
-                        thr = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                      'zhou_thr'])[i]
-                        selects = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                          'zhou_selects'])[i]
-                        top_unit_name = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                                'unit'])[i]
-                    else:
-                        top_class = layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                       f'{measure}_c'].item()
-                        thr = layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                 'zhou_thr'].item()
-                        selects = layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                     'zhou_selects'].item()
-                        top_unit_name = layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                           'unit'].item()
-
-                    new_row = [top_val, top_class, thr, selects, layer_name, top_unit_name]
-                    # print(f"new_row\n{new_row}")
-                    # highlights_dict[measure].append(new_row)
-
-            elif measure == 'corr_coef':
-                print('corr_coef')
-                #   "corr_coef": [['value', 'class', 'p', 'layer', 'unit']],
-                for i in range(2):
-                    top_val = layer_top_3_df[measure].iloc[i]
-                    if np.isnan(top_val):
-                        continue
-                    if len(list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])) > 1:
-                        top_class = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                            f'{measure}_c'])[i]
-                        p = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                    'corr_p'])[i]
-                        top_unit_name = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                                'unit'])[i]
-                    else:
-                        top_class = layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                       f'{measure}_c'].item()
-                        p = layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                               'corr_p'].item()
-                        top_unit_name = layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                           'unit'].item()
-
-                    new_row = [top_val, top_class, p, layer_name, top_unit_name]
-                    # print(f"new_row\n{new_row}")
-                    # highlights_dict[measure].append(new_row)
-
-            elif measure == 'means':
-                print('means')  # "means": [['value', 'class', 'sd', 'layer', 'unit']],
-                for i in range(2):
-                    top_val = layer_top_3_df[measure].iloc[i]
-                    if len(list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])) > 1:
-                        top_class = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                            f'{measure}_c'])[i]
-                        sd = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                     'sd'])[i]
-                        top_unit_name = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                                'unit'])[i]
-                    else:
-                        top_class = layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                       f'{measure}_c'].item()
-                        sd = layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                'sd'].item()
-                        top_unit_name = layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                           'unit'].item()
-
-                    new_row = [top_val, top_class, sd, layer_name, top_unit_name]
-                    # print(f"new_row\n{new_row}")
-                    # highlights_dict[measure].append(new_row)
-
-            else:  # for most most measures use below
-                for i in range(2):
-                    top_val = layer_top_3_df[measure].iloc[i]
-                    # print('top_val: ', top_val)
-                    # print(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])
-                    if len(list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])) > 1:
-                        top_class = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                            f'{measure}_c'])[i]
-                        top_unit_name = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                                'unit'])[i]
-                    else:
-                        top_class = layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                       f'{measure}_c'].item()
-                        top_unit_name = layer_top_3_df.loc[layer_top_3_df[measure] == top_val,
-                                                           'unit'].item()
-
-                    new_row = [top_val, top_class, layer_name, top_unit_name]
-
-                    # print(f"new_row\n{new_row}")
-                    # highlights_dict[measure].append(new_row)
-
-            print(f"new_row\n{new_row}")
-
-            with open(sel_highlights_list_dict_name, "rb") as pickle_load:
-                # read dict as it is so far
-                highlights_dict = pickle.load(pickle_load)
-
-            highlights_dict[measure].append(new_row)
-
-            print(f"\nhighlights_dict[{measure}]\n{highlights_dict[measure]}")
-
-            # save highlights_dict here
-            with open(sel_highlights_list_dict_name, "wb") as pickle_out:
-                pickle.dump(highlights_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
-
-            highlights_dict.clear()
-
-        print(f"\nFinihshed getting data for highlights_dict")
-
-    print("\n****** Finished looping through all layers ******")
-
-    # # add means total
-    lm = pd.read_csv(layer_means_path)
-    # lm.set_index('name')
-    # print("check column names")
-    # print(f"{len(list(lm))} cols\n{list(lm)}")
-    print(lm)
-    print(lm['name'].to_list())
-    print(f"already_done_means_total: {already_done_means_total}")
-    if lm['name'].to_list()[-1] != 'Total':
-        already_done_means_total = False
-
-    if not already_done_means_total:
-        if 'Total' in lm['name'].to_list():
-            print("total already here, removing and starting again")
-            lm = lm[lm.name != 'Total']
-            print(lm)
-
-        print("appending total to layer_means csv")
-        total_means = []
-        for column_name, column_data in lm.iteritems():
-            # print(f"column_name: {column_name}")
-            if column_name == 'name':
-                # ignore this column
-                # continue
-                total_means.append('Total')
-            elif column_name == 'units':
-                sum_c = column_data.sum()
-                total_means.append(sum_c)
-            else:
-                mean = column_data.mean()
-                total_means.append(mean)
-
-        totals_s = pd.Series(data=total_means, index=lm.columns, name='Total')
-        lm = lm.append(totals_s)
-
-        lm.to_csv(layer_means_path, index=False)
-
-    # # make new highlights_df_dict with dataframes
-    highlights_df_dict = dict()
-
-    # load highlights dict
-    with open(sel_highlights_list_dict_name, "rb") as pickle_load:
-        # read dict as it is so far
-        highlights_dict = pickle.load(pickle_load)
-
-        for k, v in highlights_dict.items():
-            hl_df = pd.DataFrame(data=v[1:], columns=v[0])
-            hl_df.sort_values(by='value', ascending=False, inplace=True)
-            highlights_df_dict[k] = hl_df
-            if verbose:
-                print(f"\n{k} highlights (head)")
-                print(hl_df)
-
-    # Save new highlights_df_dict here
-    sel_highlights_df_dict_name = f"{sel_path}/{output_filename}_highlights.pickle"
-    with open(sel_highlights_df_dict_name, "wb") as pickle_out:
-        pickle.dump(highlights_df_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
-
-    # sel_highlights_list_dict_name = f"{sel_path}/{output_filename}_highlights.pickle"
-    # pickle_out = open(sel_highlights_list_dict_name, "wb")
-    # pickle.dump(highlights_df_dict, pickle_out)
-    # pickle_out.close()
-
-    # sel_per_unit_pickle_name = f"{sel_path}/{output_filename}_sel_per_unit.pickle"
-    # pickle_out = open(sel_per_unit_pickle_name, "wb")
-    # pickle.dump(sel_p_unit_dict, pickle_out)
-    # pickle_out.close()
+    if verbose:
+        focussed_dict_print(all_sel_dict, 'all_sel_dict')
+        # print_nested_round_floats(all_sel_dict, 'all_sel_dict')
 
     # # save dict
     print("\n\n\n*****************\nanalysis complete\n*****************")
 
-    master_dict = dict()
-    master_dict["topic_info"] = gha_dict['topic_info']
-    master_dict["data_info"] = gha_dict['data_info']
-    master_dict["model_info"] = gha_dict['model_info']
-    master_dict["training_info"] = gha_dict['training_info']
-    master_dict["GHA_info"] = gha_dict['GHA_info']
+    max_sel_dict_path = os.path.join(sel_path, max_sel_dict_name)
+    max_sel_summary = get_sel_summaries(max_sel_dict_path, verbose=verbose)
+
+    # # save selectivity info
+    sel_dict = gha_dict
 
     sel_dict_name = f"{sel_path}/{output_filename}_sel_dict.pickle"
 
-    master_dict["sel_info"] = {"sel_path": sel_path,
-                               'sel_dict_name': sel_dict_name,
-                               # "sel_per_unit_pickle_name": sel_per_unit_pickle_name,
-                               "sel_per_unit_name": sel_per_unit_db_name,
-                               'sel_highlights_list_dict_name': sel_highlights_list_dict_name,
-                               "correct_items_only": correct_items_only,
-                               "all_classes": all_classes, "layer_classes": layer_classes,
-                               "sel_date": int(datetime.datetime.now().strftime("%y%m%d")),
-                               "sel_time": int(datetime.datetime.now().strftime("%H%M")),
-                               }
+    sel_dict["sel_info"] = {"sel_path": sel_path,
+                            'sel_dict_name': sel_dict_name,
+                            "all_sel_dict_name": all_sel_dict_name,
+                            'max_sel_dict_name': max_sel_dict_name,
+                            "correct_items_only": correct_items_only,
+                            "all_classes": all_classes,
+                            'corr_test_seq_name': corr_test_seq_name,
+                            'corr_test_letters_name': corr_test_letters_name,
+                            'corr_test_IPC_name': corr_test_IPC_name,
+                            'max_sel_summary': max_sel_summary,
+                            "sel_date": int(datetime.datetime.now().strftime("%y%m%d")),
+                            "sel_time": int(datetime.datetime.now().strftime("%H%M")),
+                            }
 
-    print(f"Saving dict to: {os.getcwd()}")
+    print(f"\nSaving sel_dict to: {os.getcwd()}")
     pickle_out = open(sel_dict_name, "wb")
-    pickle.dump(master_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
+    pickle.dump(sel_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
     pickle_out.close()
 
-    focussed_dict_print(master_dict, "master_dict")
-    # print_nested_round_floats(master_dict)
+    focussed_dict_print(sel_dict, "sel_dict")
 
-    # # save summary csv
-    key_layers_list = [x for x in gha_dict['GHA_info']['gha_key_layers']
-                       if 'output' not in str.lower(x)]
-    last_hid_layer = key_layers_list[-1]
 
-    print("lm")
-    print(lm)
-    # mean_roc = lm.at['Total', 'roc_auc']
-    # mean_ap = lm.at['Total', 'ave_prec']
-    # mean_info = lm.at['Total', 'max_informed']
-
-    # mean_roc = lm.loc[lm['name'] == 'Total', 'roc_auc']
-    # mean_ap = lm.loc[lm['name'] == 'Total', 'ave_prec']
-    # mean_info = lm.loc[lm['name'] == 'Total', 'max_informed']
-
-    print("\ngetting max sel values from highlights")
-    # todo: add timestep as a variable for these too?
-    # # roc
-    top_roc_df = pd.DataFrame(highlights_dict['roc_auc'])
-    max_sel_header = top_roc_df.iloc[0]
-    top_roc_df = top_roc_df[1:]
-    top_roc_df.columns = max_sel_header
-    top_roc_df = top_roc_df.sort_values(by='value', ascending=False)
-    top_roc = top_roc_df[~top_roc_df.layer.str.contains('utput')]
-    max_roc = top_roc['value'].to_list()[0]
-
-    # # ap
-    top_ap_df = pd.DataFrame(highlights_dict['ave_prec'])
-    max_sel_header = top_ap_df.iloc[0]
-    top_ap_df = top_ap_df[1:]
-    top_ap_df.columns = max_sel_header
-    top_ap_df = top_ap_df.sort_values(by='value', ascending=False)
-    top_ap = top_ap_df[~top_ap_df.layer.str.contains('utput')]
-    max_ap = top_ap['value'].to_list()[0]
-
-    # # informedness
-    top_info_df = pd.DataFrame(highlights_dict['max_informed'])
-    max_sel_header = top_info_df.iloc[0]
-    top_info_df = top_info_df[1:]
-    top_info_df.columns = max_sel_header
-    top_info_df = top_info_df.sort_values(by='value', ascending=False)
-    top_info = top_info_df[~top_info_df.layer.str.contains('utput')]
-    max_info = top_info['value'].to_list()[0]
-
-    # # selectiviy summary
+    # # making sel_summary_csv
     run = gha_dict['topic_info']['run']
     if test_run:
         run = 'test'
 
     sel_csv_info = [gha_dict['topic_info']['cond'], run, output_filename,
                     gha_dict['data_info']['dataset'], gha_dict['GHA_info']['use_dataset'],
+                    gha_dict['model_info']['overview']['x_data_type'],
+                    timesteps,
+                    serial_recall,
+                    gha_dict['model_info']['overview']['model_name'],
                     n_layers,
                     gha_dict['model_info']['layers']['hid_layers']['hid_totals']['analysable'],
-                    gha_dict['GHA_info']['scores_dict']['gha_acc'],
-                    last_hid_layer,
-                    # mean_roc,
-                    max_roc,
-                    # mean_ap,
-                    max_ap,
-                    # mean_info,
-                    max_info]
+                    letter_sel,
+                    gha_dict['GHA_info']['scores_dict']['prop_seq_corr'],
+                    round(max_sel_summary['for_summ_csv_dict']['mi_mean'], 3),
+                    round(max_sel_summary['for_summ_csv_dict']['mi_max'], 3),
+                    round(max_sel_summary['for_summ_csv_dict']['ccma_mean'], 3),
+                    round(max_sel_summary['for_summ_csv_dict']['ccma_max'], 3),
+
+                    round(max_sel_summary['for_summ_csv_dict']['b_sel_mean'], 3),
+                    round(max_sel_summary['for_summ_csv_dict']['b_sel_max'], 3),
+
+                    round(max_sel_summary['for_summ_csv_dict']['prec_mean'], 3),
+                    round(max_sel_summary['for_summ_csv_dict']['prec_max'], 3),
+                    round(max_sel_summary['for_summ_csv_dict']['means_mean'], 3),
+                    round(max_sel_summary['for_summ_csv_dict']['means_max'], 3),
+                    int(datetime.datetime.now().strftime("%y%m%d")),
+                    int(datetime.datetime.now().strftime("%H%M")),
+                    ]
 
     summary_headers = ["cond", "run", "output_filename", "dataset", "use_dataset",
+                       'X_type',
+                       'timesteps',
+                       'recall',
+                       'model',
                        "n_layers", "hid_units",
-                       "gha_acc",
-                       "last_layer",
-                       # "mean_roc",
-                       "max_roc",
-                       # "mean_ap",
-                       "max_ap",
-                       # "mean_info",
-                       "max_info"]
+                       'letter_sel',
+                       "prop_seq_corr",
+                       "mi_mean", "mi_max", "ccma_mean", "ccma_max",
+                       "b_sel_mean", 'b_sel_max',
+                       "prec_mean", "prec_max", "means_mean", "means_max",
+                       'sel_date', 'sel_time']
 
-    exp_path, cond_name = os.path.split(gha_dict['GHA_info']['gha_path'])
+    # # save sel summary in exp folder not condition folder
     exp_name = gha_dict['topic_info']['exp_name']
-
+    exp_path = find_path_to_dir(long_path=sel_path, target_dir=exp_name)
     os.chdir(exp_path)
-    print(f"exp_path: {exp_path}")
 
     if not os.path.isfile(exp_name + "_sel_summary.csv"):
         sel_summary = open(exp_name + "_sel_summary.csv", 'w')
@@ -1423,27 +1764,7 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     mywriter.writerow(sel_csv_info)
     sel_summary.close()
 
-    print("\nSanity check for shelve")
-    print(sel_per_unit_db_name)
-    with shelve.open(sel_per_unit_db_name, flag='r') as db:
-        sel_p_unit_keys = list(db.keys())
-        print(sel_p_unit_keys)
-        print(db['fc1'].keys())
 
     print("\nend of sel script")
 
-    return master_dict  # , mean_sel_per_NN
-
-# # #
-# print("\nWARNING\n\nrunning test from bottom of sel script\nWARNING")
-# gha_dict_path = '/home/nm13850/Documents/PhD/python_v2/experiments/' \
-#                 'VGG_end_aug/all_val_set_gha/vgg_imagenet_GHA_dict.pickle'
-#
-# # '''sel'''
-# sel_dict = ff_sel(gha_dict_path=gha_dict_path, correct_items_only=True, all_classes=True,
-#                   test_run=True,
-#                   verbose=True)
-#
-# sel_dict_path = sel_dict['sel_info']['sel_path']
-# print("sel_dict_path: ", sel_dict_path)
-
+    return sel_dict  # , mean_sel_per_NN
