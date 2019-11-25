@@ -11,6 +11,7 @@ from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.python.keras.callbacks import TensorBoard
 from keras.preprocessing.image import ImageDataGenerator
 import matplotlib.pyplot as plt
+import tensorflow.keras.backend as K
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
@@ -39,14 +40,18 @@ models (rnn, GRU, LSTM, seq2seq)
 '''
 
 # def mean_IoU(y_true, y_pred):
-#     mean_IoU_acc = free_rec_acc(y_true=y_true, y_pred=y_pred, get_prop_corr=False)
+#     mean_IoU_acc = free_rec_acc(y_true=K.eval(y_true), y_pred=K.eval(y_pred), get_prop_corr=False)
 #     return mean_IoU_acc
 #
 # def prop_corr(y_true, y_pred):
-#     prop_corr_acc = free_rec_acc(y_true=y_true, y_pred=y_pred, get_prop_corr=True)
-#     return prop_corr_acc
-
-
+#     print(f"eagerly? {tf.executing_eagerly()}")
+#     print(f"numpy: {y_pred.numpy()}")
+#
+#     prop_corr_acc = free_rec_acc(y_true=K.eval(y_true), y_pred=K.eval(y_pred), get_prop_corr=True)
+#     return K.variable(prop_corr_acc)
+#
+#
+# tf.enable_eager_execution()
 
 
 def train_model(exp_name,
