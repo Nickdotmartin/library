@@ -1,8 +1,12 @@
 import pickle
 import json
+import sys
 import os.path
 import datetime
 
+import pandas as pd
+
+from tools.data import running_on_laptop, switch_home_dirs
 
 # TODO: make save dict as pickle or json function (or hd5f?)
 
@@ -180,8 +184,21 @@ def load_dict(dict_name):
             # print("loaded: {}".format(dict_name))
             json_dict = True
 
+    elif running_on_laptop():
+        if os.path.isfile(switch_home_dirs(dict_name)):
+            lappy_dict_name = switch_home_dirs(dict_name)
+            if lappy_dict_name[-7:] == '.pickle':
+                loaded_dict = pickle.load(open(lappy_dict_name, "rb"))
+                # print("loaded: {}".format(lappy_dict_name))
+
+            elif lappy_dict_name[-4:] == '.txt':
+                loaded_dict = json.loads(open(lappy_dict_name).read())
+                # print("loaded: {}".format(lappy_dict_name))
+                json_dict = True
+
     else:
         print("Dict not found, check name and path")
+        raise ValueError(f'Dict not found\n{dict_name}')
 
     if json_dict is True:
         loaded_dict = json_key_to_int(loaded_dict)
@@ -230,6 +247,30 @@ def load_dict_from_data(data_path):
     if json_dict is True:
         loaded_dict = json_key_to_int(loaded_dict)
 
+
     return loaded_dict
 
 
+def nested_dict_to_df(nested_dict, index_names = ['Layer', 'Unit', 'Timestep']):
+    '''
+    Dict should have keys [layers][units][timesteps] or similar first 3 layers.
+    Will return a df with multi-index.
+
+    :param nested_dict:
+    :return: dataframe
+    '''
+
+
+    '''1. max_sel_df: from max_sel_dict
+    reform nested dict first
+    https://stackoverflow.com/questions/30384581/nested-dictionary-to-multiindex-pandas-dataframe-3-level
+    '''
+    reform_nested_sel_dict = {(level1_key, level2_key, level3_key): values
+                              for level1_key, level2_dict in nested_dict.items()
+                              for level2_key, level3_dict in level2_dict.items()
+                              for level3_key, values in level3_dict.items()}
+
+    multi_indexed_df = pd.DataFrame(reform_nested_sel_dict).T
+    multi_indexed_df.index.set_names(index_names, inplace=True)
+
+    return multi_indexed_df

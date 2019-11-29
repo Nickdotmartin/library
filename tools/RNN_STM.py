@@ -624,7 +624,7 @@ def get_layer_acts(model, layer_name, data_dict, test_label_seqs,
 
     # with test_label_seqs get x and y data from get_x_and_Y_data_from_seq
     x_test = []
-    y_true = []
+    y_test = []
     for this_seq in test_label_seqs:
         get_x, get_y = get_X_and_Y_data_from_seq(vocab_dict=vocab_dict,
                                                  seq_line=this_seq,
@@ -948,6 +948,96 @@ def letter_in_seq(letter, test_label_seqs, vocab_dict):
     letter_present_array = np.array(letter_present_list)
 
     return letter_present_array
+
+
+
+
+def word_letter_combo_dict(sel_dict_path, measure='b_sel', save_combo_dict=True):
+
+    # 1. load sel dict
+    if type(sel_dict_path) is dict:
+        sel_dict = sel_dict_path
+    elif type(sel_dict_path) is str:
+        if os.path.isfile(sel_dict_path):
+            sel_dict = load_dict(sel_dict_path)
+    else:
+        raise TypeError(f"Sel_dict path should be a dict or path to dict\n"
+                        f"{sel_dict_path}")
+
+    # focussed_dict_print(sel_dict)
+
+    # 2. load sel_p_unit dicts for words and letters
+    sel_path = sel_dict['sel_info']['sel_path']
+    word_sel_dict_name = sel_dict['sel_info']['max_sel_dict_name']
+    # print(f"word sel dict name; {word_sel_dict_name}")
+    word_sel_dict = load_dict(os.path.join(sel_path, word_sel_dict_name))
+    # focussed_dict_print(word_sel_dict, 'word_sel_dict')  #, focus_list=['hid0'])
+
+    if word_sel_dict_name[-3:] == 'txt':
+        word_sel_dict_prefix = word_sel_dict_name[:-18]
+        word_sel_dict_suffix = word_sel_dict_name[-18:]
+    elif word_sel_dict_name[-3:] == 'kle':
+        word_sel_dict_prefix = word_sel_dict_name[:-21]
+        word_sel_dict_suffix = word_sel_dict_name[-21:]
+
+    letter_sel_dict_name = f"{word_sel_dict_prefix}lett_{word_sel_dict_suffix}"
+    letter_sel_dict = load_dict(os.path.join(sel_path, letter_sel_dict_name))
+    # focussed_dict_print(letter_sel_dict, 'letter_sel_dict')  #, focus_list=['hid0'])
+
+    # check if combo dict already exists
+    combo_sel_dict_name = f"{word_sel_dict_prefix}combo_{word_sel_dict_suffix}"
+
+    if combo_sel_dict_name[-6:] == 'pickle':
+        combo_sel_dict_name = f'{combo_sel_dict_name[:-6]}txt'
+
+    combo_sel_dict_path = os.path.join(sel_path, combo_sel_dict_name)
+
+    if os.path.isfile(combo_sel_dict_path):
+        print("Combo_dict already exists")
+        combo_dict = load_dict(combo_sel_dict_path)
+        return combo_dict
+
+    combo_dict = dict()
+
+    # 3. make new dict with same structure as unit_hl dicts but this one has:
+    # keys: layer, unit, ts
+    # values: letter/word, feature number, feature, sel_value
+
+    for layer, units in word_sel_dict.items():
+        # print(layer)
+        combo_dict[layer] = dict()
+        for unit, steps in units.items():
+            # print(unit)
+            combo_dict[layer][unit] = dict()
+            for ts, scores in steps.items():
+                word_sel_val = scores[measure]
+                letter_sel_val = letter_sel_dict[layer][unit][ts][measure]
+                letter_sel_class = letter_sel_dict[layer][unit][ts][f"{measure}_c"]
+                word_sel_class = scores[f"{measure}_c"]
+
+                max_sel_rule = letter_sel_val > 0
+
+                if max_sel_rule:
+                    combo = {'level': 'letter', 'sel': letter_sel_val, 'feat': letter_sel_class}
+                else:
+                    combo = {'level': 'word', 'sel': word_sel_val, 'feat': word_sel_class}
+
+                combo_dict[layer][unit][ts] = combo
+    # focussed_dict_print(combo_dict, 'combo_dict')
+
+    # 4. return new dict
+
+    return combo_dict
+
+# sel_dict_path = '/Users/nickmartin/Documents/PhD/python_v2/experiments/' \
+#                 'train_rnn_script_check/test_25112019/correct_sel/' \
+#                 'test_25112019_sel_dict.pickle'
+#
+# combo_dict = word_letter_combo_dict(sel_dict_path)
+#
+# focussed_dict_print(combo_dict, 'combo_dict')
+
+
 
 # print("\n\n\n*********testing letter_in_seq()\n\n")
 # free_test_label_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/' \

@@ -15,7 +15,9 @@ from scipy.stats.stats import pearsonr, rankdata
 from sklearn.metrics import roc_curve, auc
 
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
-from tools.RNN_STM import get_X_and_Y_data_from_seq, seq_items_per_class, spell_label_seqs
+from tools.dicts import nested_dict_to_df
+from tools.RNN_STM import get_X_and_Y_data_from_seq, seq_items_per_class
+from tools.RNN_STM import spell_label_seqs, word_letter_combo_dict
 from tools.data import nick_read_csv, find_path_to_dir
 from tools.network import loop_thru_acts
 
@@ -527,14 +529,16 @@ def get_sel_summaries(max_sel_dict_path,
     reform nested dict first
     https://stackoverflow.com/questions/30384581/nested-dictionary-to-multiindex-pandas-dataframe-3-level
     '''
-    reform_nested_sel_dict = {(level1_key, level2_key, level3_key): values
-                              for level1_key, level2_dict in max_sel_dict.items()
-                              for level2_key, level3_dict in level2_dict.items()
-                              for level3_key, values in level3_dict.items()}
+    # reform_nested_sel_dict = {(level1_key, level2_key, level3_key): values
+    #                           for level1_key, level2_dict in max_sel_dict.items()
+    #                           for level2_key, level3_dict in level2_dict.items()
+    #                           for level3_key, values in level3_dict.items()}
+    #
+    # max_sel_df = pd.DataFrame(reform_nested_sel_dict).T
+    # sel_df_index_names = ['Layer', 'Unit', 'Timestep']
+    # max_sel_df.index.set_names(sel_df_index_names, inplace=True)
 
-    max_sel_df = pd.DataFrame(reform_nested_sel_dict).T
-    sel_df_index_names = ['Layer', 'Unit', 'Timestep']
-    max_sel_df.index.set_names(sel_df_index_names, inplace=True)
+    max_sel_df = nested_dict_to_df(max_sel_dict)
 
     # # convert max_sel_class labels ('_c') columns to int
     class_cols_list = [measure for measure in all_sel_measures_list if measure[-2:] == '_c']
@@ -791,11 +795,258 @@ def get_sel_summaries(max_sel_dict_path,
 
 
 ####################################################################################################
-# todo: new sel stats
-#  count number of invariant units.
-#  count n_units with sel > 0, .1, .2, .3, .4, .5.
-#  count classes (words/letters) with sel units > 0, .1, .2, .3, .4, .5.
+def count_sel_units(sel_dict_path, measure='b_sel',
+                    thresholds=[0.0, .1, .2, .3, .4, .5],
+                    save_csv=True):
+    """
+    Given a dataset where selectivity has already been run for letters and words.
 
+    1. sel dict, max_sel_per_unit dict for words,letters and combo
+    2. re-structure dicts to dfs
+    3. count considering each timestep (ts)
+        Count n_ts with sel > .0, .1, .2, .3, .4, .5 for words, letters, combo
+        Count n_cats in all ts with sel > .0, .1, .2, .3, .4, .5 for words, letters, com
+    4. make df/dict just consisisting of units where word/sel values are the same at all timesteps
+    5. count considering units where class is the same at all timesteps, using min sel as value
+        Count n_ts with sel > .0, .1, .2, .3, .4, .5 for words, letters, combo
+        Count n_cats in all ts with sel > .0, .1, .2, .3, .4, .5 for words, letters, comb
+    6. option to create or append results to summary doc with scores for each model
+
+    :param sel_dict_path: 
+    :param measure: which selectivity measure to look at.
+    :param thresholds: which selectivity thresholds to consider
+    :param save_csv: Whether to save a summary doc
+
+    :return: Dict:  Thr [.0, .1, .2, .3, .4, .5]:
+                    Level ['word', 'letter', 'combo']
+                    count ['timesteps', 'ts_cats', 'invar_units', 'invar_cats']
+    """
+
+    # # # 1 load basic info
+    # # load sel dict.
+    if type(sel_dict_path) is dict:
+        sel_dict = sel_dict_path
+    elif type(sel_dict_path) is str:
+        if os.path.isfile(sel_dict_path):
+            sel_dict = load_dict(sel_dict_path)
+        else:
+            raise TypeError(f"Sel_dict path should be a dict or path to dict\n"
+                            f"{sel_dict_path}")
+    else:
+        raise TypeError(f"Sel_dict path should be a dict or path to dict\n"
+                        f"{sel_dict_path}")
+    focussed_dict_print(sel_dict)
+
+
+    # # load max sel per unit dict for words and letters.
+    sel_path = sel_dict['sel_info']['sel_path']
+    word_sel_dict_name = sel_dict['sel_info']['max_sel_dict_name']
+    word_sel_dict = load_dict(os.path.join(sel_path, word_sel_dict_name))
+    # focussed_dict_print(word_sel_dict, 'word_sel_dict')  #, focus_list=['hid0'])
+
+    if word_sel_dict_name[-3:] == 'txt':
+        word_sel_dict_prefix = word_sel_dict_name[:-18]
+        word_sel_dict_suffix = word_sel_dict_name[-18:]
+    elif word_sel_dict_name[-3:] == 'kle':
+        word_sel_dict_prefix = word_sel_dict_name[:-21]
+        word_sel_dict_suffix = word_sel_dict_name[-21:]
+
+    letter_sel_dict_name = f"{word_sel_dict_prefix}lett_{word_sel_dict_suffix}"
+    letter_sel_dict = load_dict(os.path.join(sel_path, letter_sel_dict_name))
+    # focussed_dict_print(letter_sel_dict, 'letter_sel_dict')  #, focus_list=['hid0'])
+
+    combo_dict = word_letter_combo_dict(sel_dict_path)
+    # focussed_dict_print(combo_dict, 'combo_dict')
+
+
+
+    # # # 2 re-structure data
+    # # - flatten word_dict and letter_dict, combo into dfs
+    # # - keys:     layer, unit, ts, measure
+    # # - values:   word_sel, word_class,
+    # #             letter_sel, letter_class,
+    # #             combo_level (word, letter), combo_sel, combo_class
+    word_sel_df = nested_dict_to_df(word_sel_dict)
+    sel_columns = [measure, f'{measure}_c']
+    word_sel_df = word_sel_df[sel_columns]
+    word_sel_df = word_sel_df.astype({measure: 'float32',
+                                     f'{measure}_c': 'int32'})
+    word_sel_df = word_sel_df.rename(columns={measure: f"word_sel", f'{measure}_c': f'word_c'})
+    # print(f"word_sel_df:\n{word_sel_df.head()}")
+
+    letter_sel_df = nested_dict_to_df(letter_sel_dict)
+    letter_sel_df = letter_sel_df[sel_columns]
+    letter_sel_df = letter_sel_df.astype({measure: 'float32',
+                                      f'{measure}_c': 'int32'})
+    letter_sel_df = letter_sel_df.rename(columns={measure: f"letter_sel", f'{measure}_c': f'letter_c'})
+    # print(f"letter_sel_df:\n{letter_sel_df.head()}")
+
+    combo_sel_df = nested_dict_to_df(combo_dict)
+    combo_sel_df = combo_sel_df.rename(columns={'level': 'level',
+                                                'sel': f"combo_sel",
+                                                'feat': f'combo_c'})
+    # print(f"combo_sel_df:\n{combo_sel_df.head()}")
+
+
+
+
+    # # - use vocab dict to create columns for letter_feat, word_feat
+    vocab_dict_path = os.path.join(sel_dict['data_info']['data_path'],
+                                   sel_dict['data_info']['vocab_dict'])
+    vocab_dict = load_dict(vocab_dict_path)
+    # focussed_dict_print(vocab_dict)
+
+    # # # get actual words and letters not numeric label
+    # # word feat
+    word_feat = []
+    for cat in list(word_sel_df['word_c']):
+        this_feat = vocab_dict[cat]['word']
+        word_feat.append(this_feat)
+        # print(cat)
+    word_sel_df['word_feat'] = word_feat
+
+    letter_id_dict = load_dict(os.path.join(sel_dict['data_info']['data_path'],
+                                   sel_dict['data_info']['letter_id_dict']))
+    # focussed_dict_print(letter_id_dict, 'letter_id_dict')
+
+    # # letter feat
+    letter_feat = []
+    for cat in list(letter_sel_df['letter_c']):
+        this_feat = letter_id_dict[cat]
+        letter_feat.append(this_feat)
+        # print(cat)
+    letter_sel_df['letter_feat'] = letter_feat
+
+
+    # # - letter in word bool (if letter_feat is in word_feat)
+    letter_in_word = []
+    for letter, word in zip(letter_feat, word_feat):
+        # print(letter, word)
+        if letter in word:
+            letter_in_word.append(True)
+        else:
+            letter_in_word.append(False)
+    letter_sel_df['letter_in_word'] = letter_in_word
+
+
+
+    # # merge dfs
+    sel_df = word_sel_df.join(letter_sel_df)
+    sel_df = sel_df.join(combo_sel_df)
+    # print(f"sel_df:\n{sel_df.head()}")
+
+
+    sel_count_dict = dict()
+
+    levels = ['word', 'letter']
+    # # considering each timestep (ts)
+    # # Count timesteps with sel > .0, .1, .2, .3, .4, .5 for words, letters, combo
+    # # Count n_cats (ts_cats) in all ts with sel > .0, .1, .2, .3, .4, .5 for words, letters, combo
+    for thr in thresholds:
+        sel_count_dict[str(thr)] = dict()
+        for level in levels:
+            sel_count_dict[str(thr)][level] = dict()
+            thr_df = sel_df[sel_df[f"{level}_sel"] >= thr]
+            class_list = thr_df[f'{level}_c'].to_list()
+            sel_count_dict[str(thr)][level]['timesteps'] = len(class_list)
+            sel_count_dict[str(thr)][level]['ts_cats'] = len(set(class_list))
+
+
+
+    # # make dict just consisisting of units where word/sel values are the same at all timesteps
+    # # - only do single layer output for now
+    # # keys: unit
+    # # values: level: [word, letter], feature, min_sel
+    invar_dict = {}
+
+    unit_list = list(word_sel_dict['hid0'].keys())
+    for unit in unit_list:
+        unit_df = sel_df.xs(('hid0', unit))
+        # print(f"unit_df: {unit}\n{unit_df}\n")
+
+        # word invar
+        word_c_list = unit_df['word_c'].to_list()
+        if len(set(word_c_list)) == 1:
+            invar_dict[unit] = dict()
+            # print(f"Invariant for words!\n")
+            invar_dict[unit]['word_label'] = word_c_list[0]
+            invar_dict[unit]['word_feat'] = unit_df['word_feat'].to_list()[0]
+            invar_dict[unit]['word_sel'] = min(unit_df['word_sel'].to_list())
+
+        # letter invar
+        letter_c_list = unit_df['letter_c'].to_list()
+        if len(set(letter_c_list)) == 1:
+            if unit not in invar_dict:
+                invar_dict[unit] = dict()
+            # print(f"Invariant for letters!\n")
+            invar_dict[unit]['letter_label'] = letter_c_list[0]
+            invar_dict[unit]['letter_feat'] = unit_df['letter_feat'].to_list()[0]
+            invar_dict[unit]['letter_sel'] = min(unit_df['letter_sel'].to_list())
+    # focussed_dict_print(invar_dict, 'invar_dict')
+
+
+
+    invar_df = pd.DataFrame.from_dict(invar_dict, orient='index')
+    # print(f'invar_df:\n{invar_df}')
+    # # considering units where class is the same at all timesteps, using min sel as value
+    # # Count invar_units with sel > .0, .1, .2, .3, .4, .5 for words, letters, combo
+    # # Count invar_cats in all ts with sel > .0, .1, .2, .3, .4, .5 for words, letters, combo
+    for thr in thresholds:
+        for level in levels:
+            thr_invar_df = invar_df[invar_df[f"{level}_sel"] >= thr]
+            # print(f"{thr} - {level}\n{thr_invar_df}")
+            class_list = thr_invar_df[f'{level}_label'].to_list()
+            class_list = [x for x in class_list if str(x) != 'NaN']
+            sel_count_dict[str(thr)][level]['invar_units'] = len(class_list)
+            sel_count_dict[str(thr)][level]['invar_cats'] = len(set(class_list))
+
+
+
+    # # option to create or append results to summary doc with scores for each model
+    if save_csv:
+        # # flatten count dict into df
+        flat_count_df = pd.io.json.json_normalize(sel_count_dict, sep='_')
+        flat_count_df.rename(index={0: sel_dict['topic_info']['output_filename']}, inplace=True)
+        flat_count_df.index.rename('cond_name', inplace=True)
+
+        # # add details for filtering
+        serial_recall = sel_dict['model_info']['overview']['serial_recall']
+        x_data_type = sel_dict['model_info']['overview']['x_data_type']
+        timesteps = sel_dict['model_info']['overview']['timesteps']
+        max_epochs = sel_dict['model_info']['overview']['max_epochs']
+        n_cats = sel_dict['data_info']['n_cats']
+
+        flat_count_df = pd.concat([flat_count_df,
+                                   pd.DataFrame(
+            [[x_data_type, timesteps, serial_recall, max_epochs, n_cats]],
+            index=flat_count_df.index,
+            columns=['x_data_type', 'timesteps', 'serial_recall', 'max_epochs',
+                     'n_cats'])],
+            axis=1)
+
+
+        summary_dir = find_path_to_dir(sel_dict_path,
+                                       target_dir=sel_dict['topic_info']['exp_name'])
+        summary_path = os.path.join(summary_dir, 'sel_count_summary.csv')
+
+        if os.path.isfile(summary_path):
+            summary_df = pd.read_csv(summary_path, index_col='cond_name')
+            summary_df = summary_df.append(other=flat_count_df)
+        else:
+            summary_df = flat_count_df
+
+        summary_df.to_csv(summary_path)
+        # print(f"summary_df:\n{summary_df}")
+
+    return sel_count_dict
+
+# sel_dict_path = '/Users/nickmartin/Documents/PhD/python_v2/experiments/' \
+#                 'train_rnn_script_check/test_25112019/correct_sel/' \
+#                 'test_25112019_sel_dict.pickle'
+#
+# sel_count_dict = count_sel_units(sel_dict_path, save_csv=True)
+#
+# focussed_dict_print(sel_count_dict, 'sel_count_dict')
 
 
 

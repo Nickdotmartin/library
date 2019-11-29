@@ -456,14 +456,15 @@ def loop_thru_acts(gha_dict_path,
                     if type(value) is not int:
                         ValueError("already-completed dict values should be int of last completed unit or 'all'")
 
-    # # use gha-dict_path to get exp_cond_gha_path, gha_dict_name,
-    exp_cond_gha_path, gha_dict_name = os.path.split(gha_dict_path)
-    os.chdir(exp_cond_gha_path)
-    current_wd = os.getcwd()
-
     # # part 1. load dict from study (should run with sim, GHA or sel dict)
     gha_dict = load_dict(gha_dict_path)
     focussed_dict_print(gha_dict, 'gha_dict')
+
+    # # use gha-dict_path to get exp_cond_gha_path, gha_dict_name,
+    exp_cond_gha_path = gha_dict['GHA_info']['gha_path']
+    # gha_dict_name = gha_dict['GHA_info']['hid_act_files']['2d']
+    os.chdir(exp_cond_gha_path)
+    current_wd = os.getcwd()
 
     # get topic_info from dict
     output_filename = gha_dict["topic_info"]["output_filename"]

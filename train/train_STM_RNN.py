@@ -2,7 +2,7 @@ import csv
 import datetime
 import json
 import os
-import git
+# import git
 import numpy as np
 
 import tensorflow as tf
@@ -16,7 +16,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
-from tools.data import load_x_data, load_y_data, find_path_to_dir
+from tools.data import load_x_data, load_y_data, find_path_to_dir, switch_home_dirs
 from tools.network import get_model_dict, get_scores
 from tools.RNN_STM import generate_STM_RNN_seqs, get_label_seqs, get_test_scores, free_rec_acc
 from models.rnns import Bowers14rnn, SimpleRNNn, GRUn, LSTMn, Seq2Seq
@@ -158,7 +158,12 @@ def train_model(exp_name,
     if os.path.isfile(data_dict_path):
         data_dict = load_dict(data_dict_path)
     elif os.path.isfile(os.path.join('/home/nm13850/Documents/PhD/python_v2/datasets/', data_dict_path)):
+        # work computer
         data_dict_path = os.path.join('/home/nm13850/Documents/PhD/python_v2/datasets/', data_dict_path)
+        data_dict = load_dict(data_dict_path)
+    elif os.path.isfile(os.path.join('/Users/nickmartin/Documents/PhD/python_v2/datasets', data_dict_path)):
+        # laptop
+        data_dict_path = os.path.join('/Users/nickmartin/Documents/PhD/python_v2/datasets', data_dict_path)
         data_dict = load_dict(data_dict_path)
     else:
         raise FileNotFoundError(data_dict_path)
@@ -457,6 +462,9 @@ def train_model(exp_name,
     test_filename = f'seq{timesteps}_v{n_cats}_960_test_seq_labels.npy'
     test_seq_path = os.path.join(data_path, test_filename)
 
+    if not os.path.isfile(test_seq_path):
+        if os.path.isfile(switch_home_dirs(test_seq_path)):
+            test_seq_path = switch_home_dirs(test_seq_path)
     # if os.path.isfile(test_seq_path):
     test_label_seqs = np.load(test_seq_path)
 
@@ -497,7 +505,7 @@ def train_model(exp_name,
                               'timesteps': timesteps}
 
 
-    repo = git.Repo('/home/nm13850/Documents/PhD/code/library')
+    repo = "git.Repo('/home/nm13850/Documents/PhD/code/library')"
 
     sim_dict_name = f"{output_filename}_sim_dict.txt"
 
@@ -518,7 +526,7 @@ def train_model(exp_name,
                                   'x_data_path': x_data_path, 'y_data_path': y_data_path,
                                   'sim_dict_path': sim_dict_path,
                                   'tensorboard_path': tensorboard_path,
-                                  'commit': repo.head.object.hexsha,
+                                  # 'commit': repo.head.object.hexsha,
                                   }
                 }
 

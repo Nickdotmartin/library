@@ -1,9 +1,10 @@
 import csv
 import os.path
+import sys
 import numpy as np
 import pandas as pd
 
-from tools.dicts import load_dict
+# from tools.dicts import load_dict
 
 
 def nick_to_csv(df, path):
@@ -139,95 +140,95 @@ def load_y_data(y_label_path):
     return item_and_class_df, y_label_list
 
 
-def load_data(data_dict, x_y, test_train_val='train_set'):
-    """
-    load x or y data from data_dict.  Can specify train, test, val
-    If y returns a dict with {"y_df": y_df, 'y_label_list': y_label_list}
-    :param data_dict: str(dict_name) or dict
-    :param x_y: str specific X/x or Y/y
-    :param test_train_val: str 'train_set', 'test_set' or 'val_set'
-    :return: dataset
-    """
-
-    print("\n****load_data()****")
-
-    if type(data_dict) is str:
-        data_dict = load_dict(data_dict)
-
-    if x_y in ['x', 'X']:
-        get_dataset = 'X_data'
-    elif x_y in ['y', 'Y']:
-        get_dataset = 'Y_data'
-    else:
-        print("ERROR x_y should be either 'x'/'X' or 'y'/'Y'")
-
-    #  find main dataset
-    # could be only data avaliable(data_dict), train(data_dict['train_set']),
-    # could be test(data_dict['test_set']) or val(data_dict['val_set'])
-    data_info_location = data_dict
-    if get_dataset in data_dict.keys():  # is it in first set of keys?
-        pass
-        # # get data in first set of keys
-    elif 'data_info' in data_dict.keys():  # data_dict['data_info']
-        if get_dataset in data_dict['data_info'].keys():
-            data_info_location = data_dict['data_info']
-            # # get_data in second set of keys (nested in data_info
-        elif test_train_val in data_dict['data_info'].keys():  # data_dict['data_info']['test_train_val']
-            if get_dataset in data_dict['data_info'][test_train_val].keys():
-                data_info_location = data_dict['data_info'][test_train_val]
-                # # get_data in 3rd set of keys nested in 'data_info' and 'train_test_val
-            else:
-                print("not found ln96 get_dataset in data_dict['data_info'][test_train_val].keys():")
-
-        else:
-            print("not found ln99 test_train_val in data_dict['data_dict'].keys():")
-
-    elif test_train_val in data_dict.keys():  # data_dict['test_train_val']
-        data_info_location = data_dict[test_train_val]
-        # # get_data in second set of keys (nested in test_train_val)
-
-    else:
-        ValueError("\ntraining data not found")
-
-
-    dset_filename = data_info_location[get_dataset]
-
-    # # if X
-    if get_dataset is 'X_data':
-        if dset_filename[-3:] == 'csv':
-            dataset = np.loadtxt(dset_filename, delimiter=",")
-            print("loaded X as csv: {} {}".format(dset_filename, np.shape(dataset)))
-        elif dset_filename[-3:] == 'npy':
-            dataset = np.load(dset_filename)
-            print("loaded X as npy: {} {}".format(dset_filename, np.shape(dataset)))
-        else:
-            print("unknown X_data file type: {}".format(dset_filename[-3:]))
-
-    # # if y
-    if get_dataset is 'Y_data':
-        print("dset_filename: {}".format(dset_filename))
-
-        # print("load_y_data returns a dict with y_df and y_label_list")
-        # if dset_filename == 'use_to_categorical':
-        #     print("ERROR: {}".format(dset_filename))
-        dset_filename = data_info_location['Y_labels']
-        #     print("FIXED: {}".format(dset_filename))
-
-        if dset_filename[-3:] == 'csv':
-            item_and_class_df = pd.read_csv(dset_filename, header=None, names=["item", "class"])
-            y_label_list = item_and_class_df['class'].tolist()
-            dataset = {"y_df": item_and_class_df, 'y_label_list': y_label_list}
-            print("loaded y_filename as csv: {} {}".format(dset_filename, item_and_class_df.shape))
-        elif dset_filename[-3:] == 'npy':
-            y_labels_items = np.load(dset_filename)
-            item_and_class_df = pd.DataFrame({'item': y_labels_items[:, 0], 'class': y_labels_items[:, 1]})
-            y_label_list = item_and_class_df['class'].tolist()
-            dataset = {"y_df": item_and_class_df, 'y_label_list': y_label_list}
-            print("loaded y_filename as npy: {} {}".format(dset_filename, item_and_class_df.shape))
-        else:
-            print("unknown y_filename file type: {}".format(dset_filename[-3:]))
-
-    return dataset
+# def load_data(data_dict, x_y, test_train_val='train_set'):
+#     """
+#     load x or y data from data_dict.  Can specify train, test, val
+#     If y returns a dict with {"y_df": y_df, 'y_label_list': y_label_list}
+#     :param data_dict: str(dict_name) or dict
+#     :param x_y: str specific X/x or Y/y
+#     :param test_train_val: str 'train_set', 'test_set' or 'val_set'
+#     :return: dataset
+#     """
+#
+#     print("\n****load_data()****")
+#
+#     if type(data_dict) is str:
+#         data_dict = load_dict(data_dict)
+#
+#     if x_y in ['x', 'X']:
+#         get_dataset = 'X_data'
+#     elif x_y in ['y', 'Y']:
+#         get_dataset = 'Y_data'
+#     else:
+#         print("ERROR x_y should be either 'x'/'X' or 'y'/'Y'")
+#
+#     #  find main dataset
+#     # could be only data avaliable(data_dict), train(data_dict['train_set']),
+#     # could be test(data_dict['test_set']) or val(data_dict['val_set'])
+#     data_info_location = data_dict
+#     if get_dataset in data_dict.keys():  # is it in first set of keys?
+#         pass
+#         # # get data in first set of keys
+#     elif 'data_info' in data_dict.keys():  # data_dict['data_info']
+#         if get_dataset in data_dict['data_info'].keys():
+#             data_info_location = data_dict['data_info']
+#             # # get_data in second set of keys (nested in data_info
+#         elif test_train_val in data_dict['data_info'].keys():  # data_dict['data_info']['test_train_val']
+#             if get_dataset in data_dict['data_info'][test_train_val].keys():
+#                 data_info_location = data_dict['data_info'][test_train_val]
+#                 # # get_data in 3rd set of keys nested in 'data_info' and 'train_test_val
+#             else:
+#                 print("not found ln96 get_dataset in data_dict['data_info'][test_train_val].keys():")
+#
+#         else:
+#             print("not found ln99 test_train_val in data_dict['data_dict'].keys():")
+#
+#     elif test_train_val in data_dict.keys():  # data_dict['test_train_val']
+#         data_info_location = data_dict[test_train_val]
+#         # # get_data in second set of keys (nested in test_train_val)
+#
+#     else:
+#         ValueError("\ntraining data not found")
+#
+#
+#     dset_filename = data_info_location[get_dataset]
+#
+#     # # if X
+#     if get_dataset is 'X_data':
+#         if dset_filename[-3:] == 'csv':
+#             dataset = np.loadtxt(dset_filename, delimiter=",")
+#             print("loaded X as csv: {} {}".format(dset_filename, np.shape(dataset)))
+#         elif dset_filename[-3:] == 'npy':
+#             dataset = np.load(dset_filename)
+#             print("loaded X as npy: {} {}".format(dset_filename, np.shape(dataset)))
+#         else:
+#             print("unknown X_data file type: {}".format(dset_filename[-3:]))
+#
+#     # # if y
+#     if get_dataset is 'Y_data':
+#         print("dset_filename: {}".format(dset_filename))
+#
+#         # print("load_y_data returns a dict with y_df and y_label_list")
+#         # if dset_filename == 'use_to_categorical':
+#         #     print("ERROR: {}".format(dset_filename))
+#         dset_filename = data_info_location['Y_labels']
+#         #     print("FIXED: {}".format(dset_filename))
+#
+#         if dset_filename[-3:] == 'csv':
+#             item_and_class_df = pd.read_csv(dset_filename, header=None, names=["item", "class"])
+#             y_label_list = item_and_class_df['class'].tolist()
+#             dataset = {"y_df": item_and_class_df, 'y_label_list': y_label_list}
+#             print("loaded y_filename as csv: {} {}".format(dset_filename, item_and_class_df.shape))
+#         elif dset_filename[-3:] == 'npy':
+#             y_labels_items = np.load(dset_filename)
+#             item_and_class_df = pd.DataFrame({'item': y_labels_items[:, 0], 'class': y_labels_items[:, 1]})
+#             y_label_list = item_and_class_df['class'].tolist()
+#             dataset = {"y_df": item_and_class_df, 'y_label_list': y_label_list}
+#             print("loaded y_filename as npy: {} {}".format(dset_filename, item_and_class_df.shape))
+#         else:
+#             print("unknown y_filename file type: {}".format(dset_filename[-3:]))
+#
+#     return dataset
 
 
 def load_data_no_dict(dataset_name):
@@ -482,3 +483,47 @@ def find_path_to_dir(long_path, target_dir, recursion_path=None):
 # exp_name = 'STM_RNN/sim1_3'  #'STM_RNN/sim1_3'
 # exp_path = find_path_to_dir(long_path=exp_cond_path, target_dir=exp_name)
 # print(exp_path)
+
+
+
+def running_on_laptop(verbose=False):
+    """
+    Check if I am on my laptop (not my work machine), might need to change paths
+    :param verbose:
+    :return:
+    """
+    if verbose:
+        if sys.executable[:18] == '/Users/nickmartin/':
+            print("Script is running on Nick's laptop")
+        else:
+            print("Script is not running on Nick's laptop")
+    return sys.executable[:18] == '/Users/nickmartin/'
+
+def switch_home_dirs(path_to_change):
+    """
+    Try this module anytime I am having a problem on my laptop with uni paths.
+
+    :param path_to_change:
+    :return: new path: to try out
+    """
+
+    laptop_path = '/Users/nickmartin/Documents/PhD/python_v2/'
+
+    GPU_path = '/home/nm13850/Documents/PhD/python_v2/'
+
+    if laptop_path == path_to_change[:len(laptop_path)]:
+        snip_end = path_to_change[len(laptop_path):]
+        new_path = os.path.join(laptop_path, snip_end)
+    elif GPU_path == path_to_change[:len(GPU_path)]:
+        snip_end = path_to_change[len(GPU_path):]
+        new_path = os.path.join(laptop_path, snip_end)
+    else:
+        print(f"path not found in laptop or GPU paths\n{path_to_change}")
+
+    return new_path
+
+# this_path = '/Users/nickmartin/Documents/PhD/python_v2/datasets/RNN/bowers14_rep'
+#
+# path_check = switch_home_dirs(this_path)
+#
+# print(f"output: {path_check}")
