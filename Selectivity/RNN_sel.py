@@ -933,8 +933,11 @@ def count_sel_units(sel_dict_path, measure='b_sel',
     # # merge dfs
     sel_df = word_sel_df.join(letter_sel_df)
     sel_df = sel_df.join(combo_sel_df)
-    # print(f"sel_df:\n{sel_df.head()}")
+    print(f"sel_df:\n{sel_df.head()}")
 
+    # # just considering the first timestep a la bowers
+    sel_df = sel_df.xs('ts0', level='Timestep')
+    print(f"sel_df:\n{sel_df.head()}")
 
     sel_count_dict = dict()
 
@@ -953,61 +956,73 @@ def count_sel_units(sel_dict_path, measure='b_sel',
 
 
 
-    # # make dict just consisisting of units where word/sel values are the same at all timesteps
-    # # - only do single layer output for now
-    # # keys: unit
-    # # values: level: [word, letter], feature, min_sel
-    invar_dict = {}
-
-    unit_list = list(word_sel_dict['hid0'].keys())
-    for unit in unit_list:
-        unit_df = sel_df.xs(('hid0', unit))
-        # print(f"unit_df: {unit}\n{unit_df}\n")
-
-        # word invar
-        word_c_list = unit_df['word_c'].to_list()
-        if len(set(word_c_list)) == 1:
-            invar_dict[unit] = dict()
-            # print(f"Invariant for words!\n")
-            invar_dict[unit]['word_label'] = word_c_list[0]
-            invar_dict[unit]['word_feat'] = unit_df['word_feat'].to_list()[0]
-            invar_dict[unit]['word_sel'] = min(unit_df['word_sel'].to_list())
-
-        # letter invar
-        letter_c_list = unit_df['letter_c'].to_list()
-        if len(set(letter_c_list)) == 1:
-            if unit not in invar_dict:
-                invar_dict[unit] = dict()
-            # print(f"Invariant for letters!\n")
-            invar_dict[unit]['letter_label'] = letter_c_list[0]
-            invar_dict[unit]['letter_feat'] = unit_df['letter_feat'].to_list()[0]
-            invar_dict[unit]['letter_sel'] = min(unit_df['letter_sel'].to_list())
+    # # # make dict just consisisting of units where word/sel values are the same at all timesteps
+    # # # - only do single layer output for now
+    # # # keys: unit
+    # # # values: level: [word, letter], feature, min_sel
+    # invar_dict = dict()
+    #
+    # unit_list = list(word_sel_dict['hid0'].keys())
+    # for unit in unit_list:
+    #     unit_df = sel_df.xs(('hid0', unit))
+    #     # print(f"unit_df: {unit}\n{unit_df}\n")
+    #
+    #     # word invar
+    #     word_c_list = unit_df['word_c'].to_list()
+    #     if len(set(word_c_list)) == 1:
+    #         invar_dict[unit] = dict()
+    #         # print(f"Invariant for words!\n")
+    #         invar_dict[unit]['word_label'] = word_c_list[0]
+    #         invar_dict[unit]['word_feat'] = unit_df['word_feat'].to_list()[0]
+    #         invar_dict[unit]['word_sel'] = min(unit_df['word_sel'].to_list())
+    #
+    #     # letter invar
+    #     letter_c_list = unit_df['letter_c'].to_list()
+    #     if len(set(letter_c_list)) == 1:
+    #         if unit not in invar_dict:
+    #             invar_dict[unit] = dict()
+    #         # print(f"Invariant for letters!\n")
+    #         invar_dict[unit]['letter_label'] = letter_c_list[0]
+    #         invar_dict[unit]['letter_feat'] = unit_df['letter_feat'].to_list()[0]
+    #         invar_dict[unit]['letter_sel'] = min(unit_df['letter_sel'].to_list())
     # focussed_dict_print(invar_dict, 'invar_dict')
-
-
-
-    invar_df = pd.DataFrame.from_dict(invar_dict, orient='index')
+    #
+    #
+    #
+    # invar_df = pd.DataFrame.from_dict(invar_dict, orient='index')
     # print(f'invar_df:\n{invar_df}')
-    # # considering units where class is the same at all timesteps, using min sel as value
-    # # Count invar_units with sel > .0, .1, .2, .3, .4, .5 for words, letters, combo
-    # # Count invar_cats in all ts with sel > .0, .1, .2, .3, .4, .5 for words, letters, combo
-    for thr in thresholds:
-        for level in levels:
-            thr_invar_df = invar_df[invar_df[f"{level}_sel"] >= thr]
-            # print(f"{thr} - {level}\n{thr_invar_df}")
-            class_list = thr_invar_df[f'{level}_label'].to_list()
-            class_list = [x for x in class_list if str(x) != 'NaN']
-            sel_count_dict[str(thr)][level]['invar_units'] = len(class_list)
-            sel_count_dict[str(thr)][level]['invar_cats'] = len(set(class_list))
-
+    # # # considering units where class is the same at all timesteps, using min sel as value
+    # # # Count invar_units with sel > .0, .1, .2, .3, .4, .5 for words, letters, combo
+    # # # Count invar_cats in all ts with sel > .0, .1, .2, .3, .4, .5 for words, letters, combo
+    #
+    # # if invar_df.empty:
+    # #     print("\nthere are no timestep invariant units")
+    #
+    # if not invar_df.empty:
+    #     for thr in thresholds:
+    #         for level in levels:
+    #             if f"{level}_sel" in list(invar_df):
+    #                 thr_invar_df = invar_df[invar_df[f"{level}_sel"] >= thr]
+    #                 if not thr_invar_df.empty:
+    #                     # print(f"{thr} - {level}\n{thr_invar_df}")
+    #                     class_list = thr_invar_df[f'{level}_label'].to_list()
+    #                     class_list = [x for x in class_list if str(x) != 'NaN']
+    #                     sel_count_dict[str(thr)][level]['invar_units'] = len(class_list)
+    #                     sel_count_dict[str(thr)][level]['invar_cats'] = len(set(class_list))
+    #             if 'invar_cats' not in sel_count_dict[str(thr)][level]:
+    #                 sel_count_dict[str(thr)][level]['invar_units'] = 0
+    #                 sel_count_dict[str(thr)][level]['invar_cats'] = 0
 
 
     # # option to create or append results to summary doc with scores for each model
     if save_csv:
+        # # count csv
         # # flatten count dict into df
         flat_count_df = pd.io.json.json_normalize(sel_count_dict, sep='_')
         flat_count_df.rename(index={0: sel_dict['topic_info']['output_filename']}, inplace=True)
         flat_count_df.index.rename('cond_name', inplace=True)
+
+        print(f"flat_count_df:\n{flat_count_df.head()}")
 
         # # add details for filtering
         serial_recall = sel_dict['model_info']['overview']['serial_recall']
@@ -1027,7 +1042,7 @@ def count_sel_units(sel_dict_path, measure='b_sel',
 
         summary_dir = find_path_to_dir(sel_dict_path,
                                        target_dir=sel_dict['topic_info']['exp_name'])
-        summary_path = os.path.join(summary_dir, 'sel_count_summary.csv')
+        summary_path = os.path.join(summary_dir, 'sel_count_ts0.csv')
 
         if os.path.isfile(summary_path):
             summary_df = pd.read_csv(summary_path, index_col='cond_name')
@@ -1258,9 +1273,6 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         item_correct_name = gha_dict['GHA_info']['scores_dict']['item_correct_name']
         # y_df = pd.read_csv(item_correct_name)
         y_scores_df = nick_read_csv(item_correct_name)
-
-
-    # todo: don't use list(dict.keys()) unless making a list.
 
     """# # get rid of incorrect items if required"""
     print("\n\nRemoving incorrect responses")

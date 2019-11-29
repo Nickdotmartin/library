@@ -532,7 +532,7 @@ def plot_all_units(sel_dict_path,
     :param letter_sel: focus on level of words or letters
     :param correct_items_only: remove items that were incorrect
     :param verbose:
-    :param test_run: just 3 plots
+    :param test_run: just 9 plots
     :param show_plots:
 
     :return:
@@ -795,10 +795,6 @@ def plot_all_units(sel_dict_path,
     combo_dict = word_letter_combo_dict(sel_dict_path)
     focussed_dict_print(combo_dict, 'combo_dict')
 
-    # I am going to need to get
-    # 1. list of labels per items for words and letters - look at line 440
-    # 2. vocab and letter ids - line 899 in rnn_sel
-
 
     '''save results
     either make a new empty place to save.
@@ -808,28 +804,22 @@ def plot_all_units(sel_dict_path,
     print_nested_round_floats(gha_dict, 'gha_dict')
     n_units = gha_dict['model_info']['layers']['hid_layers']['hid_totals']['analysable']
 
+    test_run_value = 9
+    max_rows = 20
     if test_run:
-        n_rows = 9//timesteps
-        if 9 % timesteps > 0:
-            n_rows = 9//timesteps + 1
-        n_plots = 9
+        n_rows = test_run_value//timesteps
+        if test_run_value % timesteps > 0:
+            n_rows = test_run_value//timesteps + 1
+        n_plots = test_run_value
+        n_pages = 1
     else:
-        n_rows = n_units
-        n_plots = n_units * timesteps
+        n_rows = max_rows
+        n_plots = n_rows * timesteps
+        n_pages = (n_units * timesteps)//n_plots
 
-    print(f'n_rows: {n_rows}')
+    print(f'\nn_rows: {n_rows}, n_plots: {n_plots}, n_pages: {n_pages}')
 
-    fig, axes = plt.subplots(nrows=n_rows, ncols=timesteps,
-                             sharex=True, sharey=True, squeeze=True)
 
-    axes_zip = list(zip(range(1, n_plots+1), axes.flatten()))
-
-    for i in range(n_plots):
-        this_idx = axes_zip[i][0]
-        this_ax = axes_zip[i][1]
-        print(this_idx, this_ax)
-
-    fig.suptitle(f'{cond_name} All units & timesteps')
 
     '''
     part 3   - get gha for each unit
@@ -841,10 +831,34 @@ def plot_all_units(sel_dict_path,
                               test_run=test_run
                               )
 
+
+    # for page in range(n_pages):
+
+    fig, axes = plt.subplots(nrows=n_rows, ncols=timesteps,
+                             sharex=True, sharey=True)  # , squeeze=True)
+
+    axes_zip = list(zip(range(1, n_plots + 1), axes.flatten()))
+
+    for i in range(n_plots):
+        this_idx = axes_zip[i][0]
+        this_ax = axes_zip[i][1]
+        print(this_idx, this_ax)
+
+    fig.suptitle(f'{cond_name} All units & timesteps')
+
     test_run_counter = 0
     for index, unit_gha in enumerate(loop_gha):
 
+        if unit_gha["unit_index"] != 0:
+            continue
+
         print(f"\nindex: {index}")
+
+        if test_run:
+            if test_run_counter == test_run_value:
+                break
+            test_run_counter += 1
+
 
         sequence_data = unit_gha["sequence_data"]
         y_1hot = unit_gha["y_1hot"]
@@ -858,14 +872,18 @@ def plot_all_units(sel_dict_path,
         IPC_letters = IPC_dict['letter_p_class_p_ts'][ts_name]
 
 
+
+
         # #  make df
         this_unit_acts = pd.DataFrame(data=item_act_label_array,
                                       columns=['item', 'activation', 'label'])
         this_unit_acts_df = this_unit_acts.astype(
             {'item': 'int32', 'activation': 'float', 'label': 'int32'})
 
+        ax_idx = axes_zip[index][0]
         ax = axes_zip[index][1]
-        print(f"\nax: {ax}")
+        print(f"\nax_idx: {ax_idx}: ax: {ax}")
+        # print(f"\nax: {ax}")
 
         plot_index = (unit_index*timesteps + timestep + 1)
 
@@ -878,31 +896,64 @@ def plot_all_units(sel_dict_path,
         sel_feat = ts_dict['feat']
         print(f"sel_level: {sel_level}, sel_value: {sel_value}, sel_feat: {sel_feat}")
 
-        # # sort class label list
-        # # if level = word, just use sel_feat.
+        # # get sel_feat
+        # # selective_for_what
+        sel_idx = sel_feat
+        if sel_level == 'letter':
+            sel_item = letter_id_dict[sel_feat]
+        else:
+            sel_item = vocab_dict[sel_feat]['word']
+
+        if sel_level == 'letter':
+            y_letters_1ts = np.array(y_letters[:, timestep])
+            print(f"y_letters_1ts: {np.shape(y_letters_1ts)}")
+            # # use this to just get a binary array of whether a letter is present?
+            sel_item_list = y_letters_1ts[:, sel_idx]
+        else:
+            # # sort class label list
+            class_labels = this_unit_acts['label'].to_list()
+
+            # sel_item_list = [1 if x == sel_item else 0 for x in seq_words_list]
+            sel_item_list = [1 if x == sel_feat else 0 for x in class_labels]
+
+        this_unit_acts_df['sel_item'] = sel_item_list
+        print(f"this_unit_acts_df:\n{this_unit_acts_df}")
+
+        # I am going to need to get
+        # 1. list of labels per items for words and letters - look at line 440
+        # 2. vocab and letter ids - line 899 in rnn_sel
+
+
+
+        # if sel_level == 'word':
+        #     feat_list =
+        #     , just use sel_feat.
+        # else:
+        #     y_letters_1ts = np.array(y_letters[:, timestep])
+        #     print(f"y_letters_1ts: {np.shape(y_letters_1ts)}")
+        #     # print(f"y_letters_1ts: {y_letters_1ts}")
+
         # # if letter level, I might have to go thrugh each word to see if that
         # letter in question is in each word.  use letter_in_seq
 
-        fig.add_subplot(n_units, timesteps, plot_index)
+        # fig.add_subplot(n_units, timesteps, plot_index)
 
         sns.catplot(x='activation', y="label",
-                                # hue='sel_item',
-                                data=this_unit_acts_df,
-                                ax=ax,
+                    hue='sel_item',
+                    data=this_unit_acts_df,
+                    ax=ax,
                     orient='h', kind="strip",
-                                jitter=1, dodge=True, linewidth=.5,
+                    jitter=1, dodge=True, linewidth=.5,
 
-                                # palette="Set2", marker="D", edgecolor="gray"
+                    # palette="Set2", marker="D", edgecolor="gray"
                     )  # , alpha=.25)
 
         ax.set_xlim([0, 1])
         ax.set_yticks([])
-        ax.set_title(f'u{unit_index}-{timestep} label value'.upper(), fontsize=8)
+        ax.set_title(f'u{unit_index}-{timestep}\n{sel_item}: {sel_value}', fontsize=8)
+        ax.get_legend().set_visible(False)
 
-        ax.set(
-            # title=f'u{unit_index} {ts_name} label value'.upper(), fontsize=10,
-               xlabel='', ylabel=''
-               )
+        ax.set(xlabel='', ylabel='')
 
         # sort labels for left and bottom plots
         if index % timesteps == 0:
@@ -910,14 +961,23 @@ def plot_all_units(sel_dict_path,
         if index >= n_plots - timesteps:
             ax.set_xlabel("Activation")
 
+        plt.close()
 
-    fig.tight_layout()
-    # plots_path = '/Users/nickmartin/Documents/PhD/python_v2/experiments/train_rnn_script_check/test_25112019/plots'
-    # save_name = f"{plots_path}/{output_filename}_all plots.png"
-    # plt.savefig(save_name)
-    plt.show()
 
-    
+    # fig.tight_layout()
+
+    # if n_pages == 1:
+    save_name = f"{plots_path}/{output_filename}_all plots.png"
+    # else:
+    #     save_name = f"{plots_path}/{output_filename}_all plots_{page}of{n_pages}.png"
+    plt.savefig(save_name)
+
+
+    if show_plots:
+        plt.show()
+
+    print("\nend of plot_all_units script")
+
 
 
     #
@@ -1069,7 +1129,6 @@ def plot_all_units(sel_dict_path,
     #         plt.show()
     #     plt.close()
     #
-    print("\nend of plot_all_units script")
 
 # # # # PART 1 # # #
 # sel_dict_path = '/home/nm13850/Documents/PhD/python_v2/experiments/' \

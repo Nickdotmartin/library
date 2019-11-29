@@ -505,7 +505,7 @@ def train_model(exp_name,
                               'timesteps': timesteps}
 
 
-    repo = "git.Repo('/home/nm13850/Documents/PhD/code/library')"
+    # repo = "git.Repo('/home/nm13850/Documents/PhD/code/library')"
 
     sim_dict_name = f"{output_filename}_sim_dict.txt"
 

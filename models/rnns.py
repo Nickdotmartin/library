@@ -7,7 +7,7 @@ from tensorflow.keras import Model
 from tensorflow.keras.layers import GaussianNoise
 from tensorflow.keras.initializers import he_normal
 
-from keras import backend as K
+# from keras import backend as K
 
 """
 To use the model call it somethig like this...from 
@@ -126,7 +126,8 @@ class SimpleRNNn:
 class GRUn:
     @staticmethod
     def build(features, classes, timesteps, batch_size, n_layers=1, units_per_layer=200,
-              serial_recall=True, act_func='tanh', y_1hot=False, dropout=0.0):
+              serial_recall=True, act_func='tanh', y_1hot=False, dropout=0.0,
+              weight_init='glorot_uniform'):
         """
         :param features: input shape, which is n_letters (30) + 1, for end_of_seq_cue.
         :param classes: Vocab size (either 30 or 300)
@@ -155,6 +156,8 @@ class GRUn:
 
             model.add(GRU(units=units_per_layer,
                           batch_input_shape=(batch_size, timesteps, l_input_width),
+                          kernel_initializer=weight_init,
+
                           return_sequences=layer_seqs,  # this stops it from giving an output after each item
                           # # stateful allows the model to learn from all timesteps
                           # # not just previous one.  also allows truncated backprop thru time.
@@ -175,7 +178,8 @@ class GRUn:
 class LSTMn:
     @staticmethod
     def build(features, classes, timesteps, batch_size, n_layers=1, units_per_layer=200,
-              serial_recall=True, act_func='tanh', y_1hot=False, dropout=0.0):
+              serial_recall=True, act_func='tanh', y_1hot=False, dropout=0.0,
+              weight_init='glorot_uniform'):
         """
         :param features: input shape, which is n_letters (30) + 1, for end_of_seq_cue.
         :param classes: Vocab size (either 30 or 300)
@@ -190,7 +194,10 @@ class LSTMn:
 
         :return: model
         """
-        model = Sequential(layers=n_layers, name="LSTMn")
+        # model = Sequential(layers=n_layers, name="LSTMn")
+        # model = Sequential(layers=n_layers, name="LSTMn")
+        model = tf.keras.models.Sequential(layers=n_layers, name="LSTMn")
+
 
         layer_seqs = True
         l_input_width = units_per_layer
@@ -204,6 +211,9 @@ class LSTMn:
 
             model.add(LSTM(units=units_per_layer,
                            batch_input_shape=(batch_size, timesteps, l_input_width),
+
+                           kernel_initializer=weight_init,
+
                            return_sequences=layer_seqs,  # this stops it from giving an output after each item
                            # # stateful allows the model to learn from all timesteps
                            # # not just previous one.  also allows truncated backprop thru time.
