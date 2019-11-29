@@ -624,7 +624,7 @@ def get_layer_acts(model, layer_name, data_dict, test_label_seqs,
 
     # with test_label_seqs get x and y data from get_x_and_Y_data_from_seq
     x_test = []
-    y_true = []
+    y_test = []
     for this_seq in test_label_seqs:
         get_x, get_y = get_X_and_Y_data_from_seq(vocab_dict=vocab_dict,
                                                  seq_line=this_seq,
