@@ -74,6 +74,7 @@ def train_model(exp_name,
                 timesteps=1,
                 weight_init='GlorotUniform',
                 lr=0.001,
+                unroll=False,
                 exp_root='/home/nm13850/Documents/PhD/python_v2/experiments/',
                 verbose=False,
                 test_run=False
@@ -124,6 +125,7 @@ def train_model(exp_name,
     :param timesteps: if RNN length of sequence
     :param weight_init: change the initializatation of the weights
     :param lr: set the learning rate for the optimizer
+    :param unroll:  Whether to unroll the model.
     :param exp_root: root directory for saving experiments
 
     :param verbose: if 0, not verbose; if 1 - print basics; if 2, print all
@@ -233,7 +235,8 @@ def train_model(exp_name,
                                               serial_recall=serial_recall,
                                               units_per_layer=units_per_layer, act_func=act_func,
                                               y_1hot=serial_recall,
-                                              dropout=use_dropout, weight_init=weight_init)
+                                              dropout=use_dropout, weight_init=weight_init,
+                                              unroll=unroll)
     else:
         print("model_dir not recognised")
 

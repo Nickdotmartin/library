@@ -23,12 +23,12 @@ outputs = 30/300
 Simultaneous recall of all items
 """
 
-# todo: weight initializations for rnns?
 
 class Bowers14rnn:
     @staticmethod
     def build(features, classes, timesteps, batch_size, n_layers=1, units_per_layer=200,
-              serial_recall=True, act_func='sigmoid', y_1hot=False, dropout=0.0):
+              serial_recall=True, act_func='sigmoid', y_1hot=False, dropout=0.0,
+              weight_init='GlorotUniform', unroll=False):
         """
         :param features: input shape, which is n_letters (30) + 1, for end_of_seq_cue.
         :param classes: Vocab size (either 30 or 300)
@@ -55,7 +55,9 @@ class Bowers14rnn:
                             # it allows the model to learn from activations at all timesteps not just the final one.
                             # this also allows truncated backprop thru time.
                             # stateful=True,
-                            activation=act_func, dropout=dropout, name="hid0"))
+                            activation=act_func, dropout=dropout, name="hid0",
+
+                            unroll=unroll))
 
         if y_1hot:
             model.add(Dense(classes, name='output', activation='softmax'))
@@ -73,7 +75,7 @@ class SimpleRNNn:
     @staticmethod
     def build(features, classes, timesteps, batch_size, n_layers=1, units_per_layer=200,
               serial_recall=True, act_func='tanh', y_1hot=False, dropout=0.0,
-              weight_init='GlorotUniform'):
+              weight_init='GlorotUniform', unroll=False):
         """
         :param features: input shape, which is n_letters (30) + 1, for end_of_seq_cue.
         :param classes: Vocab size (either 30 or 300)
@@ -112,7 +114,9 @@ class SimpleRNNn:
                                 # # not just previous one.  also allows truncated backprop thru time.
                                 # stateful=True,
 
-                                activation=act_func, dropout=dropout, name=f"hid{layer}"))
+                                activation=act_func, dropout=dropout, name=f"hid{layer}",
+
+                                unroll=unroll))
 
         if y_1hot:
             model.add(Dense(classes, name='output', activation='softmax'))
@@ -127,7 +131,7 @@ class GRUn:
     @staticmethod
     def build(features, classes, timesteps, batch_size, n_layers=1, units_per_layer=200,
               serial_recall=True, act_func='tanh', y_1hot=False, dropout=0.0,
-              weight_init='glorot_uniform'):
+              weight_init='glorot_uniform', unroll=False):
         """
         :param features: input shape, which is n_letters (30) + 1, for end_of_seq_cue.
         :param classes: Vocab size (either 30 or 300)
@@ -162,7 +166,9 @@ class GRUn:
                           # # stateful allows the model to learn from all timesteps
                           # # not just previous one.  also allows truncated backprop thru time.
                           # stateful=True,
-                          activation=act_func, dropout=dropout, name=f"hid{layer}"))
+                          activation=act_func, dropout=dropout, name=f"hid{layer}",
+
+                          unroll=unroll))
 
         if y_1hot:
             model.add(Dense(classes, name='output', activation='softmax'))
@@ -179,7 +185,7 @@ class LSTMn:
     @staticmethod
     def build(features, classes, timesteps, batch_size, n_layers=1, units_per_layer=200,
               serial_recall=True, act_func='tanh', y_1hot=False, dropout=0.0,
-              weight_init='glorot_uniform'):
+              weight_init='glorot_uniform', unroll=False):
         """
         :param features: input shape, which is n_letters (30) + 1, for end_of_seq_cue.
         :param classes: Vocab size (either 30 or 300)
@@ -218,7 +224,9 @@ class LSTMn:
                            # # stateful allows the model to learn from all timesteps
                            # # not just previous one.  also allows truncated backprop thru time.
                            # stateful=True,
-                           activation=act_func, dropout=dropout, name=f"hid{layer}"))
+                           activation=act_func, dropout=dropout, name=f"hid{layer}",
+
+                           unroll=unroll))
 
         if y_1hot:
             model.add(Dense(classes, name='output', activation='softmax'))
