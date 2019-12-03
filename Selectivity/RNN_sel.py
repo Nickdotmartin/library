@@ -795,7 +795,7 @@ def get_sel_summaries(max_sel_dict_path,
 
 
 ####################################################################################################
-def count_sel_units(sel_dict_path, measure='b_sel',
+def count_sel_units(word_sel_dict_path, measure='b_sel',
                     thresholds=[0.0, .1, .2, .3, .4, .5],
                     just_1st_ts=False,
                     save_csv=True):
@@ -813,7 +813,7 @@ def count_sel_units(sel_dict_path, measure='b_sel',
         Count n_cats in all ts with sel > .0, .1, .2, .3, .4, .5 for words, letters, comb
     6. option to create or append results to summary doc with scores for each model
 
-    :param sel_dict_path: 
+    :param word_sel_dict_path:
     :param measure: which selectivity measure to look at.
     :param thresholds: which selectivity thresholds to consider
     :param save_csv: Whether to save a summary doc
@@ -825,17 +825,17 @@ def count_sel_units(sel_dict_path, measure='b_sel',
 
     # # # 1 load basic info
     # # load sel dict.
-    if type(sel_dict_path) is dict:
-        sel_dict = sel_dict_path
-    elif type(sel_dict_path) is str:
-        if os.path.isfile(sel_dict_path):
-            sel_dict = load_dict(sel_dict_path)
+    if type(word_sel_dict_path) is dict:
+        sel_dict = word_sel_dict_path
+    elif type(word_sel_dict_path) is str:
+        if os.path.isfile(word_sel_dict_path):
+            sel_dict = load_dict(word_sel_dict_path)
         else:
             raise TypeError(f"Sel_dict path should be a dict or path to dict\n"
-                            f"{sel_dict_path}")
+                            f"{word_sel_dict_path}")
     else:
         raise TypeError(f"Sel_dict path should be a dict or path to dict\n"
-                        f"{sel_dict_path}")
+                        f"{word_sel_dict_path}")
     focussed_dict_print(sel_dict)
 
 
@@ -856,7 +856,7 @@ def count_sel_units(sel_dict_path, measure='b_sel',
     letter_sel_dict = load_dict(os.path.join(sel_path, letter_sel_dict_name))
     # focussed_dict_print(letter_sel_dict, 'letter_sel_dict')  #, focus_list=['hid0'])
 
-    combo_dict = word_letter_combo_dict(sel_dict_path)
+    combo_dict = word_letter_combo_dict(word_sel_dict_path)
     # focussed_dict_print(combo_dict, 'combo_dict')
 
 
@@ -1048,7 +1048,7 @@ def count_sel_units(sel_dict_path, measure='b_sel',
             axis=1)
 
 
-        summary_dir = find_path_to_dir(sel_dict_path,
+        summary_dir = find_path_to_dir(word_sel_dict_path,
                                        target_dir=sel_dict['topic_info']['exp_name'])
         summary_path = os.path.join(summary_dir, f'{measure}_count_summary.csv')
         if just_1st_ts:
@@ -1065,11 +1065,11 @@ def count_sel_units(sel_dict_path, measure='b_sel',
 
     return sel_count_dict
 
-# sel_dict_path = '/Users/nickmartin/Documents/PhD/python_v2/experiments/' \
+# word_sel_dict_path = '/Users/nickmartin/Documents/PhD/python_v2/experiments/' \
 #                 'train_rnn_script_check/test_25112019/correct_sel/' \
 #                 'test_25112019_sel_dict.pickle'
 #
-# sel_count_dict = count_sel_units(sel_dict_path, save_csv=True)
+# sel_count_dict = count_sel_units(word_sel_dict_path, save_csv=True)
 #
 # focussed_dict_print(sel_count_dict, 'sel_count_dict')
 
