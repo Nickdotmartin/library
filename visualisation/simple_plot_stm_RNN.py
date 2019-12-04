@@ -5,13 +5,10 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-from matplotlib import gridspec
-
-from operator import itemgetter
 
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
 from tools.RNN_STM import get_X_and_Y_data_from_seq, seq_items_per_class, spell_label_seqs
-from tools.RNN_STM import word_letter_combo_dict
+from tools.RNN_STM import word_letter_combo_dict, letter_in_seq
 from tools.data import nick_read_csv, find_path_to_dir
 from tools.network import loop_thru_acts
 
@@ -330,14 +327,11 @@ def simple_plot_rnn(gha_dict_path,
         # print(f"\n\n{index}:\n{unit_gha}\n")
         sequence_data = unit_gha["sequence_data"]
         y_1hot = unit_gha["y_1hot"]
-        act_func = unit_gha["act_func"]
         layer_name = unit_gha["layer_name"]
         unit_index = unit_gha["unit_index"]
         timestep = unit_gha["timestep"]
         ts_name = f"ts{timestep}"
         item_act_label_array = unit_gha["item_act_label_array"]
-        IPC_words = IPC_dict['word_p_class_p_ts'][ts_name]
-        IPC_letters = IPC_dict['letter_p_class_p_ts'][ts_name]
 
 
         # # only plot units of interest according to hl dict
@@ -440,6 +434,7 @@ def simple_plot_rnn(gha_dict_path,
         # # get labels for selective item
         if letter_sel:
             sel_item_list = y_letters_1ts[:, sel_idx]
+
         else:
             sel_item_list = [1 if x == sel_item else 0 for x in seq_words_list]
         this_unit_acts_df['sel_item'] = sel_item_list
@@ -460,18 +455,13 @@ def simple_plot_rnn(gha_dict_path,
         print(f"title: {title}")
 
         if hl_dict:
-            # fig = plt.figure()
-            # gs = gridspec.GridSpec(1, 2, width_ratios=[2, 1])
-            # spotty_axis = plt.subplot(gs[0])
-            # text_box = plt.subplot(gs[1])
-
             gridkw = dict(width_ratios=[2, 1])
             fig, (spotty_axis, text_box) = plt.subplots(1, 2, gridspec_kw=gridkw)
-            spot_plot = sns.catplot(x='activation', y="words", hue='sel_item',
-                                    data=this_unit_acts_df,
-                                    ax=spotty_axis, orient='h', kind="strip",
-                                    jitter=1, dodge=True, linewidth=.5,
-                                    palette="Set2", marker="D", edgecolor="gray")  # , alpha=.25)
+            sns.catplot(x='activation', y="words", hue='sel_item',
+                        data=this_unit_acts_df,
+                        ax=spotty_axis, orient='h', kind="strip",
+                        jitter=1, dodge=True, linewidth=.5,
+                        palette="Set2", marker="D", edgecolor="gray")  # , alpha=.25)
             text_box.text(0.0, -0.01, hl_text, fontsize=10, clip_on=False)
             text_box.axes.get_yaxis().set_visible(False)
             text_box.axes.get_xaxis().set_visible(False)
@@ -482,19 +472,23 @@ def simple_plot_rnn(gha_dict_path,
             fig.suptitle(title)
             plt.close()  # extra blank plot
         else:
-            g = sns.catplot(x='activation', y="words", data=this_unit_acts_df,
-                            orient='h', kind="strip",
-                            jitter=1, dodge=True, linewidth=.5,
-                            palette="Set2", marker="D", edgecolor="gray")  # , alpha=.25)
+            sns.catplot(x='activation', y="words", data=this_unit_acts_df,
+                        orient='h', kind="strip",
+                        jitter=1, dodge=True, linewidth=.5,
+                        palette="Set2", marker="D", edgecolor="gray")  # , alpha=.25)
             plt.xlabel("Unit activations")
             plt.suptitle(title)
             plt.tight_layout(rect=[0, 0.03, 1, 0.90])
 
 
         if letter_sel:
-            save_name = f"{plots_path}/{output_filename}_{layer_name}_{unit_index}_{ts_name}_lett_spotty.png"
+            save_name = f"{plots_path}/" \
+                        f"{output_filename}_{layer_name}_{unit_index}_{ts_name}" \
+                        f"_{measure}_lett.png"
         else:
-            save_name = f"{plots_path}/{output_filename}_{layer_name}_{unit_index}_{ts_name}_spotty.png"
+            save_name = f"{plots_path}/" \
+                        f"{output_filename}_{layer_name}_{unit_index}_{ts_name}" \
+                        f"_{measure}_word.png"
         plt.savefig(save_name)
         if show_plots:
             plt.show()
@@ -527,10 +521,10 @@ def plot_all_units(sel_dict_path,
 
 
     :param sel_dict_path: or gha_dict
-    :param plot_what: 'all' or 'highlights' or dict[layer_names][units][timesteps]
     :param measure: selectivity measure to focus on if hl_dict provided
     :param letter_sel: focus on level of words or letters
     :param correct_items_only: remove items that were incorrect
+    :param just_1st_ts: just 1st timestep (as in Bowers).if False, plot all timesteps,
     :param verbose:
     :param test_run: just 9 plots
     :param show_plots:
@@ -541,11 +535,8 @@ def plot_all_units(sel_dict_path,
     print(f"\n**** running plot_all_units({sel_dict_path}) ****")
 
     if os.path.isfile(sel_dict_path):
-        # # use gha-dict_path to get exp_cond_gha_path, gha_dict_name,
         exp_cond_gha_path, gha_dict_name = os.path.split(sel_dict_path)
         os.chdir(exp_cond_gha_path)
-
-        # # part 1. load dict from study (should run with sim, GHA or sel dict)
         gha_dict = load_dict(sel_dict_path)
 
     elif type(sel_dict_path) is dict:
@@ -596,9 +587,9 @@ def plot_all_units(sel_dict_path,
         print(f"\nletter_id_dict:\n{letter_id_dict}")
 
     # # get model info from dict
-    model_dict = gha_dict['model_info']['config']
-    if verbose:
-        focussed_dict_print(model_dict, 'model_dict')
+    # model_dict = gha_dict['model_info']['config']
+    # if verbose:
+    #     focussed_dict_print(model_dict, 'model_dict')
 
     timesteps = gha_dict['model_info']["overview"]["timesteps"]
     vocab_dict = load_dict(os.path.join(gha_dict['data_info']["data_path"],
@@ -607,172 +598,172 @@ def plot_all_units(sel_dict_path,
 
 
 
-    '''Part 2 - load y, sort out incorrect resonses'''
-    print("\n\nPart 2: loading labels")
-    # # load y_labels to go with hid_acts and item_correct for sequences
-    if 'seq_corr_list' in gha_dict['GHA_info']['scores_dict']:
-        n_seqs = gha_dict['GHA_info']['scores_dict']['n_seqs']
-        n_seq_corr = gha_dict['GHA_info']['scores_dict']['n_seq_corr']
-        n_incorrect = n_seqs - n_seq_corr
-
-        test_label_seq_name = gha_dict['GHA_info']['y_data_path']
-        seqs_corr = gha_dict['GHA_info']['scores_dict']['seq_corr_list']
-
-        test_label_seqs = np.load(f"{test_label_seq_name}labels.npy")
-
-        if verbose:
-            print(f"test_label_seqs: {np.shape(test_label_seqs)}")
-            print(f"seqs_corr: {np.shape(seqs_corr)}")
-            print(f"n_seq_corr: {n_seq_corr}")
-
-        if letter_sel:
-            # # get 1hot item vectors for 'words' and 3 hot for letters
-            '''Always use serial_recall True. as I want a separate 1hot vector for each item.
-            Always use x_data_type 'local_letter_X' as I want 3hot vectors'''
-            y_letters = []
-            y_words = []
-            for this_seq in test_label_seqs:
-                get_letters, get_words = get_X_and_Y_data_from_seq(vocab_dict=vocab_dict,
-                                                                   seq_line=this_seq,
-                                                                   serial_recall=True,
-                                                                   end_seq_cue=False,
-                                                                   x_data_type='local_letter_X')
-                y_letters.append(get_letters)
-                y_words.append(get_words)
-
-            y_letters = np.array(y_letters)
-            y_words = np.array(y_words)
-            if verbose:
-                print(f"\ny_letters: {type(y_letters)}  {np.shape(y_letters)}")
-                print(f"y_words: {type(y_words)}  {np.shape(y_words)}")
-
-        y_df_headers = [f"ts{i}" for i in range(timesteps)]
-        y_scores_df = pd.DataFrame(data=test_label_seqs, columns=y_df_headers)
-        y_scores_df['full_model'] = seqs_corr
-        if verbose:
-            print(f"\ny_scores_df: {y_scores_df.shape}\n{y_scores_df.head()}")
-
-
-    # # if not sequence data, load y_labels to go with hid_acts and item_correct for items
-    elif 'item_correct_name' in gha_dict['GHA_info']['scores_dict']:
-        # # load item_correct (y_data)
-        item_correct_name = gha_dict['GHA_info']['scores_dict']['item_correct_name']
-        # y_df = pd.read_csv(item_correct_name)
-        y_scores_df = nick_read_csv(item_correct_name)
-
-    """# # get rid of incorrect items if required"""
-    print("\n\nRemoving incorrect responses")
-    # # # get values for correct/incorrect items (1/0 or True/False)
-    item_correct_list = y_scores_df['full_model'].tolist()
-    full_model_values = list(set(item_correct_list))
-
-    correct_symbol = 1
-    if len(full_model_values) != 2:
-        TypeError(f"TYPE_ERROR!: what are the scores/acc for items? {full_model_values}")
-    if 1 not in full_model_values:
-        if True in full_model_values:
-            correct_symbol = True
-        else:
-            TypeError(f"TYPE_ERROR!: what are the scores/acc for items? {full_model_values}")
-
-    print(f"len(full_model_values): {len(full_model_values)}")
-    print(f"correct_symbol: {correct_symbol}")
-
-    # # i need to check whether this analysis should include incorrect items (True/False)
-    gha_incorrect = gha_dict['GHA_info']['gha_incorrect']
-
-    # get item indeces for correct and incorrect items
-    item_index = list(range(n_seq_corr))
-
-    incorrect_items = []
-    correct_items = []
-    for index in range(len(item_correct_list)):
-        if item_correct_list[index] == 0:
-            incorrect_items.append(index)
-        else:
-            correct_items.append(index)
-    if correct_items_only:
-        item_index == correct_items
-
-    if gha_incorrect:
-        if correct_items_only:
-            if verbose:
-                print("\ngha_incorrect: True (I have incorrect responses)\n"
-                      "correct_items_only: True (I only want correct responses)")
-                print(f"remove {n_incorrect} incorrect from hid_acts & output using y_scores_df.")
-                print("use y_correct for y_df")
-
-            y_correct_df = y_scores_df.loc[y_scores_df['full_model'] == correct_symbol]
-            y_df = y_correct_df
-
-            mask = np.ones(shape=len(seqs_corr), dtype=bool)
-            mask[incorrect_items] = False
-            test_label_seqs = test_label_seqs[mask]
-
-            if letter_sel:
-                y_letters = y_letters[mask]
-
-        else:
-            if verbose:
-                print("\ngha_incorrect: True (I have incorrect responses)\n"
-                      "correct_items_only: False (I want incorrect responses)")
-                print("no changes needed - don't remove anything from hid_acts, output and "
-                      "use y scores as y_df")
-    else:
-        if correct_items_only:
-            if verbose:
-                print("\ngha_incorrect: False (I only have correct responses)\n"
-                      "correct_items_only: True (I only want correct responses)")
-                print("no changes needed - don't remove anything from hid_acts or output.  "
-                      "Use y_correct as y_df")
-            y_correct_df = y_scores_df.loc[y_scores_df['full_model'] == correct_symbol]
-            y_df = y_correct_df
-        else:
-            if verbose:
-                print("\ngha_incorrect: False (I only have correct responses)\n"
-                      "correct_items_only: False (I want incorrect responses)")
-                raise TypeError("I can not complete this as desried"
-                                "change correct_items_only to True"
-                                "for analysis  - don't remove anything from hid_acts, output and "
-                                "use y scores as y_df")
-
-            # correct_items_only = True
-
-    if verbose is True:
-        print(f"\ny_df: {y_df.shape}\n{y_df.head()}")
-        print(f"\ntest_label_seqs: {np.shape(test_label_seqs)}")  # \n{test_label_seqs}")
-        # if letter_sel:
-        #     y_letters = np.asarray(y_letters)
-        #     print(f"y_letters: {np.shape(y_letters)}")  # \n{test_label_seqs}")
-
-
-    # # load test seqs
-    n_correct, timesteps = np.shape(test_label_seqs)
-    corr_test_seq_name = f"{output_filename}_{n_correct}_corr_test_label_seqs.npy"
-    np.save(corr_test_seq_name, test_label_seqs)
-    corr_test_letters_name = 'not_processed_yet'
-    if letter_sel:
-        corr_test_letters_name = f"{output_filename}_{n_correct}_corr_test_letter_seqs.npy"
-        np.save(corr_test_letters_name, y_letters)
-
-
-    # # get items per class
-    IPC_dict = seq_items_per_class(label_seqs=test_label_seqs, vocab_dict=vocab_dict)
-    focussed_dict_print(IPC_dict, 'IPC_dict')
-    corr_test_IPC_name = f"{output_filename}_{n_correct}_corr_test_IPC.pickle"
-    with open(corr_test_IPC_name, "wb") as pickle_out:
-        pickle.dump(IPC_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
-
-    # # how many times is each item represented at each timestep.
-    word_p_class_p_ts = IPC_dict['word_p_class_p_ts']
-    letter_p_class_p_ts = IPC_dict['letter_p_class_p_ts']
-
-    for i in range(timesteps):
-        n_words_p_ts = len(word_p_class_p_ts[f"ts{i}"].keys())
-        n_letters_p_ts = len(letter_p_class_p_ts[f"ts{i}"].keys())
-
-        print(f"ts{i}) words:{n_words_p_ts}/{n_words}\tletters: {n_letters_p_ts}/{n_letters}")
-        # print(word_p_class_p_ts[f"ts{i}"].keys())
+    # '''Part 2 - load y, sort out incorrect resonses'''
+    # print("\n\nPart 2: loading labels")
+    # # # load y_labels to go with hid_acts and item_correct for sequences
+    # if 'seq_corr_list' in gha_dict['GHA_info']['scores_dict']:
+    #     n_seqs = gha_dict['GHA_info']['scores_dict']['n_seqs']
+    #     n_seq_corr = gha_dict['GHA_info']['scores_dict']['n_seq_corr']
+    #     n_incorrect = n_seqs - n_seq_corr
+    #
+    #     test_label_seq_name = gha_dict['GHA_info']['y_data_path']
+    #     seqs_corr = gha_dict['GHA_info']['scores_dict']['seq_corr_list']
+    #
+    #     test_label_seqs = np.load(f"{test_label_seq_name}labels.npy")
+    #
+    #     if verbose:
+    #         print(f"test_label_seqs: {np.shape(test_label_seqs)}")
+    #         print(f"seqs_corr: {np.shape(seqs_corr)}")
+    #         print(f"n_seq_corr: {n_seq_corr}")
+    #
+    #     if letter_sel:
+    #         # # get 1hot item vectors for 'words' and 3 hot for letters
+    #         '''Always use serial_recall True. as I want a separate 1hot vector for each item.
+    #         Always use x_data_type 'local_letter_X' as I want 3hot vectors'''
+    #         y_letters = []
+    #         y_words = []
+    #         for this_seq in test_label_seqs:
+    #             get_letters, get_words = get_X_and_Y_data_from_seq(vocab_dict=vocab_dict,
+    #                                                                seq_line=this_seq,
+    #                                                                serial_recall=True,
+    #                                                                end_seq_cue=False,
+    #                                                                x_data_type='local_letter_X')
+    #             y_letters.append(get_letters)
+    #             y_words.append(get_words)
+    #
+    #         y_letters = np.array(y_letters)
+    #         y_words = np.array(y_words)
+    #         if verbose:
+    #             print(f"\ny_letters: {type(y_letters)}  {np.shape(y_letters)}")
+    #             print(f"y_words: {type(y_words)}  {np.shape(y_words)}")
+    #
+    #     y_df_headers = [f"ts{i}" for i in range(timesteps)]
+    #     y_scores_df = pd.DataFrame(data=test_label_seqs, columns=y_df_headers)
+    #     y_scores_df['full_model'] = seqs_corr
+    #     if verbose:
+    #         print(f"\ny_scores_df: {y_scores_df.shape}\n{y_scores_df.head()}")
+    #
+    #
+    # # # if not sequence data, load y_labels to go with hid_acts and item_correct for items
+    # elif 'item_correct_name' in gha_dict['GHA_info']['scores_dict']:
+    #     # # load item_correct (y_data)
+    #     item_correct_name = gha_dict['GHA_info']['scores_dict']['item_correct_name']
+    #     # y_df = pd.read_csv(item_correct_name)
+    #     y_scores_df = nick_read_csv(item_correct_name)
+    #
+    # """# # get rid of incorrect items if required"""
+    # print("\n\nRemoving incorrect responses")
+    # # # # get values for correct/incorrect items (1/0 or True/False)
+    # item_correct_list = y_scores_df['full_model'].tolist()
+    # full_model_values = list(set(item_correct_list))
+    #
+    # correct_symbol = 1
+    # if len(full_model_values) != 2:
+    #     TypeError(f"TYPE_ERROR!: what are the scores/acc for items? {full_model_values}")
+    # if 1 not in full_model_values:
+    #     if True in full_model_values:
+    #         correct_symbol = True
+    #     else:
+    #         TypeError(f"TYPE_ERROR!: what are the scores/acc for items? {full_model_values}")
+    #
+    # print(f"len(full_model_values): {len(full_model_values)}")
+    # print(f"correct_symbol: {correct_symbol}")
+    #
+    # # # i need to check whether this analysis should include incorrect items (True/False)
+    # gha_incorrect = gha_dict['GHA_info']['gha_incorrect']
+    #
+    # # get item indeces for correct and incorrect items
+    # item_index = list(range(n_seq_corr))
+    #
+    # incorrect_items = []
+    # correct_items = []
+    # for index in range(len(item_correct_list)):
+    #     if item_correct_list[index] == 0:
+    #         incorrect_items.append(index)
+    #     else:
+    #         correct_items.append(index)
+    # if correct_items_only:
+    #     item_index == correct_items
+    #
+    # if gha_incorrect:
+    #     if correct_items_only:
+    #         if verbose:
+    #             print("\ngha_incorrect: True (I have incorrect responses)\n"
+    #                   "correct_items_only: True (I only want correct responses)")
+    #             print(f"remove {n_incorrect} incorrect from hid_acts & output using y_scores_df.")
+    #             print("use y_correct for y_df")
+    #
+    #         y_correct_df = y_scores_df.loc[y_scores_df['full_model'] == correct_symbol]
+    #         y_df = y_correct_df
+    #
+    #         mask = np.ones(shape=len(seqs_corr), dtype=bool)
+    #         mask[incorrect_items] = False
+    #         test_label_seqs = test_label_seqs[mask]
+    #
+    #         if letter_sel:
+    #             y_letters = y_letters[mask]
+    #
+    #     else:
+    #         if verbose:
+    #             print("\ngha_incorrect: True (I have incorrect responses)\n"
+    #                   "correct_items_only: False (I want incorrect responses)")
+    #             print("no changes needed - don't remove anything from hid_acts, output and "
+    #                   "use y scores as y_df")
+    # else:
+    #     if correct_items_only:
+    #         if verbose:
+    #             print("\ngha_incorrect: False (I only have correct responses)\n"
+    #                   "correct_items_only: True (I only want correct responses)")
+    #             print("no changes needed - don't remove anything from hid_acts or output.  "
+    #                   "Use y_correct as y_df")
+    #         y_correct_df = y_scores_df.loc[y_scores_df['full_model'] == correct_symbol]
+    #         y_df = y_correct_df
+    #     else:
+    #         if verbose:
+    #             print("\ngha_incorrect: False (I only have correct responses)\n"
+    #                   "correct_items_only: False (I want incorrect responses)")
+    #             raise TypeError("I can not complete this as desried"
+    #                             "change correct_items_only to True"
+    #                             "for analysis  - don't remove anything from hid_acts, output and "
+    #                             "use y scores as y_df")
+    #
+    #         # correct_items_only = True
+    #
+    # if verbose is True:
+    #     print(f"\ny_df: {y_df.shape}\n{y_df.head()}")
+    #     print(f"\ntest_label_seqs: {np.shape(test_label_seqs)}")  # \n{test_label_seqs}")
+    #     # if letter_sel:
+    #     #     y_letters = np.asarray(y_letters)
+    #     #     print(f"y_letters: {np.shape(y_letters)}")  # \n{test_label_seqs}")
+    #
+    #
+    # # # load test seqs
+    # n_correct, timesteps = np.shape(test_label_seqs)
+    # corr_test_seq_name = f"{output_filename}_{n_correct}_corr_test_label_seqs.npy"
+    # np.save(corr_test_seq_name, test_label_seqs)
+    # corr_test_letters_name = 'not_processed_yet'
+    # if letter_sel:
+    #     corr_test_letters_name = f"{output_filename}_{n_correct}_corr_test_letter_seqs.npy"
+    #     np.save(corr_test_letters_name, y_letters)
+    #
+    #
+    # # # get items per class
+    # IPC_dict = seq_items_per_class(label_seqs=test_label_seqs, vocab_dict=vocab_dict)
+    # focussed_dict_print(IPC_dict, 'IPC_dict')
+    # corr_test_IPC_name = f"{output_filename}_{n_correct}_corr_test_IPC.pickle"
+    # with open(corr_test_IPC_name, "wb") as pickle_out:
+    #     pickle.dump(IPC_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
+    #
+    # # # how many times is each item represented at each timestep.
+    # word_p_class_p_ts = IPC_dict['word_p_class_p_ts']
+    # letter_p_class_p_ts = IPC_dict['letter_p_class_p_ts']
+    #
+    # for i in range(timesteps):
+    #     n_words_p_ts = len(word_p_class_p_ts[f"ts{i}"].keys())
+    #     n_letters_p_ts = len(letter_p_class_p_ts[f"ts{i}"].keys())
+    #
+    #     print(f"ts{i}) words:{n_words_p_ts}/{n_words}\tletters: {n_letters_p_ts}/{n_letters}")
+    #     # print(word_p_class_p_ts[f"ts{i}"].keys())
 
 
 
@@ -787,39 +778,37 @@ def plot_all_units(sel_dict_path,
     os.chdir(plots_path)
 
     # # arrangement of subplots
-    test_run_value = 9
+    print("\narrangement of subplots")
+    # # get max plots per page
     max_rows = 20
     max_cols = 10
-    if test_run:
-        n_rows = test_run_value//timesteps
-        if test_run_value % timesteps > 0:
-            n_rows = test_run_value//timesteps + 1
-        n_plots = test_run_value
-        n_pages = 1
-    else:
-        n_rows = max_rows
-        n_plots = n_rows * timesteps
-        n_pages = (n_units * timesteps)//n_plots
-    n_cols = timesteps
+    test_run_value = 9
 
+    # # get required number of plots
+    total_plots = n_units * timesteps
+    n_cols = timesteps
     if just_1st_ts:
+        total_plots = n_units
         n_cols = max_cols
 
-        if test_run:
-            n_rows = test_run_value // max_cols
-            if test_run_value % max_cols > 0:
-                n_rows = test_run_value // max_cols + 1
-            n_plots = test_run_value
-            n_pages = 1
-        else:
-            n_rows = max_rows
-            n_plots = n_rows * max_cols
-            n_pages = n_units // n_plots
+    max_page_plots = max_rows * n_cols
 
-    print(f'\nn_units: {n_units}, timesteps: {timesteps}\n'
-          f'n_rows: {n_rows}, n_plots: {n_plots}, n_pages: {n_pages}')
+    if test_run:
+        total_plots = test_run_value
 
-    # print(f"test_run: {test_run}")
+    total_rows = -(-total_plots // n_cols)  # double negation rounds up.
+    n_pages = -(-total_plots // max_page_plots)
+
+    last_page_plots = max_page_plots
+    last_page_rows = max_rows
+    if total_plots % max_page_plots != 0:
+        last_page_plots = total_plots % max_page_plots
+        last_page_rows = total_rows % max_rows
+
+    print(f'\nn_units: {n_units}, timesteps: {timesteps}, just_1st_ts: {just_1st_ts}\n'
+          f'n_cols: {n_cols}, total_rows: {total_rows}, max_page_plots: {max_page_plots}\n'
+          f'total_plots: {total_plots}, n_pages: {n_pages}, last_page_plots: {last_page_plots}\n')
+
 
     '''
     part 3   - get gha for each unit
@@ -831,169 +820,182 @@ def plot_all_units(sel_dict_path,
                               test_run=test_run
                               )
 
+    for page in range(n_pages):
+        page_num = page + 1
+        # # get number of plots on this page
+        page_n_plots = max_page_plots
+        page_n_rows = max_rows
+        if page_num == n_pages:
+            page_n_plots = last_page_plots
+            page_n_rows = last_page_rows
 
-    # for page in range(n_pages):
+        page_start = page * page_n_plots
+        page_ends = page_start + page_n_plots
 
-    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols,
-                             sharex=True, sharey=True)  # , squeeze=True)
+        print(f"\n\nNEW PAGE\t\tpage: {page_num} of {n_pages}.\n"
+              f"Plots {page_start} - {page_ends} of {total_plots}\n"
+              f"page_n_plots: {page_n_plots}, page_n_rows: {page_n_rows}")
 
-    fig_height = n_rows / 2
-    fig_width = n_cols / 2
+        fig, axes = plt.subplots(nrows=page_n_rows, ncols=n_cols,
+                                 sharex=True, sharey=True,
+                                 constrained_layout=True)  # , squeeze=True)
 
-    fig.set_size_inches(fig_width, fig_height, forward=True)
+        fig_height = page_n_rows / 2
+        fig_width = 5  # n_cols / 2
+        print(f'fig_height: {fig_height}, fig_width: {fig_width}')
 
-    axes_zip = list(zip(range(1, n_plots + 1), axes.flatten()))
+        fig.set_size_inches(fig_width, fig_height, forward=True)
 
-    # # fig title
-    fig_title = f'{cond_name}\nAll units & timesteps'
-    if just_1st_ts:
-        fig_title = f'{cond_name}\nAll units, first timesteps'
+        axes_zip = list(zip(range(1, page_n_plots + 1), axes.flatten()))
 
-    fig.suptitle(fig_title)
-
-    test_run_counter = 0
-    for index, unit_gha in enumerate(loop_gha):
-
-        # if unit_gha["unit_index"] != 0:
-        #     continue
-
+        # # fig title
+        fig_title = f'{cond_name}\nAll units & timesteps'
         if just_1st_ts:
-            if unit_gha["timestep"] != 0:
-                continue
-        else:
-            # # stop printing after one page.
-            if index + 1 > n_plots:
-                continue
+            fig_title = f'{cond_name}\nAll units, first timesteps'
+        if n_pages > 1:
+            fig_title = f'{fig_title} {page_num} of {n_pages}'
 
-        print(f"\nindex: {index}")
+        fig.suptitle(fig_title)
 
-        if test_run:
-            if test_run_counter == test_run_value:
+        plot_counter = 0
+
+        # # note, iter_idx restarts from zero for each page,
+        # # whilst unit_gha continues from where it left off
+        for iter_idx, unit_gha in enumerate(loop_gha):
+
+            if just_1st_ts:
+                if unit_gha["timestep"] != 0:
+                    continue
+            # else:
+                # stop printing after one page.
+                # if iter_idx + 1 > page_n_plots:
+                #     continue
+
+            print(f"\nnew-subplot: iter_idx: {iter_idx}")
+
+            layer_name = unit_gha["layer_name"]
+            unit_index = unit_gha["unit_index"]
+            timestep = unit_gha["timestep"]
+            ts_name = f"ts{timestep}"
+            item_act_label_array = unit_gha["item_act_label_array"]
+
+            print(f"unit_index: {unit_index}, ts_name: {ts_name}")
+
+            # focussed_dict_print(unit_gha, 'unit_gha')
+
+            # #  make df
+            this_unit_acts = pd.DataFrame(data=item_act_label_array,
+                                          columns=['item', 'activation', 'label'])
+            this_unit_acts_df = this_unit_acts.astype(
+                {'item': 'int32', 'activation': 'float', 'label': 'int32'})
+
+            # # where to put plot
+            if just_1st_ts:
+                ax_idx = axes_zip[unit_index][0]
+                ax = axes_zip[unit_index][1]
+            else:
+                ax_idx = axes_zip[iter_idx][0]
+                ax = axes_zip[iter_idx][1]
+
+            print(f"ax_idx: {ax_idx}: ax: {ax}"
+                  f"\nsubplot: row{unit_index} col{timestep} ")
+
+            # # for this unit - get sel stats from combo dict
+            ts_dict = combo_dict[layer_name][unit_index][ts_name]
+            sel_level = ts_dict['level']
+            sel_value = round(ts_dict['sel'], 3)
+            sel_feat = ts_dict['feat']
+            print(f"sel_level: {sel_level}, sel_value: {sel_value}, sel_feat: {sel_feat}")
+
+            # # get sel_feat
+            # # selective_for_what
+            sel_idx = sel_feat
+            if sel_level == 'letter':
+                sel_item = letter_id_dict[sel_feat]
+            else:
+                sel_item = vocab_dict[sel_feat]['word']
+
+            if sel_level == 'letter':
+                label_list = this_unit_acts_df['label'].to_list()
+                sel_item_list = letter_in_seq(letter=sel_feat,
+                                              test_label_seqs=label_list,
+                                              vocab_dict=vocab_dict)
+                # print(f"\n\nsel_item_list: {np.shape(sel_item_list)}\n{sel_item_list}")
+
+                # y_letters_1ts = np.array(y_letters[:, timestep])
+                # print(f"y_letters_1ts: {np.shape(y_letters_1ts)}")
+                # use this to just get a binary array of whether a letter is present?
+                # sel_item_list = y_letters_1ts[:, sel_idx]
+            else:
+                # # sort class label list
+                class_labels = this_unit_acts['label'].to_list()
+
+                # sel_item_list = [1 if x == sel_item else 0 for x in seq_words_list]
+                sel_item_list = [1 if x == sel_feat else 0 for x in class_labels]
+
+            this_unit_acts_df['sel_item'] = sel_item_list
+            # print(f"this_unit_acts_df:\n{this_unit_acts_df}")
+
+            sns.catplot(x='activation', y="label",
+                        hue='sel_item',
+                        data=this_unit_acts_df,
+                        ax=ax,
+                        orient='h', kind="strip",
+                        jitter=1, dodge=True, linewidth=.5,
+                        s=3,
+
+                        # palette="Set2", marker="D", edgecolor="gray"
+                        )  # , alpha=.25)
+
+            ax.set_xlim([0, 1])
+            # ax.set_ylim([-1, n_words+1])
+            # print(f"y_lim: {ax.get_ylim()}")
+            ax.margins(y=.05)
+            ax.set_yticks([])
+            # ax.set_title(f'u{unit_index}-{timestep}\n{sel_item}: {sel_value}', fontsize=8)
+            ax.get_legend().set_visible(False)
+
+            ax.set(xlabel='', ylabel='')
+
+            # sort labels for left and bottom plots
+            if just_1st_ts:
+                if unit_index % max_cols == 0:
+                    ax.set_ylabel(f"U{unit_index}-{unit_index+max_cols-1}", rotation='horizontal', ha='right')
+            else:
+                if iter_idx % timesteps == 0:
+                    ax.set_ylabel(f"U {unit_index}", rotation='horizontal', ha='right')
+                if iter_idx >= page_n_plots - timesteps:
+                    ax.set_xlabel(f"{ts_name}")
+
+            plt.close()
+
+            # # stop if done enough plots
+            plot_counter += 1
+            print(f'plot_counter: {plot_counter}')
+
+            if test_run:
+                print(f'\nEnd of {test_run_value} test_run plots')
+                if plot_counter == test_run_value:
+                    break
+
+            if plot_counter == max_page_plots:
+                print(f'\nEnd of page {page_num} of {n_pages}\n')
                 break
-            test_run_counter += 1
 
 
-
-        layer_name = unit_gha["layer_name"]
-        unit_index = unit_gha["unit_index"]
-        timestep = unit_gha["timestep"]
-        ts_name = f"ts{timestep}"
-        item_act_label_array = unit_gha["item_act_label_array"]
-        # IPC_words = IPC_dict['word_p_class_p_ts'][ts_name]
-        # IPC_letters = IPC_dict['letter_p_class_p_ts'][ts_name]
-        # sequence_data = unit_gha["sequence_data"]
-        # y_1hot = unit_gha["y_1hot"]
-        # act_func = unit_gha["act_func"]
-
-
-
-        # #  make df
-        this_unit_acts = pd.DataFrame(data=item_act_label_array,
-                                      columns=['item', 'activation', 'label'])
-        this_unit_acts_df = this_unit_acts.astype(
-            {'item': 'int32', 'activation': 'float', 'label': 'int32'})
-
-        # # where to put plot
+        # # once broken out of plots loop (e.g., at end of page)
+        # # save name
         if just_1st_ts:
-            ax_idx = axes_zip[unit_index][0]
-            ax = axes_zip[unit_index][1]
-            plot_index = ax_idx
+            save_name = f"{plots_path}/{output_filename}_all_U_1ts.png"
         else:
-            ax_idx = axes_zip[index][0]
-            ax = axes_zip[index][1]
-            plot_index = (unit_index * timesteps + timestep + 1)
-
-        print(f"\nax_idx: {ax_idx}: ax: {ax}")
-        # print(f"\nax: {ax}")
+            save_name = f"{plots_path}/{output_filename}_all plots.png"
+        if n_pages > 1:
+            save_name = f'{save_name[:-4]}_{page_num}of{n_pages}.png'
+        plt.savefig(save_name)
 
 
-        print(f"\nindex: {index}\nunit_index: {unit_index}\n"
-              f"plot_index: {plot_index}")
+        if show_plots:
+            plt.show()
 
-
-        print(f"\nsubplot: row{unit_index} col{timestep} #{plot_index}")
-
-        # # for this unit - get sel stats from combo dict
-        ts_dict = combo_dict[layer_name][unit_index][ts_name]
-        sel_level = ts_dict['level']
-        sel_value = round(ts_dict['sel'], 3)
-        sel_feat = ts_dict['feat']
-        print(f"\nsel_level: {sel_level}, sel_value: {sel_value}, sel_feat: {sel_feat}")
-
-        # # get sel_feat
-        # # selective_for_what
-        sel_idx = sel_feat
-        if sel_level == 'letter':
-            sel_item = letter_id_dict[sel_feat]
-        else:
-            sel_item = vocab_dict[sel_feat]['word']
-
-        if sel_level == 'letter':
-            y_letters_1ts = np.array(y_letters[:, timestep])
-            print(f"y_letters_1ts: {np.shape(y_letters_1ts)}")
-            # # use this to just get a binary array of whether a letter is present?
-            sel_item_list = y_letters_1ts[:, sel_idx]
-        else:
-            # # sort class label list
-            class_labels = this_unit_acts['label'].to_list()
-
-            # sel_item_list = [1 if x == sel_item else 0 for x in seq_words_list]
-            sel_item_list = [1 if x == sel_feat else 0 for x in class_labels]
-
-        this_unit_acts_df['sel_item'] = sel_item_list
-        print(f"this_unit_acts_df:\n{this_unit_acts_df}")
-
-        sns.catplot(x='activation', y="label",
-                    hue='sel_item',
-                    data=this_unit_acts_df,
-                    ax=ax,
-                    orient='h', kind="strip",
-                    jitter=1, dodge=True, linewidth=.5,
-                    s=3,
-
-                    # palette="Set2", marker="D", edgecolor="gray"
-                    )  # , alpha=.25)
-
-        ax.set_xlim([0, 1])
-        # ax.set_ylim([-1, n_words+1])
-        # print(f"y_lim: {ax.get_ylim()}")
-        ax.margins(y=.05)
-        ax.set_yticks([])
-        # ax.set_title(f'u{unit_index}-{timestep}\n{sel_item}: {sel_value}', fontsize=8)
-        ax.get_legend().set_visible(False)
-
-        ax.set(xlabel='', ylabel='')
-
-        # sort labels for left and bottom plots
-        if just_1st_ts:
-            if unit_index % max_cols == 0:
-                ax.set_ylabel(f"U{unit_index}-{unit_index+max_cols-1}", rotation='horizontal', ha='right')
-        else:
-            if index % timesteps == 0:
-                ax.set_ylabel(f"U {unit_index}", rotation='horizontal', ha='right')
-            if index >= n_plots - timesteps:
-                ax.set_xlabel(f"{ts_name}")
-
-        plt.close()
-
-
-    # fig.tight_layout()
-
-    # # save name
-    if just_1st_ts:
-        # if n_pages == 1:
-        save_name = f"{plots_path}/{output_filename}_all_U_1ts.png"
-        # else:
-        #     save_name = f"{plots_path}/{output_filename}_all_U_1ts_{page}of{n_pages}.png"
-    else:
-        # if n_pages == 1:
-        save_name = f"{plots_path}/{output_filename}_all plots.png"
-        # else:
-        #     save_name = f"{plots_path}/{output_filename}_all plots_{page}of{n_pages}.png"
-    plt.savefig(save_name)
-
-
-    if show_plots:
-        plt.show()
 
     print("\nend of plot_all_units script")

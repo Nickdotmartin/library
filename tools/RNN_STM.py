@@ -912,7 +912,7 @@ def letter_in_seq(letter, test_label_seqs, vocab_dict):
     """
 
     print(f"letter: {letter}\n"
-          f"test_label_seqs: {np.shape(test_label_seqs)}\n"
+          # f"test_label_seqs: {np.shape(test_label_seqs)}\n"
           # f"{test_label_seqs}"
           )
 
@@ -933,15 +933,20 @@ def letter_in_seq(letter, test_label_seqs, vocab_dict):
 
     letter_present_list = []
     for row in test_label_seqs:
-        # print(row)
+        # print(f'row: {row}')
+        # print(f'shape: {np.shape(row)}')
+        # print(len(row))
+        if type(row) is int:
+            row = [row]
+
         new_row = []
         for item in row:
             spelled_word = vocab_dict[item]['letters']
             if letter in spelled_word:
-                print(spelled_word, letter)
+                # print(spelled_word, letter)
                 new_row.append(1)
             else:
-                print(spelled_word, )
+                # print(spelled_word, )
                 new_row.append(0)
         letter_present_list.append(new_row)
 

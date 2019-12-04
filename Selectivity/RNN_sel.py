@@ -678,11 +678,15 @@ def get_sel_summaries(max_sel_dict_path,
     hl_dfs_dict = dict()
     hl_units_dict = dict()
 
+
     for measure in sel_measures_list:
         # # save all units at or above high_sel_threshold
         if len(max_sel_df[max_sel_df[measure] >= high_sel_thr]) > top_n:
             top_units = max_sel_df[max_sel_df[measure] >= high_sel_thr]
         else:
+            # make sure column is float
+            max_sel_df[measure] = max_sel_df[measure].astype('float')
+
             # # just take top_n highest scores
             top_units = max_sel_df.nlargest(n=top_n, columns=measure)
 
@@ -1517,7 +1521,10 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                         'max_informed': {}, 'max_info_count': {},
                         'max_info_thr': {}, 'max_info_sens': {},
                         'max_info_spec': {}, 'max_info_prec': {},
-                        'ccma': {}, 'b_sel': {}, 'zhou_prec': {},
+                        'ccma': {},
+                        'b_sel': {},
+                        'b_sel_off': {},
+                        'zhou_prec': {},
                         'zhou_selects': {}, 'zhou_thr': {},
                         'corr_coef': {}, 'corr_p': {},
                         }
@@ -1811,24 +1818,53 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                           f"ccma_numerator: {ccma_numerator}\nccma_denominator: {ccma_denominator}\n"
                           f"ccma: {ccma}")
 
+                unit_ts_dict["ccma"][this_cat] = ccma
+
                 # # Bowers sel
+                '''
+                test for sel on and off units and give the max.  add variable for b_sel_off
+                '''
                 if verbose:
                     print("\nBowers Sel")
 
+                # # first check for on units
                 class_a_min = class_a[act_values].min()
+                class_a_max = class_a[act_values].max()
                 not_class_a_max = not_class_a[act_values].max()
+                not_class_a_min = not_class_a[act_values].min()
+
                 if act_func in ['tanh', 'relu', 'ReLu']:
                     class_a_min = class_a['normed'].min()
+                    class_a_max = class_a['normed'].max()
                     not_class_a_max = not_class_a['normed'].max()
+                    not_class_a_min = not_class_a['normed'].min()
 
-                b_sel = class_a_min - not_class_a_max
+                b_sel_on = class_a_min - not_class_a_max
+                b_sel_off = not_class_a_min - class_a_max
 
-                if verbose:
-                    print(f"class_a_min: {class_a_min}, not_class_a_max: {not_class_a_max}\n"
-                          f"b_sel: {b_sel}")
+                # todo: delete this
+                print(f'\nb_sel_on = class_a_min: {class_a_min} - '
+                      f'not_class_a_max: {not_class_a_max} = {b_sel_on}\n'
+                      f'\nb_sel_off = not_class_a_min: {not_class_a_min} - '
+                      f'class_a_max: {not_class_a_max} = {class_a_max}\n')
 
-            unit_ts_dict["ccma"][this_cat] = ccma
+                if b_sel_on >= b_sel_off:
+                    b_sel = b_sel_on
+                    off_unit = False
+                    if verbose:
+                        print(f"\nb_sel ON\n"
+                              f"class_a_min: {class_a_min} - not_class_a_max: {not_class_a_max}\n"
+                              f"b_sel: {b_sel}")
+                else:
+                    b_sel = b_sel_off
+                    off_unit = True
+                    if verbose:
+                        print(f"\nb_sel OFF\n"
+                              f"not_class_a_min: {not_class_a_min} - class_a_max: {class_a_max}\n"
+                              f"b_sel: {b_sel}")
+
             unit_ts_dict["b_sel"][this_cat] = b_sel
+            unit_ts_dict["b_sel_off"][this_cat] = off_unit
 
 
             # # zhou_prec
