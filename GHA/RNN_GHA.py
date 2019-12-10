@@ -328,7 +328,7 @@ def rnn_gha(sim_dict_path,
     #     n_seqs = 30*batch_size
     #
     #     test_label_seqs = get_label_seqs(n_labels=n_cats, seq_len=timesteps,
-    #                                      serial_recall=serial_recall, n_seqs=n_seqs)
+    #                                      repetitions=serial_recall, n_seqs=n_seqs)
     #     test_label_name = f"{output_filename}_{np.shape(test_label_seqs)[0]}_test_seq_"
     #
     #

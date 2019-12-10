@@ -287,7 +287,6 @@ def ff_gha(sim_dict_path,
     hid_act_filenames = {'2d': None, 'any_d': None}
 
     # # # keep these as some analysis scripts will call them for something?
-    # todo: check if I actually need these
     if save_2d_layers:
         dict_2d_save_name = f'{output_filename}_hid_act_2d.pickle'
         with open(dict_2d_save_name, "wb") as pkl:  # 'wb' mean 'w'rite the file in 'b'inary mode

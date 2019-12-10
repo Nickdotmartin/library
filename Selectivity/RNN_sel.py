@@ -1842,11 +1842,10 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                 b_sel_on = class_a_min - not_class_a_max
                 b_sel_off = not_class_a_min - class_a_max
 
-                # todo: delete this
-                print(f'\nb_sel_on = class_a_min: {class_a_min} - '
-                      f'not_class_a_max: {not_class_a_max} = {b_sel_on}\n'
-                      f'\nb_sel_off = not_class_a_min: {not_class_a_min} - '
-                      f'class_a_max: {not_class_a_max} = {class_a_max}\n')
+                # print(f'\nb_sel_on = class_a_min: {class_a_min} - '
+                #       f'not_class_a_max: {not_class_a_max} = {b_sel_on}\n'
+                #       f'\nb_sel_off = not_class_a_min: {not_class_a_min} - '
+                #       f'class_a_max: {not_class_a_max} = {class_a_max}\n')
 
                 if b_sel_on >= b_sel_off:
                     b_sel = b_sel_on

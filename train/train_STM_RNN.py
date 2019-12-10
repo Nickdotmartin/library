@@ -53,6 +53,211 @@ models (rnn, GRU, LSTM, seq2seq)
 #
 # tf.enable_eager_execution()
 
+# import keras.backend as K
+
+# def mean_pred(y_true, y_pred):
+#     return K.mean(y_pred)
+
+def nick_acc(y_true, y_pred, serial_recall=True, output_type='classes'):
+    """
+    :param y_true:
+    :param y_pred:
+    :param serial_recall: if True, Y array is a list of vectors
+                        If False, y-array is a single vector  e.g., activate all words simultaneously
+    :param output_type: default 'classes': output units represent class labels
+                        'letters' output units correspond to letters
+
+    :return: nick_acc (float)
+    """
+    hid0_input = tf.compat.v1.placeholder(tf.float32, shape=(32,None,31), name="hid0_input")
+    print(f"\nhid0_input: {hid0_input}")
+    output_target = tf.compat.v1.placeholder(tf.float32, shape=(None, None, None), name="output_target")
+    print(f"\noutput_target: {output_target}")
+    tf_session = K.get_session()
+
+    y_1hot = False
+
+    # if output_type=='classes':
+    #
+    #     if serial_recall:
+    #         # multiple 1hot CLASS vectors
+    #         y_1hot = True
+    #
+    #     elif not serial_recall:
+    #         # single 3hot CLASS vectors
+    #
+    # elif output_type=='letters':
+    #
+    #     # # must be serial recall
+    #     # multiple 3hot LETTER vectors
+
+    seq_corr = []
+
+    # to convert a tensor to a numpy array use tf.keras.backend.eval(x)
+    true_shape = tf.keras.backend.int_shape(y_true)
+    print(f"\ntrue_shape int_shape: {true_shape}")
+
+    pred_shape = tf.keras.backend.int_shape(y_pred)
+    print(f"\npred_shape: {pred_shape}")
+
+    batch_size, timesteps, out_units = tf.keras.backend.int_shape(y_pred)
+    print(f"\nbatch_size: {batch_size}\ntimesteps: {timesteps}\nout_units: {out_units}")
+
+    # check_shape = y_pred.eval(session=tf_session)
+    # print(f"\ncheck_shape: {check_shape}")
+
+    # pred_eval = tf.keras.backend.eval(y_pred)
+    # print(f"\npred_eval: {pred_eval}")
+
+    ###
+    # decoded_softmax = tf.keras.backend.ctc_decode(y_pred,
+    #                                               input_length=(out_units, ),
+    #                                               greedy=True,
+    #                                               beam_width=100,
+    #                                               top_paths=1)
+    # print(f"\ndecoded_softmax: {decoded_softmax}")
+    ###
+
+    # guess = tf.compat.v1.placeholder(tf.float32, true_shape)
+    # truth = tf.compat.v1.placeholder(tf.float32, true_shape)
+    # print(f"\nguess: {guess}")
+    # print(f"\ntruth: {truth}")
+
+
+    # with tf.compat.v1.Session() as sess:
+    #
+    #     feed_dict = {"guess": y_pred, "guess": y_true}
+    #
+    #     pred_dict = {"pred": y_pred}
+    #     pred_eval_dict = tf.keras.backend.eval(pred_dict)
+    #     pred_eval = pred_eval_dict['pred']
+    #     print(f"\npred_eval: {pred_eval}")
+    #     true_dict = {"true": y_true}
+    #     true_eval = tf.keras.backend.eval(true_dict)
+    #     print(f"\ntrue_eval: {true_eval}")
+
+        # classification = sess.run(y, feed_dict)
+        # print(classification)
+
+    # might need to iterate over time
+    for i in range(batch_size):
+        # for t in range(timesteps):
+        this_pred = K.variable(y_pred[i])  # [t]
+        this_true = y_true[i]  # [t]
+        print(f"\nthis_pred: {this_pred} {this_pred.shape}")
+        print(f"this_true: {this_true}")
+
+    flat_preds = K.flatten(y_pred)
+    print(f"\nK.int_shape(flat_preds): {K.int_shape(flat_preds)}")
+
+    flat_true = K.flatten(y_true)
+    print(f"\nK.int_shape(flat_true): {K.int_shape(flat_true)}")
+
+    # v = K.variable(flat_true)
+    # print(K.eval(v))
+    # print(K.eval(K.sqrt(v)))
+
+
+    # pred_lengths = tf.keras.backend.int_shape(y_pred)
+    # print(f"\npred_lengths int_shape: {pred_lengths}")
+    # pred_length = pred_lengths[0]
+    # print(f"\npred_length: {pred_length}")
+
+    if serial_recall and output_type is 'classes':
+        # decoded_softmax = tf.keras.backend.ctc_decode(y_pred,
+        #                                               pred_length=pred_length[0],
+        #                                               greedy=True,
+        #                                               beam_width=100,
+        #                                               top_paths=1)
+        # print(f"\ndecoded_softmax: {decoded_softmax}")
+        # if this decode doesn't work I could use
+        # max_val = tf.keras.backend.max(this_pred)
+        # print(f"\nmax_val: {max_val}")
+        # with sess.as_default():
+        # print(f"\nK.eval(max_val): {K.eval(max_val)}")
+
+
+        # then make a new variable of zeros
+        # prepared_pred = tf.keras.backend.zeros_like(this_pred, name='all_zeros')
+        # pred_list = [0.0] * out_units
+        # prepared_pred = K.eval(all_zeros)
+
+        # then convert the zero in the correct location to a 1
+        # pred_list[max_val] = 1
+
+        # pred_array = np.array(pred_list)
+
+        # prepared_pred = K.variable(value=pred_array, dtype='float64', name='prepared_pred')
+        # todo: this is wrong dor decoding softmax, use max val somehow
+        y_pred_binary = K.round(flat_preds)
+        prepared_pred = y_pred_binary
+
+        # print(f"\nprepared_pred: {prepared_pred}")
+
+        # print(f"\nprepared_pred.eval(): {prepared_pred.eval(session=tf_session)}")
+
+
+    else:
+        # multiple active items
+
+        # make vector of same length where each item is .5
+        # point5_array = np.array([.5] * pred_length)
+        # point5_vector = K.variable(value=point5_array, dtype='float64', name='point5_vector')
+        #
+        # prepared_pred = tf.keras.backend.greater_equal(this_pred, point5_vector)
+        y_pred_binary = tf.where(flat_preds >= 0.5, 1., 0.)
+        prepared_pred = y_pred_binary
+    print(f"\nprepared_pred: {prepared_pred}")
+
+    # compare
+    correct_item = tf.keras.backend.equal(prepared_pred, flat_true)
+    print(f"\ncorrect_item: {correct_item}")
+
+    cast_input = K.cast(correct_item, dtype='int32')
+    print(f"\ncast_input: {cast_input}")
+    seq_corr.append(cast_input)
+
+
+    # if correct_item == 'Tensor("metrics/nick_acc/Equal:0", shape=(?,), dtype=bool)':
+    #     print("yup")
+    # if correct_item == K.variable(value=False,
+    #                               dtype=bool,
+    #                               name=None,
+    #                               constraint=None):
+    #     print('match')
+    #
+    # print_this = tf.keras.backend.print_tensor(
+    #     correct_item,
+    #     message='here tis'
+    # )
+    #
+    # print(print_this)
+    # # summed_items == K.sum(correct_item
+    # if cast_input <= .5:
+    #     print('True')
+    #     seq_corr.append(1)
+    # else:
+    #     print('False')
+    #     seq_corr.append(0)
+    # seq_corr.append(correct_item)
+
+    print(f"\nseq_corr: {seq_corr}")
+
+    n_correct = K.sum(seq_corr)
+    print(f"\nn_correct: {n_correct}")
+
+    total_items = K.shape(seq_corr)
+    print(f"\ntotal_items: {total_items}")
+
+    acc_prop = n_correct/total_items
+    print(f"\nacc_prop: {acc_prop}")
+
+    return acc_prop
+
+# model.compile(optimizer='rmsprop',
+#               loss='binary_crossentropy',
+#               metrics=['accuracy', mean_pred])
+
 
 def train_model(exp_name,
                 data_dict_path,
@@ -63,15 +268,18 @@ def train_model(exp_name,
                 units_per_layer=200,
                 act_func='sigmoid',
                 serial_recall=False,
+                y_1hot=True,
+                output_units='n_cats',
                 generator=True,
                 x_data_type='dist_letter_X',
-                end_seq_cue=True,
+                end_seq_cue=False,
                 max_epochs=100, use_optimizer='adam',
                 loss_target=0.01, min_loss_change=0.0001, batch_size=32,
                 augmentation=True, grey_image=False,
                 use_batch_norm=True, use_dropout=0.0,
                 use_val_data=True,
                 timesteps=1,
+                train_cycles=False,
                 weight_init='GlorotUniform',
                 lr=0.001,
                 unroll=False,
@@ -109,6 +317,10 @@ def train_model(exp_name,
     :param units_per_layer: number of units in each layer
     :param act_func: activation function to use
     :param serial_recall: if True, output a sequence, else use dist output and no repeats in data.
+    :param y_1hot: if True, output is 1hot, if False, output is multi_label.
+    :param output_units: default='n_cats', e.g., number of categories.
+                        If 'x_size', will be same as number of input feats.
+                        Can also accept int.
     :param generator: If true, will generate training data, else load data as usual.
     :param x_data_type: input coding: local words (1hot), local letters (3hot), dist letters (9hot)
     :param end_seq_cue: Add input unit to cue recall
@@ -123,6 +335,8 @@ def train_model(exp_name,
     :param use_dropout: use dropout
     :param use_val_data: use validation set (either separate set, or train/val split)
     :param timesteps: if RNN length of sequence
+    :param train_cycles: if False, all lists lengths = timesteps.
+                        If True, train on varying length, [1, 2, 3,...timesteps].
     :param weight_init: change the initializatation of the weights
     :param lr: set the learning rate for the optimizer
     :param unroll:  Whether to unroll the model.
@@ -220,6 +434,34 @@ def train_model(exp_name,
 
 
     # # The Model
+    # K.clear_session()
+
+    if train_cycles:
+        train_ts = None
+    else:
+        train_ts = timesteps
+
+    output_type = 'classes'
+    if type(output_units) is int:
+        n_output_units = output_units
+        if n_output_units == x_size:
+            output_type = 'letters'
+        elif n_output_units == n_cats:
+            output_type = 'classes'
+        else:
+            raise ValueError(f"n_output_units does not match x_size or n_cats\n"
+                             f"need to specifiy output_type as words or letters")
+
+    elif type(output_units) is str:
+        if output_units.lower() == 'n_cats':
+            n_output_units = n_cats
+        elif output_units.lower() == 'x_size':
+            n_output_units = x_size
+            output_type = 'letters'
+        else:
+            raise ValueError(f'output_units should be specified as an int, '
+                             f'or with a string "n_cats" or "x_size"\noutput_units: {output_units}')
+
     if 'rnn' in model_dir:
         print("loading a recurrent model")
         augmentation = False
@@ -230,45 +472,46 @@ def train_model(exp_name,
                        'LSTMn': LSTMn,
                        'Seq2Seq': Seq2Seq}
 
-        model = models_dict[model_name].build(features=x_size, classes=n_cats, timesteps=timesteps,
+        model = models_dict[model_name].build(features=x_size, classes=n_output_units, timesteps=train_ts,
                                               batch_size=batch_size, n_layers=hid_layers,
                                               serial_recall=serial_recall,
                                               units_per_layer=units_per_layer, act_func=act_func,
-                                              y_1hot=serial_recall,
-                                              dropout=use_dropout, weight_init=weight_init,
+                                              y_1hot=y_1hot,
+                                              dropout=use_dropout,
+                                              masking=train_cycles,
+                                              weight_init=weight_init,
                                               unroll=unroll)
     else:
         print("model_dir not recognised")
 
 
-    # loss
-    loss_func = 'binary_crossentropy'
-    if serial_recall:
-        loss_func = 'categorical_crossentropy'
+    # # loss
+    loss_func = 'categorical_crossentropy'
+    if not y_1hot:
+        loss_func = 'binary_crossentropy'
 
 
     # optimizer
     sgd = SGD(lr=lr, momentum=.9)  # decay=sgd_lr / max_epochs)
     this_optimizer = sgd
 
-    if use_optimizer == 'SGD_Nesterov':
+    if use_optimizer == 'SGD_no_momentum':
+        this_optimizer = SGD(lr=lr, momentum=0.0, nesterov=False)  # decay=sgd_lr / max_epochs)
+    elif use_optimizer == 'SGD_Nesterov':
         this_optimizer = SGD(lr=lr, momentum=.1, nesterov=True)  # decay=sgd_lr / max_epochs)
-
     elif use_optimizer == 'adam':
+        this_optimizer = Adam(lr=lr, amsgrad=False)
+    elif use_optimizer == 'adam_amsgrad':
+        # simulations run prior to 05122019 did not have this option, and may have use amsgrad under the name 'adam'
         this_optimizer = Adam(lr=lr, amsgrad=True)
-
     elif use_optimizer == 'RMSprop':
         this_optimizer = RMSprop(lr=lr)
-
     elif use_optimizer == 'Adagrad':
         this_optimizer = Adagrad()
-
     elif use_optimizer == 'Adadelta':
         this_optimizer = Adadelta()
-
     elif use_optimizer == 'Adamax':
         this_optimizer = Adamax(lr=lr)
-
     elif use_optimizer == 'Nadam':
         this_optimizer = Nadam()
 
@@ -276,20 +519,20 @@ def train_model(exp_name,
 
     # # metrics
     main_metric = 'binary_accuracy'
-    if not serial_recall:
+    if y_1hot:
         main_metric = 'categorical_accuracy'
         # mean_IoU = free_rec_acc()
         # prop_corr_acc = prop_corr(y_true, y_pred)
         # iou_acc = mean_IoU(y_true, y_pred)
 
-        # # compile model
-        model.compile(loss=loss_func, optimizer=this_optimizer,
-                      metrics=[main_metric])
+        # compile model
+        # model.compile(loss=loss_func, optimizer=this_optimizer,
+        #               metrics=[main_metric, nick_acc])
 
-    else:
-        # # compile model
-        model.compile(loss=loss_func, optimizer=this_optimizer,
-                      metrics=[main_metric])
+    # todo: come back and try metric again once I have got the generator working.
+    #   and once I have written the analysis script for current get scores.
+    model.compile(loss=loss_func, optimizer=this_optimizer,
+                  metrics=[main_metric])  # , nick_acc])
 
     optimizer_details = model.optimizer.get_config()
     # print_nested_round_floats(model_details)
@@ -316,10 +559,8 @@ def train_model(exp_name,
                                                       load_weights_on_restart=True)
 
     # patience_for_loss_change: wait this long to see if loss improves
-    # patience_for_loss_change = int(max_epochs / 50)
+    patience_for_loss_change = int(max_epochs / 50)
 
-    # todo: change this back in neccesary
-    patience_for_loss_change = int(max_epochs / 10)
 
     if patience_for_loss_change < 5:
         patience_for_loss_change = 5
@@ -382,13 +623,15 @@ def train_model(exp_name,
         else:
             # # use generator
             print("Using data generator")
-
             generate_data = generate_STM_RNN_seqs(data_dict=data_dict,
                                                   seq_len=timesteps,
                                                   batch_size=batch_size,
                                                   serial_recall=serial_recall,
+                                                  output_type=output_type,
                                                   x_data_type=x_data_type,
-                                                  end_seq_cue=end_seq_cue
+                                                  end_seq_cue=end_seq_cue,
+                                                  train_cycles=train_cycles,
+                                                  # verbose=verbose
                                                   )
 
             fit_model = model.fit_generator(generate_data,
@@ -397,7 +640,7 @@ def train_model(exp_name,
                                             callbacks=callbacks_list,
                                             shuffle=False)
 
-    #########################################################
+    ########################################################
     print("\n**** TRAINING COMPLETE ****")
 
     print(f"\nModel name: {checkpoint_path}")
@@ -455,13 +698,15 @@ def train_model(exp_name,
     #         if data_dict["test_label_seqs"][-3:] == 'npy':
     #             test_label_seqs = np.load(data_dict["test_label_seqs"])
     # else:
-
+            # todo: separate serial_recall and y_1hot.  how to decide if repetitions are allowed?
     # #     # # get labels for 100 sequences
     # test_label_seqs = get_label_seqs(n_labels=n_cats, seq_len=timesteps,
-    #                                  serial_recall=serial_recall, n_seqs=10*batch_size)
+    #                                  repetitions=False, n_seqs=10*batch_size)
 
     # # load test label seqs
     data_path = data_dict['data_path']
+    if train_cycles:
+        timesteps = 7
     test_filename = f'seq{timesteps}_v{n_cats}_960_test_seq_labels.npy'
     test_seq_path = os.path.join(data_path, test_filename)
 
@@ -472,148 +717,154 @@ def train_model(exp_name,
     test_label_seqs = np.load(test_seq_path)
 
 
+
     # # call get test accracy(serial_recall,
     scores_dict = get_test_scores(model=model, data_dict=data_dict, test_label_seqs=test_label_seqs,
                                   serial_recall=serial_recall,
+                                  x_data_type=x_data_type,
+                                  output_type=output_type,
                                   end_seq_cue=end_seq_cue,
                                   batch_size=batch_size,
                                   verbose=verbose)
 
-    mean_IoU = scores_dict['mean_IoU']
-    prop_seq_corr = scores_dict['prop_seq_corr']
+    focussed_dict_print(scores_dict, 'scores_dict')
+    # mean_IoU = scores_dict['mean_IoU']
+    # prop_seq_corr = scores_dict['prop_seq_corr']
+    #
+    #    #        # todo: separate serial_recall and y_1hot
+    # trained_date = int(datetime.datetime.now().strftime("%y%m%d"))
+    # trained_time = int(datetime.datetime.now().strftime("%H%M"))
+    # model_info['overview'] = {'model_type': model_dir, 'model_name': model_name,
+    #                           "trained_model": checkpoint_path,
+    #                           "hid_layers": hid_layers,
+    #                           "units_per_layer": units_per_layer,
+    #                           'act_func': act_func,
+    #                           "serial_recall": serial_recall,
+    #                           "generator": generator,
+    #                           "x_data_type": x_data_type,
+    #                           "end_seq_cue": end_seq_cue,
+    #                           "use_val_data": use_val_data,
+    #                           "optimizer": use_optimizer,
+    #                           "loss_func": loss_func,
+    #                           "use_batch_norm": use_batch_norm,
+    #                           "batch_size": batch_size,
+    #                           "augmentation": augmentation,
+    #                           "grey_image": grey_image,
+    #                           "use_dropout": use_dropout,
+    #                           "loss_target": loss_target,
+    #                           "min_loss_change": min_loss_change,
+    #                           "max_epochs": max_epochs,
+    #                           'timesteps': timesteps}
+    #
+    #
+    # # repo = "git.Repo('/home/nm13850/Documents/PhD/code/library')"
+    #
+    # sim_dict_name = f"{output_filename}_sim_dict.txt"
+    #
+    # sim_dict_path = os.path.join(exp_cond_path, sim_dict_name)
+    #    #        # todo: separate serial_recall and y_1hot
+    # # # simulation_info_dict
+    # sim_dict = {"topic_info": {"output_filename": output_filename, "cond": cond, "run": run,
+    #                            "data_dict_path": data_dict_path, "model_path": model_path,
+    #                            "exp_cond_path": exp_cond_path,
+    #                            'exp_name': exp_name, 'cond_name': cond_name},
+    #             "data_info": data_dict,
+    #             "model_info": model_info,
+    #             "training_info": {"trained_for": trained_for,
+    #                               "loss": end_loss, "acc": end_acc, 'use_val_data': use_val_data,
+    #                               "end_val_acc": end_val_acc, "end_val_loss": end_val_loss,
+    #                               'scores': scores_dict,
+    #                               "trained_date": trained_date, "trained_time": trained_time,
+    #                               'x_data_path': x_data_path, 'y_data_path': y_data_path,
+    #                               'sim_dict_path': sim_dict_path,
+    #                               'tensorboard_path': tensorboard_path,
+    #                               # 'commit': repo.head.object.hexsha,
+    #                               }
+    #             }
+    #
+    #
+    # if not use_val_data:
+    #     sim_dict['training_info']['end_val_acc'] = 'NaN'
+    #     sim_dict['training_info']['end_val_loss'] = 'NaN'
+    #
+    # with open(sim_dict_name, 'w') as fp:
+    #     json.dump(sim_dict, fp, indent=4, separators=(',', ':'))
+    #
+    #
+    # """converts lists of units per layer [32, 64, 128] to str "32-64-128".
+    # Convert these strings back to lists of ints with:
+    # back_to_ints = [int(i) for i in str_upl.split(sep='-')]
+    # """
+    # str_upl = "-".join(map(str, model_info['layers']['hid_layers']['hid_totals']['UPL']))
+    # str_fpl = "-".join(map(str, model_info['layers']['hid_layers']['hid_totals']['FPL']))
+    #
+    #
+    #    #        # todo: separate serial_recall and y_1hot
 
-
-    trained_date = int(datetime.datetime.now().strftime("%y%m%d"))
-    trained_time = int(datetime.datetime.now().strftime("%H%M"))
-    model_info['overview'] = {'model_type': model_dir, 'model_name': model_name,
-                              "trained_model": checkpoint_path,
-                              "hid_layers": hid_layers,
-                              "units_per_layer": units_per_layer,
-                              'act_func': act_func,
-                              "serial_recall": serial_recall,
-                              "generator": generator,
-                              "x_data_type": x_data_type,
-                              "end_seq_cue": end_seq_cue,
-                              "use_val_data": use_val_data,
-                              "optimizer": use_optimizer,
-                              "loss_func": loss_func,
-                              "use_batch_norm": use_batch_norm,
-                              "batch_size": batch_size,
-                              "augmentation": augmentation,
-                              "grey_image": grey_image,
-                              "use_dropout": use_dropout,
-                              "loss_target": loss_target,
-                              "min_loss_change": min_loss_change,
-                              "max_epochs": max_epochs,
-                              'timesteps': timesteps}
-
-
-    # repo = "git.Repo('/home/nm13850/Documents/PhD/code/library')"
-
-    sim_dict_name = f"{output_filename}_sim_dict.txt"
-
-    sim_dict_path = os.path.join(exp_cond_path, sim_dict_name)
-
-    # # simulation_info_dict
-    sim_dict = {"topic_info": {"output_filename": output_filename, "cond": cond, "run": run,
-                               "data_dict_path": data_dict_path, "model_path": model_path,
-                               "exp_cond_path": exp_cond_path,
-                               'exp_name': exp_name, 'cond_name': cond_name},
-                "data_info": data_dict,
-                "model_info": model_info,
-                "training_info": {"trained_for": trained_for,
-                                  "loss": end_loss, "acc": end_acc, 'use_val_data': use_val_data,
-                                  "end_val_acc": end_val_acc, "end_val_loss": end_val_loss,
-                                  'scores': scores_dict,
-                                  "trained_date": trained_date, "trained_time": trained_time,
-                                  'x_data_path': x_data_path, 'y_data_path': y_data_path,
-                                  'sim_dict_path': sim_dict_path,
-                                  'tensorboard_path': tensorboard_path,
-                                  # 'commit': repo.head.object.hexsha,
-                                  }
-                }
-
-
-    if not use_val_data:
-        sim_dict['training_info']['end_val_acc'] = 'NaN'
-        sim_dict['training_info']['end_val_loss'] = 'NaN'
-
-    with open(sim_dict_name, 'w') as fp:
-        json.dump(sim_dict, fp, indent=4, separators=(',', ':'))
-
-
-    """converts lists of units per layer [32, 64, 128] to str "32-64-128".
-    Convert these strings back to lists of ints with:
-    back_to_ints = [int(i) for i in str_upl.split(sep='-')]
-    """
-    str_upl = "-".join(map(str, model_info['layers']['hid_layers']['hid_totals']['UPL']))
-    str_fpl = "-".join(map(str, model_info['layers']['hid_layers']['hid_totals']['FPL']))
-
-
-
-    # record training info comparrisons
-    training_info = [output_filename, cond, run,
-                     dset_name, x_size, n_cats, timesteps, n_items,
-                     model_dir, model_name,
-                     model_info['layers']['totals']['hid_layers'],
-                     str_upl,
-                     model_info['layers']['hid_layers']['hid_totals']['analysable'],
-                     x_data_type,
-                     act_func,
-                     serial_recall,
-                     use_optimizer, use_batch_norm, use_dropout, batch_size, augmentation, grey_image,
-                     use_val_data, loss_target, min_loss_change,
-                     max_epochs, trained_for, end_acc, end_loss, end_val_acc, end_val_loss,
-                     checkpoint_path, trained_date, trained_time, mean_IoU, prop_seq_corr,
-
-                     ]
-
-
-    # exp_path = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
+    # # record training info comparrisons
+    # training_info = [output_filename, cond, run,
+    #                  dset_name, x_size, n_cats, timesteps, n_items,
+    #                  model_dir, model_name,
+    #                  model_info['layers']['totals']['hid_layers'],
+    #                  str_upl,
+    #                  model_info['layers']['hid_layers']['hid_totals']['analysable'],
+    #                  x_data_type,
+    #                  act_func,
+    #                  serial_recall,
+    #                  use_optimizer, use_batch_norm, use_dropout, batch_size, augmentation, grey_image,
+    #                  use_val_data, loss_target, min_loss_change,
+    #                  max_epochs, trained_for, end_acc, end_loss, end_val_acc, end_val_loss,
+    #                  checkpoint_path, trained_date, trained_time, mean_IoU, prop_seq_corr,
+    #
+    #                  ]
+    #
+    #
+    # # exp_path = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
+    # # os.chdir(exp_path)
+    #
+    # # # save sel summary in exp folder not condition folder
+    # exp_path = find_path_to_dir(long_path=exp_cond_path, target_dir=exp_name)
     # os.chdir(exp_path)
-
-    # # save sel summary in exp folder not condition folder
-    exp_path = find_path_to_dir(long_path=exp_cond_path, target_dir=exp_name)
-    os.chdir(exp_path)
-
-    print(f"save_summaries: {exp_path}")
-
-
-    # check if training_info.csv exists
-    if not os.path.isfile(f"{exp_name}_training_summary.csv"):
-
-        headers = ["file", "cond", "run",
-                   "dataset", "x_size", "n_cats", 'timesteps', "n_items",
-                   "model_type", "model",
-                   'hid_layers',
-                   "UPL",
-                   "analysable",
-                   "x_data_type",
-                   "act_func",
-                   "serial_recall",
-                   "optimizer", "batch_norm", "dropout", "batch_size", "aug", "grey_image",
-                   "val_data", "loss_target", "min_loss_change",
-                   "max_epochs", "trained_for", "end_acc", "end_loss", "end_val_acc", "end_val_loss",
-                   "model_file", "date", "time", "mean_IoU", "prop_seq_corr"]
-
-        training_overview = open(f"{exp_name}_training_summary.csv", 'w')
-        mywriter = csv.writer(training_overview)
-        mywriter.writerow(headers)
-    else:
-        training_overview = open(f"{exp_name}_training_summary.csv", 'a')
-        mywriter = csv.writer(training_overview)
-
-    mywriter.writerow(training_info)
-    training_overview.close()
-
-    if verbose:
-        focussed_dict_print(sim_dict, 'sim_dict')
-
-    print('\n\nto access tensorboard, in terminal use\n'
-          f'tensorboard --logdir={tensorboard_path}'
-          '\nthen click link')
+    #
+    # print(f"save_summaries: {exp_path}")
+    #
+    #     #        # todo: separate serial_recall and y_1hot
+    # # check if training_info.csv exists
+    # if not os.path.isfile(f"{exp_name}_training_summary.csv"):
+    #
+    #     headers = ["file", "cond", "run",
+    #                "dataset", "x_size", "n_cats", 'timesteps', "n_items",
+    #                "model_type", "model",
+    #                'hid_layers',
+    #                "UPL",
+    #                "analysable",
+    #                "x_data_type",
+    #                "act_func",
+    #                "serial_recall",
+    #                "optimizer", "batch_norm", "dropout", "batch_size", "aug", "grey_image",
+    #                "val_data", "loss_target", "min_loss_change",
+    #                "max_epochs", "trained_for", "end_acc", "end_loss", "end_val_acc", "end_val_loss",
+    #                "model_file", "date", "time", "mean_IoU", "prop_seq_corr"]
+    #
+    #     training_overview = open(f"{exp_name}_training_summary.csv", 'w')
+    #     mywriter = csv.writer(training_overview)
+    #     mywriter.writerow(headers)
+    # else:
+    #     training_overview = open(f"{exp_name}_training_summary.csv", 'a')
+    #     mywriter = csv.writer(training_overview)
+    #
+    # mywriter.writerow(training_info)
+    # training_overview.close()
+    #
+    # if verbose:
+    #     focussed_dict_print(sim_dict, 'sim_dict')
+    #
+    # print('\n\nto access tensorboard, in terminal use\n'
+    #       f'tensorboard --logdir={tensorboard_path}'
+    #       '\nthen click link')
 
     print("\ntrain_model() finished")
 
+    sim_dict = {'empty': 'dict', 'nothing': 'here'}
 
     return sim_dict

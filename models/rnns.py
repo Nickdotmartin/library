@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.layers import Activation, Conv2D, Dense, Dropout, Flatten, MaxPooling2D
-from tensorflow.keras.layers import SimpleRNN, GRU, LSTM, Input, TimeDistributed
+from tensorflow.keras.layers import SimpleRNN, GRU, LSTM, Input, TimeDistributed, Masking
 from tensorflow.keras import Model
 from tensorflow.keras.layers import GaussianNoise
 from tensorflow.keras.initializers import he_normal
@@ -75,7 +75,9 @@ class SimpleRNNn:
     @staticmethod
     def build(features, classes, timesteps, batch_size, n_layers=1, units_per_layer=200,
               serial_recall=True, act_func='tanh', y_1hot=False, dropout=0.0,
-              weight_init='GlorotUniform', unroll=False):
+              masking=False,
+              # mask_value=classes,
+              weight_init='GlmrotUniform', unroll=False):
         """
         :param features: input shape, which is n_letters (30) + 1, for end_of_seq_cue.
         :param classes: Vocab size (either 30 or 300)
@@ -87,6 +89,10 @@ class SimpleRNNn:
         :param act_func: Jeff Used Sigmoids, typically SimpleRNN uses Tanh
         :param y_1hot: If output is 1hot/softmax
         :param dropout: Not used
+        :param masking: Whether to use a masking layer
+        # :param mask_value: what value to mask
+        :param weight_init: which weight initialization to use
+        :param unroll: whether to unroll the model
 
         :return: model
         """
@@ -94,6 +100,9 @@ class SimpleRNNn:
 
         layer_seqs = True
         l_input_width = units_per_layer
+
+        if masking:
+            model.add(Masking(mask_value=0., input_shape=(timesteps, features)))
 
         for layer in range(n_layers):
             if layer == 0:  # first layer
@@ -106,6 +115,10 @@ class SimpleRNNn:
 
                                 kernel_initializer=weight_init,
 
+                                # chenged batch_input_shape to input_shape on 07122019 trying to
+                                # get the model to run with variable inpjut length.
+                                # Also tried with both"""
+                                input_shape=(timesteps, l_input_width),
                                 batch_input_shape=(batch_size, timesteps, l_input_width),
 
                                 return_sequences=layer_seqs,  # this stops it from giving an output after each item
@@ -131,6 +144,7 @@ class GRUn:
     @staticmethod
     def build(features, classes, timesteps, batch_size, n_layers=1, units_per_layer=200,
               serial_recall=True, act_func='tanh', y_1hot=False, dropout=0.0,
+              masking=False,
               weight_init='glorot_uniform', unroll=False):
         """
         :param features: input shape, which is n_letters (30) + 1, for end_of_seq_cue.
@@ -150,6 +164,9 @@ class GRUn:
 
         layer_seqs = True
         l_input_width = units_per_layer
+
+        if masking:
+            model.add(Masking(mask_value=0., input_shape=(timesteps, features)))
 
         for layer in range(n_layers):
             if layer == 0:  # first layer
@@ -185,6 +202,7 @@ class LSTMn:
     @staticmethod
     def build(features, classes, timesteps, batch_size, n_layers=1, units_per_layer=200,
               serial_recall=True, act_func='tanh', y_1hot=False, dropout=0.0,
+              masking=False,
               weight_init='glorot_uniform', unroll=False):
         """
         :param features: input shape, which is n_letters (30) + 1, for end_of_seq_cue.
@@ -204,6 +222,8 @@ class LSTMn:
         # model = Sequential(layers=n_layers, name="LSTMn")
         model = tf.keras.models.Sequential(layers=n_layers, name="LSTMn")
 
+        if masking:
+            model.add(Masking(mask_value=0., input_shape=(timesteps, features)))
 
         layer_seqs = True
         l_input_width = units_per_layer
