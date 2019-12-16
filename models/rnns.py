@@ -76,8 +76,6 @@ class SimpleRNNn:
     def build(features, classes, timesteps, batch_size, n_layers=1, units_per_layer=200,
               serial_recall=True, act_func='tanh', y_1hot=False, dropout=0.0,
               masking=False,
-              # mask_value=classes,
-              # weight_init='GlmrotUniform', unroll=False):
               weight_init='GlorotUniform', unroll=False, stateful=False):
         """
         :param features: input shape, which is n_letters (30) + 1, for end_of_seq_cue.

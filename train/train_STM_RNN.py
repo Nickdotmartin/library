@@ -7,16 +7,7 @@ import numpy as np
 
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam, SGD, RMSprop, Adagrad, Adadelta, Adamax, Nadam
-from tensorflow.python.keras.optimizer_v2 import optimizer_v2
 
-from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.python.ops import math_ops
-from tensorflow.python.ops import state_ops
-from tensorflow.python.framework import ops
-from tensorflow.python.keras.optimizer_v2 import optimizer_v2
-from tensorflow.python.ops import array_ops
-from tensorflow.python.ops import resource_variable_ops
-from tensorflow.python.training import training_ops
 from tensorflow.python.keras.callbacks import TensorBoard
 from keras.preprocessing.image import ImageDataGenerator
 import matplotlib.pyplot as plt
@@ -27,10 +18,7 @@ from tensorflow.python.keras.optimizer_v2 import optimizer_v2
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import resource_variable_ops
 from tensorflow.python.training import training_ops
-from tensorflow.python.util.tf_export import keras_export
 
-# import six
-# from six.moves import zip # used in tf.keras optimizers github so probably not needed here
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
@@ -41,36 +29,6 @@ from tools.RNN_STM import generate_STM_RNN_seqs, get_label_seqs, get_test_scores
 from models.rnns import Bowers14rnn, SimpleRNNn, GRUn, LSTMn, Seq2Seq
 
 
-'''
-Get this script working, then turn it into a callable function
-
-backprop through time*****************************************
-
-generator for data: 
-- from list of y-label seqs
-- for each seq
-- generate X data from vocab_dict
-- generate Y data 
-
-various datasets (vocab, seq len, rpt)
-
-models (rnn, GRU, LSTM, seq2seq)
-
-'''
-
-# def mean_IoU(y_true, y_pred):
-#     mean_IoU_acc = free_rec_acc(y_true=K.eval(y_true), y_pred=K.eval(y_pred), get_prop_corr=False)
-#     return mean_IoU_acc
-#
-# def prop_corr(y_true, y_pred):
-#     print(f"eagerly? {tf.executing_eagerly()}")
-#     print(f"numpy: {y_pred.numpy()}")
-#
-#     prop_corr_acc = free_rec_acc(y_true=K.eval(y_true), y_pred=K.eval(y_pred), get_prop_corr=True)
-#     return K.variable(prop_corr_acc)
-#
-#
-# tf.enable_eager_execution()
 
 # # custom optimizer from LENS
 class dougsMomentum(optimizer_v2.OptimizerV2):
@@ -128,6 +86,7 @@ class dougsMomentum(optimizer_v2.OptimizerV2):
                         self._get_hyper("momentum", var_dtype))
 
     def _resource_apply_dense(self, grad, var, apply_state=None):
+        # # here is the change from SGD with momentum
         # print(f"orig var: {var}")
         K.set_value(var, K.clip(var, min_value=-1.0, max_value=1.0))
         # print(f"set var: {var}")
@@ -135,8 +94,6 @@ class dougsMomentum(optimizer_v2.OptimizerV2):
         var_device, var_dtype = var.device, var.dtype.base_dtype
         coefficients = ((apply_state or {}).get((var_device, var_dtype))
                         or self._fallback_apply_state(var_device, var_dtype))
-
-
 
 
         if self._momentum:
@@ -193,212 +150,6 @@ class dougsMomentum(optimizer_v2.OptimizerV2):
         })
         return config
 
-
-
-# import keras.backend as K
-
-# def mean_pred(y_true, y_pred):
-#     return K.mean(y_pred)
-
-def nick_acc(y_true, y_pred, serial_recall=True, output_type='classes'):
-    """
-    :param y_true:
-    :param y_pred:
-    :param serial_recall: if True, Y array is a list of vectors
-                        If False, y-array is a single vector  e.g., activate all words simultaneously
-    :param output_type: default 'classes': output units represent class labels
-                        'letters' output units correspond to letters
-
-    :return: nick_acc (float)
-    """
-    hid0_input = tf.compat.v1.placeholder(tf.float32, shape=(32,None,31), name="hid0_input")
-    print(f"\nhid0_input: {hid0_input}")
-    output_target = tf.compat.v1.placeholder(tf.float32, shape=(None, None, None), name="output_target")
-    print(f"\noutput_target: {output_target}")
-    tf_session = K.get_session()
-
-    y_1hot = False
-
-    # if output_type=='classes':
-    #
-    #     if serial_recall:
-    #         # multiple 1hot CLASS vectors
-    #         y_1hot = True
-    #
-    #     elif not serial_recall:
-    #         # single 3hot CLASS vectors
-    #
-    # elif output_type=='letters':
-    #
-    #     # # must be serial recall
-    #     # multiple 3hot LETTER vectors
-
-    seq_corr = []
-
-    # to convert a tensor to a numpy array use tf.keras.backend.eval(x)
-    true_shape = tf.keras.backend.int_shape(y_true)
-    print(f"\ntrue_shape int_shape: {true_shape}")
-
-    pred_shape = tf.keras.backend.int_shape(y_pred)
-    print(f"\npred_shape: {pred_shape}")
-
-    batch_size, timesteps, out_units = tf.keras.backend.int_shape(y_pred)
-    print(f"\nbatch_size: {batch_size}\ntimesteps: {timesteps}\nout_units: {out_units}")
-
-    # check_shape = y_pred.eval(session=tf_session)
-    # print(f"\ncheck_shape: {check_shape}")
-
-    # pred_eval = tf.keras.backend.eval(y_pred)
-    # print(f"\npred_eval: {pred_eval}")
-
-    ###
-    # decoded_softmax = tf.keras.backend.ctc_decode(y_pred,
-    #                                               input_length=(out_units, ),
-    #                                               greedy=True,
-    #                                               beam_width=100,
-    #                                               top_paths=1)
-    # print(f"\ndecoded_softmax: {decoded_softmax}")
-    ###
-
-    # guess = tf.compat.v1.placeholder(tf.float32, true_shape)
-    # truth = tf.compat.v1.placeholder(tf.float32, true_shape)
-    # print(f"\nguess: {guess}")
-    # print(f"\ntruth: {truth}")
-
-
-    # with tf.compat.v1.Session() as sess:
-    #
-    #     feed_dict = {"guess": y_pred, "guess": y_true}
-    #
-    #     pred_dict = {"pred": y_pred}
-    #     pred_eval_dict = tf.keras.backend.eval(pred_dict)
-    #     pred_eval = pred_eval_dict['pred']
-    #     print(f"\npred_eval: {pred_eval}")
-    #     true_dict = {"true": y_true}
-    #     true_eval = tf.keras.backend.eval(true_dict)
-    #     print(f"\ntrue_eval: {true_eval}")
-
-        # classification = sess.run(y, feed_dict)
-        # print(classification)
-
-    # might need to iterate over time
-    for i in range(batch_size):
-        # for t in range(timesteps):
-        this_pred = K.variable(y_pred[i])  # [t]
-        this_true = y_true[i]  # [t]
-        print(f"\nthis_pred: {this_pred} {this_pred.shape}")
-        print(f"this_true: {this_true}")
-
-    flat_preds = K.flatten(y_pred)
-    print(f"\nK.int_shape(flat_preds): {K.int_shape(flat_preds)}")
-
-    flat_true = K.flatten(y_true)
-    print(f"\nK.int_shape(flat_true): {K.int_shape(flat_true)}")
-
-    # v = K.variable(flat_true)
-    # print(K.eval(v))
-    # print(K.eval(K.sqrt(v)))
-
-
-    # pred_lengths = tf.keras.backend.int_shape(y_pred)
-    # print(f"\npred_lengths int_shape: {pred_lengths}")
-    # pred_length = pred_lengths[0]
-    # print(f"\npred_length: {pred_length}")
-
-    if serial_recall and output_type is 'classes':
-        # decoded_softmax = tf.keras.backend.ctc_decode(y_pred,
-        #                                               pred_length=pred_length[0],
-        #                                               greedy=True,
-        #                                               beam_width=100,
-        #                                               top_paths=1)
-        # print(f"\ndecoded_softmax: {decoded_softmax}")
-        # if this decode doesn't work I could use
-        # max_val = tf.keras.backend.max(this_pred)
-        # print(f"\nmax_val: {max_val}")
-        # with sess.as_default():
-        # print(f"\nK.eval(max_val): {K.eval(max_val)}")
-
-
-        # then make a new variable of zeros
-        # prepared_pred = tf.keras.backend.zeros_like(this_pred, name='all_zeros')
-        # pred_list = [0.0] * out_units
-        # prepared_pred = K.eval(all_zeros)
-
-        # then convert the zero in the correct location to a 1
-        # pred_list[max_val] = 1
-
-        # pred_array = np.array(pred_list)
-
-        # prepared_pred = K.variable(value=pred_array, dtype='float64', name='prepared_pred')
-        # todo: this is wrong dor decoding softmax, use max val somehow
-        y_pred_binary = K.round(flat_preds)
-        prepared_pred = y_pred_binary
-
-        # print(f"\nprepared_pred: {prepared_pred}")
-
-        # print(f"\nprepared_pred.eval(): {prepared_pred.eval(session=tf_session)}")
-
-
-    else:
-        # multiple active items
-
-        # make vector of same length where each item is .5
-        # point5_array = np.array([.5] * pred_length)
-        # point5_vector = K.variable(value=point5_array, dtype='float64', name='point5_vector')
-        #
-        # prepared_pred = tf.keras.backend.greater_equal(this_pred, point5_vector)
-        y_pred_binary = tf.where(flat_preds >= 0.5, 1., 0.)
-        prepared_pred = y_pred_binary
-    print(f"\nprepared_pred: {prepared_pred}")
-
-    # compare
-    correct_item = tf.keras.backend.equal(prepared_pred, flat_true)
-    print(f"\ncorrect_item: {correct_item}")
-
-    cast_input = K.cast(correct_item, dtype='int32')
-    print(f"\ncast_input: {cast_input}")
-    seq_corr.append(cast_input)
-
-
-    # if correct_item == 'Tensor("metrics/nick_acc/Equal:0", shape=(?,), dtype=bool)':
-    #     print("yup")
-    # if correct_item == K.variable(value=False,
-    #                               dtype=bool,
-    #                               name=None,
-    #                               constraint=None):
-    #     print('match')
-    #
-    # print_this = tf.keras.backend.print_tensor(
-    #     correct_item,
-    #     message='here tis'
-    # )
-    #
-    # print(print_this)
-    # # summed_items == K.sum(correct_item
-    # if cast_input <= .5:
-    #     print('True')
-    #     seq_corr.append(1)
-    # else:
-    #     print('False')
-    #     seq_corr.append(0)
-    # seq_corr.append(correct_item)
-
-    print(f"\nseq_corr: {seq_corr}")
-
-    n_correct = K.sum(seq_corr)
-    print(f"\nn_correct: {n_correct}")
-
-    total_items = K.shape(seq_corr)
-    print(f"\ntotal_items: {total_items}")
-
-    acc_prop = n_correct/total_items
-    print(f"\nacc_prop: {acc_prop}")
-
-    return acc_prop
-
-# model.compile(optimizer='rmsprop',
-#               loss='binary_crossentropy',
-#               metrics=['accuracy', mean_pred])
 
 
 def train_model(exp_name,
@@ -628,9 +379,6 @@ def train_model(exp_name,
                                               dropout=use_dropout,
                                               masking=train_cycles,
                                               weight_init=weight_init,
-                                              unroll=unroll)
-                                              y_1hot=serial_recall,
-                                              dropout=use_dropout, weight_init=weight_init,
                                               unroll=unroll,
                                               stateful=stateful)
     else:
@@ -651,19 +399,17 @@ def train_model(exp_name,
         this_optimizer = SGD(lr=lr, momentum=0.0, nesterov=False)  # decay=sgd_lr / max_epochs)
     elif use_optimizer == 'SGD_Nesterov':
         this_optimizer = SGD(lr=lr, momentum=.1, nesterov=True)  # decay=sgd_lr / max_epochs)
-
     elif use_optimizer == 'SGD_mom_clip':
         this_optimizer = SGD(lr=lr, momentum=.9, clipnorm=1.)  # decay=sgd_lr / max_epochs)
-
     elif use_optimizer == 'dougs':
         this_optimizer = dougsMomentum(lr=lr, momentum=.9)
-        # this_optimizer = dougsMomentum()
 
     elif use_optimizer == 'adam':
         this_optimizer = Adam(lr=lr, amsgrad=False)
     elif use_optimizer == 'adam_amsgrad':
         # simulations run prior to 05122019 did not have this option, and may have use amsgrad under the name 'adam'
         this_optimizer = Adam(lr=lr, amsgrad=True)
+
     elif use_optimizer == 'RMSprop':
         this_optimizer = RMSprop(lr=lr)
     elif use_optimizer == 'Adagrad':
@@ -681,18 +427,9 @@ def train_model(exp_name,
     main_metric = 'binary_accuracy'
     if y_1hot:
         main_metric = 'categorical_accuracy'
-        # mean_IoU = free_rec_acc()
-        # prop_corr_acc = prop_corr(y_true, y_pred)
-        # iou_acc = mean_IoU(y_true, y_pred)
 
-        # compile model
-        # model.compile(loss=loss_func, optimizer=this_optimizer,
-        #               metrics=[main_metric, nick_acc])
 
-    # todo: come back and try metric again once I have got the generator working.
-    #   and once I have written the analysis script for current get scores.
-    model.compile(loss=loss_func, optimizer=this_optimizer,
-                  metrics=[main_metric])  # , nick_acc])
+    model.compile(loss=loss_func, optimizer=this_optimizer,  metrics=[main_metric])
 
     optimizer_details = model.optimizer.get_config()
     # print_nested_round_floats(model_details)
