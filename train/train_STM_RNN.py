@@ -8,7 +8,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam, SGD, RMSprop, Adagrad, Adadelta, Adamax, Nadam
 
-from tensorflow.python.keras.callbacks import TensorBoard
+from tensorflow.python.keras.callbacks import Callback, TensorBoard
 from keras.preprocessing.image import ImageDataGenerator
 import matplotlib.pyplot as plt
 import tensorflow.keras.backend as K
@@ -151,6 +151,31 @@ class dougsMomentum(optimizer_v2.OptimizerV2):
         return config
 
 
+# # reset hidden sate to .5 for training like lens
+initial_state = .5
+
+class SetHiddedStatesCallback(Callback):
+    def on_epoch_begin(self, epoch, logs):
+
+        print(f"\norig_states: {K.eval(self.model.layers[0].states)}")
+
+        # #I need to to set the state at .5
+        state_shape = K.shape(self.model.layers[0].states)
+        print(f"state_shape: {state_shape}\n"
+              f"I can use state_shape[1] and [2] to give new_states shape"
+              f"{state_shape[0]} {state_shape[1]} {state_shape[2]}")
+
+        # # make array to set as new state including initial_state
+        new_states = np.full((1, 200), initial_state)
+        self.model.layers[0].reset_states(new_states)
+
+        print(f"\nnew_states: {K.eval(self.model.layers[0].states)}")
+
+
+
+
+
+
 
 def train_model(exp_name,
                 data_dict_path,
@@ -176,7 +201,7 @@ def train_model(exp_name,
                 weight_init='GlorotUniform',
                 lr=0.001,
                 unroll=False,
-                LENS_states=True,
+                LENS_states=False,
                 exp_root='/home/nm13850/Documents/PhD/python_v2/experiments/',
                 verbose=False,
                 test_run=False
@@ -329,7 +354,6 @@ def train_model(exp_name,
 
 
     # # The Model
-    # K.clear_session()
 
     if train_cycles:
         train_ts = None
@@ -435,16 +459,6 @@ def train_model(exp_name,
     # print_nested_round_floats(model_details)
     focussed_dict_print(optimizer_details, 'optimizer_details')
 
-    # # check states
-    # model.layers[0](initial_state=)
-    # print(f"model states\n{states}")
-
-    # for state in states:
-    #     # if tf.__version__[0] == '2':
-    #     #     print(state.numpy())
-    #     # else:
-    #     print(K.get_value(state))
-
 
     # # get model dict
     model_info = get_model_dict(model)  # , verbose=True)
@@ -492,6 +506,9 @@ def train_model(exp_name,
 
     callbacks_list = [early_stop_plateau, checkpointer, tensorboard]
     val_callbacks_list = [val_early_stop_plateau, checkpointer, tensorboard]
+
+    if LENS_states:
+        callbacks_list = [early_stop_plateau, checkpointer, tensorboard, SetHiddedStatesCallback()]
 
     ############################
     # # train model
@@ -596,19 +613,6 @@ def train_model(exp_name,
     2. what is the average proportion of each sequence that is correct
     e.g., might get none of the sequences correct but on average get 50% of each sequence correct
     """
-    # if "test_label_seqs" in list(data_dict.keys()):
-    #     if type(data_dict["test_label_seqs"]) is "numpy.ndarray":
-    #         test_label_seqs = data_dict["test_label_seqs"]
-    #     elif type(data_dict["test_label_seqs"]) is 'str':
-    #         # if data_dict["test_label_seqs"][-3:] == 'csv':
-    #             # load csv
-    #         if data_dict["test_label_seqs"][-3:] == 'npy':
-    #             test_label_seqs = np.load(data_dict["test_label_seqs"])
-    # else:
-            # todo: separate serial_recall and y_1hot.  how to decide if repetitions are allowed?
-    # #     # # get labels for 100 sequences
-    # test_label_seqs = get_label_seqs(n_labels=n_cats, seq_len=timesteps,
-    #                                  repetitions=False, n_seqs=10*batch_size)
 
     # # load test label seqs
     data_path = data_dict['data_path']
@@ -622,7 +626,6 @@ def train_model(exp_name,
             test_seq_path = switch_home_dirs(test_seq_path)
     # if os.path.isfile(test_seq_path):
     test_label_seqs = np.load(test_seq_path)
-
 
 
     # # call get test accracy(serial_recall,

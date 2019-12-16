@@ -68,9 +68,6 @@ class Bowers14rnn:
         return model
 
 
-# weight_init = tf.keras.initializers.he_normal(seed=None)
-
-
 class SimpleRNNn:
     @staticmethod
     def build(features, classes, timesteps, batch_size, n_layers=1, units_per_layer=200,
@@ -88,15 +85,12 @@ class SimpleRNNn:
         :param act_func: Jeff Used Sigmoids, typically SimpleRNN uses Tanh
         :param y_1hot: If output is 1hot/softmax
         :param dropout: Not used
+        :param masking: Whether to use a masking layer for variable seq len
         :param weight_init: weight initialization
         :param unroll: uses more memory but trains faster
         :param stateful: stateful RNN does not reset states after each sequence.
             I need to set this to True in order to set the state to a given value at the start of
             a sequences as in Bowers 14.
-        :param masking: Whether to use a masking layer
-        # :param mask_value: what value to mask
-        :param weight_init: which weight initialization to use
-        :param unroll: whether to unroll the model
 
         :return: model
         """
@@ -149,7 +143,7 @@ class GRUn:
     def build(features, classes, timesteps, batch_size, n_layers=1, units_per_layer=200,
               serial_recall=True, act_func='tanh', y_1hot=False, dropout=0.0,
               masking=False,
-              weight_init='glorot_uniform', unroll=False):
+              weight_init='glorot_uniform', unroll=False, stateful=False):
         """
         :param features: input shape, which is n_letters (30) + 1, for end_of_seq_cue.
         :param classes: Vocab size (either 30 or 300)
@@ -161,6 +155,12 @@ class GRUn:
         :param act_func: Jeff Used Sigmoids, typically SimpleRNN uses Tanh
         :param y_1hot: If output is 1hot/softmax
         :param dropout: Not used
+        :param masking: Whether to use a masking layer for variable seq len
+        :param weight_init: weight initialization
+        :param unroll: uses more memory but trains faster
+        :param stateful: stateful RNN does not reset states after each sequence.
+            I need to set this to True in order to set the state to a given value at the start of
+            a sequences as in Bowers 14.
 
         :return: model
         """
@@ -207,7 +207,7 @@ class LSTMn:
     def build(features, classes, timesteps, batch_size, n_layers=1, units_per_layer=200,
               serial_recall=True, act_func='tanh', y_1hot=False, dropout=0.0,
               masking=False,
-              weight_init='glorot_uniform', unroll=False):
+              weight_init='glorot_uniform', unroll=False, stateful=False):
         """
         :param features: input shape, which is n_letters (30) + 1, for end_of_seq_cue.
         :param classes: Vocab size (either 30 or 300)
@@ -219,6 +219,12 @@ class LSTMn:
         :param act_func: Jeff Used Sigmoids, typically SimpleRNN uses Tanh
         :param y_1hot: If output is 1hot/softmax
         :param dropout: Not used
+        :param masking: Whether to use a masking layer for variable seq len
+        :param weight_init: weight initialization
+        :param unroll: uses more memory but trains faster
+        :param stateful: stateful RNN does not reset states after each sequence.
+            I need to set this to True in order to set the state to a given value at the start of
+            a sequences as in Bowers 14.
 
         :return: model
         """
