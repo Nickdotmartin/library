@@ -7,11 +7,30 @@ import numpy as np
 
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam, SGD, RMSprop, Adagrad, Adadelta, Adamax, Nadam
+from tensorflow.python.keras.optimizer_v2 import optimizer_v2
+
 from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.python.ops import math_ops
+from tensorflow.python.ops import state_ops
+from tensorflow.python.framework import ops
+from tensorflow.python.keras.optimizer_v2 import optimizer_v2
+from tensorflow.python.ops import array_ops
+from tensorflow.python.ops import resource_variable_ops
+from tensorflow.python.training import training_ops
 from tensorflow.python.keras.callbacks import TensorBoard
 from keras.preprocessing.image import ImageDataGenerator
 import matplotlib.pyplot as plt
 import tensorflow.keras.backend as K
+
+from tensorflow.python.framework import ops
+from tensorflow.python.keras.optimizer_v2 import optimizer_v2
+from tensorflow.python.ops import array_ops
+from tensorflow.python.ops import resource_variable_ops
+from tensorflow.python.training import training_ops
+from tensorflow.python.util.tf_export import keras_export
+
+# import six
+# from six.moves import zip # used in tf.keras optimizers github so probably not needed here
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
@@ -53,6 +72,129 @@ models (rnn, GRU, LSTM, seq2seq)
 #
 # tf.enable_eager_execution()
 
+# # custom optimizer from LENS
+class dougsMomentum(optimizer_v2.OptimizerV2):
+    """Default LENS optimizer
+        http://tedlab.mit.edu/~dr/Lens/Commands/dougsMomentum.html
+
+        based on
+        https://medium.com/@mlguy/adding-custom-loss-and-optimizer-in-keras-e255764e1b7d
+
+        adapted code from
+        https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/keras/optimizers.py
+
+
+        Has a momentum term similar to SGD, but previous update clipped to 1.
+        instead of:
+              v(t+1) = momentum * v(t) - learning_rate * gradient
+        uses:
+              v(t+1) = momentum * K.clip(v(t), min_value=None, max_value=1.0) - learning_rate * gradient
+
+        then updates with
+          theta(t+1) = theta(t) + v(t+1)
+
+        I've had some problems with it not recognizing self.lr, so going to use self.learn_rate
+    """
+
+    def __init__(self,
+                   learning_rate=0.01,
+                   momentum=0.0,
+                   nesterov=False,
+                   name="dougsMomentum",
+                   **kwargs):
+        """        # # initialize dougsMomentum optimizer
+        """
+        super(dougsMomentum, self).__init__(name, **kwargs)
+        self._set_hyper("learning_rate", kwargs.get("lr", learning_rate))
+        self._set_hyper("decay", self._initial_decay)
+
+        self._momentum = False
+        if isinstance(momentum, ops.Tensor) or callable(momentum) or momentum > 0:
+            self._momentum = True
+        if isinstance(momentum, (int, float)) and (momentum < 0 or momentum > 1):
+            raise ValueError("`momentum` must be between [0, 1].")
+        self._set_hyper("momentum", momentum)
+
+        self.nesterov = nesterov
+
+    def _create_slots(self, var_list):
+        if self._momentum:
+            for var in var_list:
+                self.add_slot(var, "momentum")
+
+    def _prepare_local(self, var_device, var_dtype, apply_state):
+        super(dougsMomentum, self)._prepare_local(var_device, var_dtype, apply_state)
+        apply_state[(var_device, var_dtype)]["momentum"] = array_ops.identity(
+                        self._get_hyper("momentum", var_dtype))
+
+    def _resource_apply_dense(self, grad, var, apply_state=None):
+        # print(f"orig var: {var}")
+        K.set_value(var, K.clip(var, min_value=-1.0, max_value=1.0))
+        # print(f"set var: {var}")
+
+        var_device, var_dtype = var.device, var.dtype.base_dtype
+        coefficients = ((apply_state or {}).get((var_device, var_dtype))
+                        or self._fallback_apply_state(var_device, var_dtype))
+
+
+
+
+        if self._momentum:
+            momentum_var = self.get_slot(var, "momentum")
+            return training_ops.resource_apply_keras_momentum(
+                var.handle,
+                momentum_var.handle,
+                coefficients["lr_t"],
+                grad,
+                coefficients["momentum"],
+                use_locking=self._use_locking,
+                use_nesterov=self.nesterov)
+        else:
+            return training_ops.resource_apply_gradient_descent(
+              var.handle, coefficients["lr_t"], grad, use_locking=self._use_locking)
+
+    def _resource_apply_sparse_duplicate_indices(self, grad, var, indices,
+                                                   **kwargs):
+        if self._momentum:
+            return super(dougsMomentum, self)._resource_apply_sparse_duplicate_indices(
+            grad, var, indices, **kwargs)
+        else:
+            var_device, var_dtype = var.device, var.dtype.base_dtype
+            coefficients = (kwargs.get("apply_state", {}).get((var_device, var_dtype))
+                              or self._fallback_apply_state(var_device, var_dtype))
+
+        return resource_variable_ops.resource_scatter_add(
+            var.handle, indices, -grad * coefficients["lr_t"])
+
+    def _resource_apply_sparse(self, grad, var, indices, apply_state=None):
+        # This method is only needed for momentum optimization.
+        var_device, var_dtype = var.device, var.dtype.base_dtype
+        coefficients = ((apply_state or {}).get((var_device, var_dtype))
+                        or self._fallback_apply_state(var_device, var_dtype))
+
+        momentum_var = self.get_slot(var, "momentum")
+        return training_ops.resource_sparse_apply_keras_momentum(
+            var.handle,
+            momentum_var.handle,
+            coefficients["lr_t"],
+            grad,
+            indices,
+            coefficients["momentum"],
+            use_locking=self._use_locking,
+            use_nesterov=self.nesterov)
+
+    def get_config(self):
+        config = super(dougsMomentum, self).get_config()
+        config.update({
+            "learning_rate": self._serialize_hyperparameter("learning_rate"),
+            "decay": self._serialize_hyperparameter("decay"),
+            "momentum": self._serialize_hyperparameter("momentum"),
+            "nesterov": self.nesterov,
+        })
+        return config
+
+
+
 
 def train_model(exp_name,
                 data_dict_path,
@@ -75,6 +217,7 @@ def train_model(exp_name,
                 weight_init='GlorotUniform',
                 lr=0.001,
                 unroll=False,
+                LENS_states=True,
                 exp_root='/home/nm13850/Documents/PhD/python_v2/experiments/',
                 verbose=False,
                 test_run=False
@@ -175,6 +318,7 @@ def train_model(exp_name,
         print("\n**** STUDY DETAILS ****")
         print(f"output_filename: {output_filename}\ndset_name: {dset_name}\nmodel: {model_name}\n"
               f"max_epochs: {max_epochs}\nuse_optimizer: {use_optimizer}\n"
+              f"lr: {lr}\n"
               f"loss_target: {loss_target}\nmin_loss_change: {min_loss_change}\n"
               f"batch_norm: {use_batch_norm}\nval_data: {use_val_data}\naugemntation: {augmentation}\n")
         focussed_dict_print(data_dict, 'data_dict')
@@ -224,6 +368,10 @@ def train_model(exp_name,
         print("loading a recurrent model")
         augmentation = False
 
+        stateful = False
+        if LENS_states != False:
+            stateful = True
+
         models_dict = {'Bowers14rnn': Bowers14rnn,
                        'SimpleRNNn': SimpleRNNn,
                        'GRUn': GRUn,
@@ -236,7 +384,8 @@ def train_model(exp_name,
                                               units_per_layer=units_per_layer, act_func=act_func,
                                               y_1hot=serial_recall,
                                               dropout=use_dropout, weight_init=weight_init,
-                                              unroll=unroll)
+                                              unroll=unroll,
+                                              stateful=stateful)
     else:
         print("model_dir not recognised")
 
@@ -253,6 +402,13 @@ def train_model(exp_name,
 
     if use_optimizer == 'SGD_Nesterov':
         this_optimizer = SGD(lr=lr, momentum=.1, nesterov=True)  # decay=sgd_lr / max_epochs)
+
+    elif use_optimizer == 'SGD_mom_clip':
+        this_optimizer = SGD(lr=lr, momentum=.9, clipnorm=1.)  # decay=sgd_lr / max_epochs)
+
+    elif use_optimizer == 'dougs':
+        this_optimizer = dougsMomentum(lr=lr, momentum=.9)
+        # this_optimizer = dougsMomentum()
 
     elif use_optimizer == 'adam':
         this_optimizer = Adam(lr=lr, amsgrad=True)
@@ -294,6 +450,16 @@ def train_model(exp_name,
     optimizer_details = model.optimizer.get_config()
     # print_nested_round_floats(model_details)
     focussed_dict_print(optimizer_details, 'optimizer_details')
+
+    # # check states
+    # model.layers[0](initial_state=)
+    # print(f"model states\n{states}")
+
+    # for state in states:
+    #     # if tf.__version__[0] == '2':
+    #     #     print(state.numpy())
+    #     # else:
+    #     print(K.get_value(state))
 
 
     # # get model dict
