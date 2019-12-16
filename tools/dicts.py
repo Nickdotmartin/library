@@ -185,8 +185,10 @@ def load_dict(dict_name):
             json_dict = True
 
     elif running_on_laptop():
-        if os.path.isfile(switch_home_dirs(dict_name)):
-            lappy_dict_name = switch_home_dirs(dict_name)
+        # print('running on laptop\n')
+        lappy_dict_name = switch_home_dirs(dict_name)
+        # print(f'lappy_dict_name: {lappy_dict_name}')
+        if os.path.isfile(lappy_dict_name):
             if lappy_dict_name[-7:] == '.pickle':
                 loaded_dict = pickle.load(open(lappy_dict_name, "rb"))
                 # print("loaded: {}".format(lappy_dict_name))
