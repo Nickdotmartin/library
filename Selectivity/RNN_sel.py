@@ -2039,6 +2039,10 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                     round(max_sel_summary['for_summ_csv_dict']['means_max'], 3),
                     int(datetime.datetime.now().strftime("%y%m%d")),
                     int(datetime.datetime.now().strftime("%H%M")),
+                    gha_dict['model_info']['overview']['unroll'],
+                    gha_dict['model_info']['overview']['y_1hot'],
+                    gha_dict['model_info']['overview']['LENS_states'],
+
                     ]
 
     summary_headers = ["cond", "run", "output_filename", "dataset", "use_dataset",
@@ -2052,7 +2056,8 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                        "mi_mean", "mi_max", "ccma_mean", "ccma_max",
                        "b_sel_mean", 'b_sel_max',
                        "prec_mean", "prec_max", "means_mean", "means_max",
-                       'sel_date', 'sel_time']
+                       'sel_date', 'sel_time',
+                       "unroll", "y_1hot", "LENS_states"]
 
     # # save sel summary in exp folder not condition folder
     exp_name = gha_dict['topic_info']['exp_name']

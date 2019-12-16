@@ -663,7 +663,10 @@ def train_model(exp_name,
                               "loss_target": loss_target,
                               "min_loss_change": min_loss_change,
                               "max_epochs": max_epochs,
-                              'timesteps': timesteps}
+                              'timesteps': timesteps,
+                              'unroll': unroll,
+                              'y_1hot': y_1hot,
+                              'LENS_states': LENS_states}
 
 
     # repo = "git.Repo('/home/nm13850/Documents/PhD/code/library')"
@@ -723,6 +726,7 @@ def train_model(exp_name,
                      use_val_data, loss_target, min_loss_change,
                      max_epochs, trained_for, end_acc, end_loss, end_val_acc, end_val_loss,
                      checkpoint_path, trained_date, trained_time, mean_IoU, prop_seq_corr,
+                     unroll, y_1hot, LENS_states
 
                      ]
 
@@ -752,7 +756,8 @@ def train_model(exp_name,
                    "optimizer", "batch_norm", "dropout", "batch_size", "aug", "grey_image",
                    "val_data", "loss_target", "min_loss_change",
                    "max_epochs", "trained_for", "end_acc", "end_loss", "end_val_acc", "end_val_loss",
-                   "model_file", "date", "time", "mean_IoU", "prop_seq_corr"]
+                   "model_file", "date", "time", "mean_IoU", "prop_seq_corr",
+                   "unroll", "y_1hot", "LENS_states"]
 
         training_overview = open(f"{exp_name}_training_summary.csv", 'w')
         mywriter = csv.writer(training_overview)
