@@ -155,21 +155,21 @@ class dougsMomentum(optimizer_v2.OptimizerV2):
 initial_state = .5
 
 class SetHiddedStatesCallback(Callback):
-    def on_epoch_begin(self, epoch, logs):
-
-        print(f"\norig_states: {K.eval(self.model.layers[0].states)}")
+    # def on_epoch_begin(self, epoch, logs):
+    def on_train_batch_begin(self, batch, logs=None):
+        # print(f"\norig_states: {K.eval(self.model.layers[0].states)}")
 
         # #I need to to set the state at .5
-        state_shape = K.shape(self.model.layers[0].states)
-        print(f"state_shape: {state_shape}\n"
-              f"I can use state_shape[1] and [2] to give new_states shape"
-              f"{state_shape[0]} {state_shape[1]} {state_shape[2]}")
+        # state_shape = K.shape(self.model.layers[0].states)
+        # print(f"state_shape: {state_shape}\n"
+        #       f"I can use state_shape[1] and [2] to give new_states shape"
+        #       f"{state_shape[0]} {state_shape[1]} {state_shape[2]}")
 
         # # make array to set as new state including initial_state
         new_states = np.full((1, 200), initial_state)
         self.model.layers[0].reset_states(new_states)
 
-        print(f"\nnew_states: {K.eval(self.model.layers[0].states)}")
+        # print(f"\nnew_states: {K.eval(self.model.layers[0].states)}")
 
 
 
