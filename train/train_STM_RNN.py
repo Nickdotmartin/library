@@ -348,8 +348,9 @@ def train_model(exp_name,
     exp_cond_path = os.path.join(exp_cond_path, train_folder)
 
     # # check which machine i am on
-    if running_on_laptop:
+    if running_on_laptop == True:
         exp_cond_path = switch_home_dirs(exp_cond_path)
+
     if not os.path.exists(exp_cond_path):
         # print(f'exp_cond_path: {exp_cond_path}')
         os.makedirs(exp_cond_path)
