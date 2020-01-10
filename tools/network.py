@@ -594,6 +594,7 @@ def loop_thru_acts(gha_dict_path,
     if correct_items_only:
         item_index == correct_items
     # print(f"incorrect_items: {np.shape(incorrect_items)}\n{incorrect_items}")
+    # print(f'item_index: {np.shape(item_index)}\n{item_index}\n')
 
     if gha_incorrect:
         if correct_items_only:

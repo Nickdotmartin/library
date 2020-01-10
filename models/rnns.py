@@ -228,9 +228,9 @@ class LSTMn:
 
         :return: model
         """
+        model = Sequential(name="LSTMn")
         # model = Sequential(layers=n_layers, name="LSTMn")
-        # model = Sequential(layers=n_layers, name="LSTMn")
-        model = tf.keras.models.Sequential(layers=n_layers, name="LSTMn")
+        # model = tf.keras.models.Sequential(layers=n_layers, name="LSTMn")
 
         if masking:
             model.add(Masking(mask_value=0., input_shape=(timesteps, features)))
@@ -246,6 +246,9 @@ class LSTMn:
                 layer_seqs = serial_recall
 
             model.add(LSTM(units=units_per_layer,
+
+                           # input_shape=(timesteps, l_input_width),
+
                            batch_input_shape=(batch_size, timesteps, l_input_width),
 
                            kernel_initializer=weight_init,
@@ -253,7 +256,7 @@ class LSTMn:
                            return_sequences=layer_seqs,  # this stops it from giving an output after each item
                            # # stateful allows the model to learn from all timesteps
                            # # not just previous one.  also allows truncated backprop thru time.
-                           # stateful=True,
+                           stateful=stateful,
                            activation=act_func, dropout=dropout, name=f"hid{layer}",
 
                            unroll=unroll))

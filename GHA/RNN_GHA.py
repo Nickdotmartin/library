@@ -12,7 +12,7 @@ from tensorflow.keras.models import load_model, Model
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
 from tools.RNN_STM import get_label_seqs, get_test_scores, get_layer_acts
 from tools.RNN_STM import seq_items_per_class, spell_label_seqs
-from tools.data import find_path_to_dir
+from tools.data import find_path_to_dir, running_on_laptop, switch_home_dirs
 
 
 def kernel_to_2d(layer_activation_4d, reduce_type='max', verbose=False):
@@ -309,12 +309,24 @@ def rnn_gha(sim_dict_path,
 
     # # load test_seqs if they are there, else generate some
     data_path = sim_dict['data_info']['data_path']
+
+    if not os.path.exists(data_path):
+        if os.path.exists(switch_home_dirs(data_path)):
+            data_path = switch_home_dirs(data_path)
+        else:
+            raise FileExistsError(f'data path not found: {data_path}')
+
+
+    print(f'data_path: {data_path}')
+
     test_filename = f'seq{timesteps}_v{n_cats}_960_test_seq_labels.npy'
     test_seq_path = os.path.join(data_path, test_filename)
-
-    # if os.path.isfile(test_seq_path):
     test_label_seqs = np.load(test_seq_path)
-    test_label_name = os.path.join(sim_dict['data_info']['data_path'],
+
+    print(f'test_label_seqs: {np.shape(test_label_seqs)}\n{test_label_seqs}\n')
+
+
+    test_label_name = os.path.join(data_path,
                                    test_filename[:-10])
 
     seq_words_df = pd.read_csv(f"{test_label_name}words.csv")
@@ -344,6 +356,8 @@ def rnn_gha(sim_dict_path,
     scores_dict = get_test_scores(model=loaded_model, data_dict=data_dict,
                                   test_label_seqs=test_label_seqs,
                                   serial_recall=serial_recall,
+                                  x_data_type=x_data_type,
+                                  # output_type=output_type,
                                   end_seq_cue=end_seq_cue,
                                   batch_size=batch_size,
                                   verbose=verbose)

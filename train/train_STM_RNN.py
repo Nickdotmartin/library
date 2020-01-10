@@ -23,7 +23,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
-from tools.data import load_x_data, load_y_data, find_path_to_dir, switch_home_dirs
+from tools.data import find_path_to_dir, switch_home_dirs, running_on_laptop
 from tools.network import get_model_dict, get_scores
 from tools.RNN_STM import generate_STM_RNN_seqs, get_label_seqs, get_test_scores, free_rec_acc
 from models.rnns import Bowers14rnn, SimpleRNNn, GRUn, LSTMn, Seq2Seq
@@ -347,7 +347,11 @@ def train_model(exp_name,
 
     exp_cond_path = os.path.join(exp_cond_path, train_folder)
 
+    # # check which machine i am on
+    if running_on_laptop:
+        exp_cond_path = switch_home_dirs(exp_cond_path)
     if not os.path.exists(exp_cond_path):
+        # print(f'exp_cond_path: {exp_cond_path}')
         os.makedirs(exp_cond_path)
     os.chdir(exp_cond_path)
     print(f"\nsaving to exp_cond_path: {exp_cond_path}")
@@ -395,10 +399,12 @@ def train_model(exp_name,
                        'LSTMn': LSTMn,
                        'Seq2Seq': Seq2Seq}
 
-        model = models_dict[model_name].build(features=x_size, classes=n_output_units, timesteps=train_ts,
+        model = models_dict[model_name].build(features=x_size, classes=n_output_units,
+                                              timesteps=train_ts,
                                               batch_size=batch_size, n_layers=hid_layers,
                                               serial_recall=serial_recall,
-                                              units_per_layer=units_per_layer, act_func=act_func,
+                                              units_per_layer=units_per_layer,
+                                              act_func=act_func,
                                               y_1hot=y_1hot,
                                               dropout=use_dropout,
                                               masking=train_cycles,
@@ -555,7 +561,7 @@ def train_model(exp_name,
                                                   x_data_type=x_data_type,
                                                   end_seq_cue=end_seq_cue,
                                                   train_cycles=train_cycles,
-                                                  # verbose=verbose
+                                                  verbose=False  # verbose
                                                   )
 
             fit_model = model.fit_generator(generate_data,
@@ -616,20 +622,36 @@ def train_model(exp_name,
 
     # # load test label seqs
     data_path = data_dict['data_path']
+
+    if not os.path.exists(data_path):
+        if os.path.exists(switch_home_dirs(data_path)):
+            data_path = switch_home_dirs(data_path)
+        else:
+            raise FileExistsError(f'data path not found: {data_path}')
+
+
+    print(f'\nfault finding train 628')
+    print(f'data_path: {data_path}\n')
+
     if train_cycles:
         timesteps = 7
+
     test_filename = f'seq{timesteps}_v{n_cats}_960_test_seq_labels.npy'
     test_seq_path = os.path.join(data_path, test_filename)
 
-    if not os.path.isfile(test_seq_path):
-        if os.path.isfile(switch_home_dirs(test_seq_path)):
-            test_seq_path = switch_home_dirs(test_seq_path)
+    # if not os.path.isfile(test_seq_path):
+    #     if os.path.isfile(switch_home_dirs(test_seq_path)):
+    #         test_seq_path = switch_home_dirs(test_seq_path)
     # if os.path.isfile(test_seq_path):
     test_label_seqs = np.load(test_seq_path)
 
+    print(f'test_label_seqs: {np.shape(test_label_seqs)}\n{test_label_seqs}\n')
+
+
 
     # # call get test accracy(serial_recall,
-    scores_dict = get_test_scores(model=model, data_dict=data_dict, test_label_seqs=test_label_seqs,
+    scores_dict = get_test_scores(model=model, data_dict=data_dict,
+                                  test_label_seqs=test_label_seqs,
                                   serial_recall=serial_recall,
                                   x_data_type=x_data_type,
                                   output_type=output_type,
@@ -654,6 +676,7 @@ def train_model(exp_name,
                               "end_seq_cue": end_seq_cue,
                               "use_val_data": use_val_data,
                               "optimizer": use_optimizer,
+                              'learning_rate': lr,
                               "loss_func": loss_func,
                               "use_batch_norm": use_batch_norm,
                               "batch_size": batch_size,

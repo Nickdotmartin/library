@@ -154,12 +154,12 @@ def get_X_and_Y_data_from_seq(vocab_dict,
 
     elif end_seq_cue == True:
         # original code from before I started on cycles.
-        # assumes a single last item which contains the cue.
+        # assumes a single last item which contains only the cue.
         # # add an additional unit which is only activated on the last item of each seq
-        # # not dure this really words...
+        # # not sure this really words...
         # get last_item to know which is last item of seq
         last_item = len(seq_line) - 1
-        print(f"last_item: {last_item}")
+        # print(f"last_item: {last_item}")
 
         x_data = []
         for index, item in enumerate(seq_line):
@@ -311,14 +311,13 @@ def generate_STM_RNN_seqs(data_dict,
     :param x_data_type: 'local_word_X', 'local_letter_X', 'dist_letter_X'.
                 Note for 1hot Y data use local_word_X
     :param end_seq_cue: if True, add input unit which is activated for the last item in each seq
-    :param end_seq_cue: if True, add input unit which is activated for the last item in each seq
     :param train_cycles: if False, all lists lengths = timesteps.
                         If True, train on varying length, [1, 2, 3,...timesteps].
     :Yeild: X_array and Y_array
     """
 
     if verbose:
-        print(f'\n*** running def generate_STM_RNN_seqs() ***')
+        print(f'\n*** running generate_STM_RNN_seqs() ***')
         print(f"seq_len={seq_len}\nbatch_size={batch_size}\nrepetitions={repetitions}\n"
               f"serial_recall={serial_recall}\noutput_type={output_type}\n"
               f"x_data_type={x_data_type}\nend_seq_cue={end_seq_cue}\ntrain_cycles: {train_cycles}")
@@ -361,6 +360,10 @@ def generate_STM_RNN_seqs(data_dict,
             x_batch.append(get_X)
             y_batch.append(get_Y)
 
+            # print(f"testing end seq cue")
+            # print(f"get_X: {get_X}")
+            # print(f"get_Y: {get_Y}")
+
             if verbose:
                 print(f'\nthis seq: {this_seq}\n'
                       f'x_batch:\n{x_batch}\n'
@@ -379,13 +382,13 @@ def generate_STM_RNN_seqs(data_dict,
 # data_dict = load_dict(data_dict_path)
 #
 # generate_data = generate_STM_RNN_seqs(data_dict=data_dict,
-#                                       seq_len=8,
-#                                       batch_size=16,
-#                                       serial_recall=True,
-#                                       output_type='letters',
+#                                       seq_len=3,
+#                                       batch_size=1,
+#                                       serial_recall=False,
+#                                       output_type='words',
 #                                       x_data_type='dist_letter_X',
 #                                       end_seq_cue=True,
-#                                       train_cycles=True,
+#                                       train_cycles=False,
 #                                       verbose=True,
 #                                       )
 # # test_get_label_seqs = get_label_seqs(n_labels=30, seq_len=8, repetitions=False, n_seqs=16,
@@ -398,7 +401,7 @@ def generate_STM_RNN_seqs(data_dict,
 # x_data = []
 # y_data = []
 #
-# for i in range(10):
+# for i in range(3):
 #     this_seq = next(generate_data)
 #     x_data.append(this_seq[0])
 #     y_data.append(this_seq[1])
@@ -410,7 +413,153 @@ def generate_STM_RNN_seqs(data_dict,
 # print(f"\ny_data: {type(y_data)}  {np.shape(y_data)}")
 # # print(y_data)
 
+# make data generator
+def generate_STM_seq2seqs(data_dict,
+                          seq_len,
+                          batch_size=16,
+                          repetitions=False,
+                          serial_recall=False,
+                          output_type='classes',
+                          x_data_type='dist_letter_X',
+                          end_seq_cue=False,
+                          train_cycles=False,
+                          pad_label=None,
+                          verbose=False,
+                          ):
+    """
+    https://keras.io/models/model/#fit_generator see example
 
+    Will generate a list of seqs e.g., [[1, 2, 3], [6, 2, 4]...
+    and make X_data and Y_data from vocab_dict.
+    Note that this generator relies on two functions
+    (e.g., can produce sequences infinteley,
+    although the other functions work one at a time.)
+
+    :param data_dict: dict for this dataset with links to vocab_dict
+    :param seq_len: Or time-steps.  number of items per seq.
+    :param batch_size: Generator outputs in batches - this sets their size
+    :param serial_recall: if True, Y array is a list of vectors
+                        If False, y-array is a single vector  e.g., activate all words simultaneously
+    :param output_type: default 'classes': output units represent class labels
+                        'letters' output units correspond to letters
+    :param x_data_type: 'local_word_X', 'local_letter_X', 'dist_letter_X'.
+                Note for 1hot Y data use local_word_X
+    :param end_seq_cue: if True, add input unit which is activated for the last item in each seq
+    :param end_seq_cue: if True, add input unit which is activated for the last item in each seq
+    :param train_cycles: if False, all lists lengths = timesteps.
+                        If True, train on varying length, [1, 2, 3,...timesteps].
+    :Yeild: X1_array, X2 and Y_array
+    """
+
+    if verbose:
+        print(f'\n*** running def generate_STM_RNN_seqs() ***')
+        print(f"seq_len={seq_len}\nbatch_size={batch_size}\nrepetitions={repetitions}\n"
+              f"serial_recall={serial_recall}\noutput_type={output_type}\n"
+              f"x_data_type={x_data_type}\nend_seq_cue={end_seq_cue}\ntrain_cycles: {train_cycles}")
+
+    # load vocab dict
+    vocab_dict = load_dict(os.path.join(data_dict['data_path'], data_dict['vocab_dict']))
+    n_cats = data_dict['n_cats']
+    class_list = list(range(n_cats))
+
+    while True:      # this allows it to go on forever
+        x_batch = []
+        y_batch = []
+
+        if train_cycles:
+            # # generate a whole batch of seqs at once, then get x and y one-at-a-time
+            pad_label = n_cats
+            batch_of_seqs = get_label_seqs(n_labels=n_cats, seq_len=seq_len, repetitions=repetitions,
+                                           n_seqs=batch_size,
+                                           cycles=True)
+
+        for items in range(batch_size):
+
+            if train_cycles:
+                this_seq = batch_of_seqs[items]
+            else:
+                this_seq = get_label_seqs(n_labels=n_cats, seq_len=seq_len, repetitions=repetitions)
+
+            # get input and output data from vocab dict for this_seq
+            get_X, get_Y = get_X_and_Y_data_from_seq(vocab_dict=vocab_dict,
+                                                     seq_line=this_seq,
+                                                     x_data_type=x_data_type,
+                                                     serial_recall=serial_recall,
+                                                     output_type=output_type,
+                                                     end_seq_cue=end_seq_cue,
+                                                     train_cycles=train_cycles,
+                                                     pad_label=pad_label,
+                                                     )
+
+            print(f'get_X: {get_X}\n')
+            list_len, x_len = np.shape(get_X)
+
+            shifted_x = get_X[:-1]
+            print(f'shifted_x: {shifted_x}')
+
+            x2_cue = np.asarray([0] * x_len)
+            # change relevant items to 1
+            x2_cue[x_len-1] = 1
+
+            print(f'x2_cue: {x2_cue}')
+
+            # X2 = x2_cue + get_X[1:]
+            X2 = np.vstack((x2_cue, shifted_x))
+            print(f'X2: {X2}')
+
+
+
+            x_batch.append(get_X)
+            y_batch.append(get_Y)
+
+            if verbose:
+                print(f'\nthis seq: {this_seq}\n'
+                      f'x_batch:\n{x_batch}\n'
+                      f'y_batch:\n{y_batch}\n')
+
+        # yeild returns a generator not an array.
+        yield np.asarray(x_batch), np.asarray(y_batch)
+
+######################################
+# print("\ntest generate_STM_seq2seqs")
+#
+# # data_dict_path = '/home/nm13850/Documents/PhD/python_v2/datasets/' \
+# #                  'RNN/bowers14_rep/vocab_30_load_dict.txt'
+# data_dict_path = '/home/nm13850/Documents/PhD/python_v2/datasets/' \
+#                  'RNN/bowers14_rep/vocab_30_data_load_dict.txt'
+# data_dict = load_dict(data_dict_path)
+#
+# generate_data = generate_STM_seq2seqs(data_dict=data_dict,
+#                                       seq_len=3,
+#                                       batch_size=1,
+#                                       serial_recall=False,
+#                                       output_type='words',
+#                                       x_data_type='dist_letter_X',
+#                                       end_seq_cue=True,
+#                                       train_cycles=False,
+#                                       verbose=True,
+#                                       )
+# # test_get_label_seqs = get_label_seqs(n_labels=30, seq_len=8, repetitions=False, n_seqs=16,
+# #                                      cycles=True)
+# # print(f"\ntest_get_label_seqs: {type(test_get_label_seqs)}  {np.shape(test_get_label_seqs)}")
+# # print(test_get_label_seqs)
+# print("\ntesting generator for ten iterations")
+#
+# y_labels = []
+# x_data = []
+# y_data = []
+#
+# for i in range(3):
+#     this_seq = next(generate_data)
+#     x_data.append(this_seq[0])
+#     y_data.append(this_seq[1])
+#
+# x_data = np.array(x_data)
+# print(f"\nx_data: {type(x_data)}  {np.shape(x_data)}")
+# # print(x_data)
+# y_data = np.array(y_data)
+# print(f"\ny_data: {type(y_data)}  {np.shape(y_data)}")
+# # print(y_data)
 
 # get test scores.
 def get_test_scores(model, data_dict, test_label_seqs,
