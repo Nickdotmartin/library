@@ -1788,6 +1788,9 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
             empty_class_list = [class_a.empty, not_class_a.empty]
             an_empty_class = False
+
+            off_unit = False
+
             if True in empty_class_list:
                 an_empty_class = True
 
@@ -1849,7 +1852,6 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
                 if b_sel_on >= b_sel_off:
                     b_sel = b_sel_on
-                    off_unit = False
                     if verbose:
                         print(f"\nb_sel ON\n"
                               f"class_a_min: {class_a_min} - not_class_a_max: {not_class_a_max}\n"
