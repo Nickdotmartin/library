@@ -100,6 +100,9 @@ class Bowers_14_Elman:
             if layer == n_layers - 1:  # last layer
                 layer_seqs = serial_recall
 
+            # # add concatenate function here for context and input being added together.
+            # # features + units_per_layer
+
             model.add(SimpleRNN(units=units_per_layer,
 
                                 kernel_initializer=weight_init,
@@ -120,10 +123,16 @@ class Bowers_14_Elman:
 
                                 unroll=unroll))
 
+        # # somehow the the output from hid layer needs to go to output and context.
+        # # weights from hidden to context should be fixed and 1, and single connections not fc
+
         model.add(TimeDistributed(Dense(units=units_per_layer, name='context',
                                         activation=act_func,
                                         # # no need for input shape if used after first layer
                                         )))
+
+        # # somehow the output of the context layer needs to go back into the hidden layer.
+        # # These weights are learnable and fully connected.
 
         if y_1hot:
             model.add(Dense(classes, name='output', activation='softmax'))
