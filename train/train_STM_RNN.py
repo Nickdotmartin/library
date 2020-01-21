@@ -26,7 +26,7 @@ from tools.dicts import load_dict, focussed_dict_print, print_nested_round_float
 from tools.data import find_path_to_dir, switch_home_dirs, running_on_laptop
 from tools.network import get_model_dict, get_scores
 from tools.RNN_STM import generate_STM_RNN_seqs, get_label_seqs, get_test_scores, free_rec_acc
-from models.rnns import Bowers14rnn, SimpleRNNn, Bowers_14_Elman, GRUn, LSTMn, Seq2Seq
+from models.rnns import Bowers14rnn, SimpleRNNn, Bowers_14_Elman, Bowers_14_Elman2, GRUn, LSTMn, Seq2Seq
 
 
 
@@ -387,16 +387,24 @@ def train_model(exp_name,
                              f'or with a string "n_cats" or "x_size"\noutput_units: {output_units}')
 
     if 'rnn' in model_dir:
-        print("loading a recurrent model")
+        print("\nloading a recurrent model")
         augmentation = False
 
         stateful = False
         if LENS_states != False:
             stateful = True
 
+        print(f"\nserial_recall: {serial_recall}\n"
+              f"y_1hot: {y_1hot}\n"
+              f"batch_size: {batch_size}\n"
+              f"unroll: {unroll}\n"
+              f"LENS_states: {LENS_states}\n"
+              f"timesteps: {timesteps}")
+
         models_dict = {'Bowers14rnn': Bowers14rnn,
                        'SimpleRNNn': SimpleRNNn,
                        'Bowers_14_Elman': Bowers_14_Elman,
+                       'Bowers_14_Elman2': Bowers_14_Elman2,
                        'GRUn': GRUn,
                        'LSTMn': LSTMn,
                        'Seq2Seq': Seq2Seq}
