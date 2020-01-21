@@ -68,6 +68,72 @@ class Bowers14rnn:
         return model
 
 
+class Bowers_14_Elman:
+    @staticmethod
+    def build(features, classes, timesteps, batch_size, n_layers=1, units_per_layer=200,
+              serial_recall=True, act_func='sigmoid', y_1hot=False, dropout=0.0,
+              masking=False,
+              weight_init='GlorotUniform', unroll=False, stateful=False):
+        """
+        :param features: input shape, which is n_letters (30) + 1, for end_of_seq_cue.
+        :param classes: Vocab size (either 30 or 300)
+        :param timesteps: or seq_len.  Use 1, 3, 5, 7
+        :param units_per_layer: 200
+        :param act_func: Jeff Used Sigmoids, typically SimpleRNN uses Tanh
+        :param y_1hot: If output is 1hot/softmax
+        :param dropout: Not used
+
+        :return:
+        """
+        model = Sequential(name="Bowers_14_Elman")
+
+        layer_seqs = True
+        l_input_width = units_per_layer
+
+        if masking:
+            model.add(Masking(mask_value=0., input_shape=(timesteps, features)))
+
+        for layer in range(n_layers):
+            if layer == 0:  # first layer
+                l_input_width = features
+
+            if layer == n_layers - 1:  # last layer
+                layer_seqs = serial_recall
+
+            model.add(SimpleRNN(units=units_per_layer,
+
+                                kernel_initializer=weight_init,
+
+                                # chenged batch_input_shape to input_shape on 07122019 trying to
+                                # get the model to run with variable inpjut length.
+                                # Also tried with both"""
+                                input_shape=(timesteps, l_input_width),
+                                batch_input_shape=(batch_size, timesteps, l_input_width),
+
+                                return_sequences=layer_seqs,  # this stops it from giving an output after each item
+
+                                # # stateful allows the model to learn from all timesteps
+                                # # not just previous one.  also allows truncated backprop thru time.
+                                stateful=stateful,
+
+                                activation=act_func, dropout=dropout, name=f"hid{layer}",
+
+                                unroll=unroll))
+
+        model.add(TimeDistributed(Dense(units=units_per_layer, name='context',
+                                        activation=act_func,
+                                        # # no need for input shape if used after first layer
+                                        )))
+
+        if y_1hot:
+            model.add(Dense(classes, name='output', activation='softmax'))
+        else:
+            # dist output classifier
+            model.add(Dense(classes, name='output', activation='sigmoid'))
+
+        return model
+
+
 class SimpleRNNn:
     @staticmethod
     def build(features, classes, timesteps, batch_size, n_layers=1, units_per_layer=200,

@@ -26,7 +26,7 @@ from tools.dicts import load_dict, focussed_dict_print, print_nested_round_float
 from tools.data import find_path_to_dir, switch_home_dirs, running_on_laptop
 from tools.network import get_model_dict, get_scores
 from tools.RNN_STM import generate_STM_RNN_seqs, get_label_seqs, get_test_scores, free_rec_acc
-from models.rnns import Bowers14rnn, SimpleRNNn, GRUn, LSTMn, Seq2Seq
+from models.rnns import Bowers14rnn, SimpleRNNn, Bowers_14_Elman, GRUn, LSTMn, Seq2Seq
 
 
 
@@ -396,6 +396,7 @@ def train_model(exp_name,
 
         models_dict = {'Bowers14rnn': Bowers14rnn,
                        'SimpleRNNn': SimpleRNNn,
+                       'Bowers_14_Elman': Bowers_14_Elman,
                        'GRUn': GRUn,
                        'LSTMn': LSTMn,
                        'Seq2Seq': Seq2Seq}
