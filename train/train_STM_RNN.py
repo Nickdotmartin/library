@@ -430,7 +430,7 @@ def train_model(exp_name,
     if not y_1hot:
         loss_func = 'binary_crossentropy'
 
-
+    # # sort optimizers
     # optimizer
     sgd = SGD(lr=lr, momentum=.9)  # decay=sgd_lr / max_epochs)
     this_optimizer = sgd
@@ -685,6 +685,7 @@ def train_model(exp_name,
                               "x_data_type": x_data_type,
                               "end_seq_cue": end_seq_cue,
                               "use_val_data": use_val_data,
+                              "weight_init": weight_init,
                               "optimizer": use_optimizer,
                               'learning_rate': lr,
                               "loss_func": loss_func,
@@ -755,6 +756,7 @@ def train_model(exp_name,
                      x_data_type,
                      act_func,
                      serial_recall,
+                     weight_init, lr,
                      use_optimizer, use_batch_norm, use_dropout, batch_size, augmentation, grey_image,
                      use_val_data, loss_target, min_loss_change,
                      max_epochs, trained_for, end_acc, end_loss, end_val_acc, end_val_loss,
@@ -786,6 +788,7 @@ def train_model(exp_name,
                    "x_data_type",
                    "act_func",
                    "serial_recall",
+                   "weight_init", 'LR',
                    "optimizer", "batch_norm", "dropout", "batch_size", "aug", "grey_image",
                    "val_data", "loss_target", "min_loss_change",
                    "max_epochs", "trained_for", "end_acc", "end_loss", "end_val_acc", "end_val_loss",

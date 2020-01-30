@@ -296,7 +296,7 @@ class SimpleRNNn:
                                 input_shape=(timesteps, l_input_width),
                                 batch_input_shape=(batch_size, timesteps, l_input_width),
 
-                                return_sequences=layer_seqs,  # this stops it from giving an output after each item
+                                return_sequences=layer_seqs,  # False stops it from giving an output after each item
 
                                 # # stateful allows the model to learn from all timesteps
                                 # # not just previous one.  also allows truncated backprop thru time.
