@@ -973,31 +973,32 @@ def count_sel_units(word_sel_dict_path, measure='b_sel',
     # # values: level: [word, letter], feature, min_sel
     invar_dict = dict()
 
-    unit_list = list(word_sel_dict['hid0'].keys())
-    for unit in unit_list:
-        unit_df = sel_df.xs(('hid0', unit))
-        # print(f"unit_df: {unit}\n{unit_df}\n")
+    if not just_1st_ts:
+        unit_list = list(word_sel_dict['hid0'].keys())
+        for unit in unit_list:
+            unit_df = sel_df.xs(('hid0', unit))
+            # print(f"unit_df: {unit}\n{unit_df}\n")
 
-        # word invar
-        print(f"\nUnit_df:\n{unit_df}")
-        word_c_list = unit_df['word_c'].to_list()
-        if len(set(word_c_list)) == 1:
-            invar_dict[unit] = dict()
-            # print(f"Invariant for words!\n")
-            invar_dict[unit]['word_label'] = word_c_list[0]
-            invar_dict[unit]['word_feat'] = unit_df['word_feat'].to_list()[0]
-            invar_dict[unit]['word_sel'] = min(unit_df['word_sel'].to_list())
-
-        # letter invar
-        letter_c_list = unit_df['letter_c'].to_list()
-        if len(set(letter_c_list)) == 1:
-            if unit not in invar_dict:
+            # word invar
+            print(f"\nUnit_df:\n{unit_df}")
+            word_c_list = unit_df['word_c'].to_list()
+            if len(set(word_c_list)) == 1:
                 invar_dict[unit] = dict()
-            # print(f"Invariant for letters!\n")
-            invar_dict[unit]['letter_label'] = letter_c_list[0]
-            invar_dict[unit]['letter_feat'] = unit_df['letter_feat'].to_list()[0]
-            invar_dict[unit]['letter_sel'] = min(unit_df['letter_sel'].to_list())
-    focussed_dict_print(invar_dict, 'invar_dict')
+                # print(f"Invariant for words!\n")
+                invar_dict[unit]['word_label'] = word_c_list[0]
+                invar_dict[unit]['word_feat'] = unit_df['word_feat'].to_list()[0]
+                invar_dict[unit]['word_sel'] = min(unit_df['word_sel'].to_list())
+
+            # letter invar
+            letter_c_list = unit_df['letter_c'].to_list()
+            if len(set(letter_c_list)) == 1:
+                if unit not in invar_dict:
+                    invar_dict[unit] = dict()
+                # print(f"Invariant for letters!\n")
+                invar_dict[unit]['letter_label'] = letter_c_list[0]
+                invar_dict[unit]['letter_feat'] = unit_df['letter_feat'].to_list()[0]
+                invar_dict[unit]['letter_sel'] = min(unit_df['letter_sel'].to_list())
+        focussed_dict_print(invar_dict, 'invar_dict')
 
 
 
