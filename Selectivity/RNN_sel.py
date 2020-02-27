@@ -1348,6 +1348,8 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                       "correct_items_only: False (I want incorrect responses)")
                 print("no changes needed - don't remove anything from hid_acts, output and "
                       "use y scores as y_df")
+                y_df = y_scores_df
+
     else:
         if correct_items_only:
             if verbose:

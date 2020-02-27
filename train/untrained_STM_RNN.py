@@ -320,19 +320,27 @@ def train_model(exp_name,
 
 
     if not generator:
-        x_load = np.load('/home/nm13850/Documents/PhD/python_v2/datasets/RNN/bowers14_rep/'
-                         'test_dist_letter_X_10batches_4seqs_3ts_31feat.npy')
-        # print(f"x_load: {np.shape(x_load)}")
-        y_load = np.load('/home/nm13850/Documents/PhD/python_v2/datasets/RNN/bowers14_rep/'
-                         'test_freerecall_Y_10batches_4seqs_3ts.npy')
-        # print(f"y_load: {np.shape(y_load)}")
-        labels_load = np.load('/home/nm13850/Documents/PhD/python_v2/datasets/RNN/bowers14_rep/'
-                              'test_freerecall_Y_labels_10batches_4seqs_3ts.npy')
-        # print(f"labels_load: {np.shape(labels_load)}")
-        x_train = x_load
-        y_train = y_load
 
-        n_items = np.shape(x_train)[0]
+        # # test_filename = f'seq{timesteps}_v{n_cats}_960_test_seq_labels.npy'
+        #
+        # x_load = np.load('/home/nm13850/Documents/PhD/python_v2/datasets/RNN/bowers14_rep/'
+        #                  'test_dist_letter_X_10batches_4seqs_3ts_31feat.npy')
+        # # print(f"x_load: {np.shape(x_load)}")
+        # y_load = np.load(f'/home/nm13850/Documents/PhD/python_v2/datasets/RNN/bowers14_rep/'
+        #                  f'test_freerecall_Y_10batches_4seqs_3ts.npy')
+        # # print(f"y_load: {np.shape(y_load)}")
+        # labels_load = np.load('/home/nm13850/Documents/PhD/python_v2/datasets/RNN/bowers14_rep/'
+        #                       'test_freerecall_Y_labels_10batches_4seqs_3ts.npy')
+        # # print(f"labels_load: {np.shape(labels_load)}")
+        # x_train = x_load
+        # y_train = y_load
+
+        # n_items = np.shape(x_train)[0]
+
+        x_data_path = 'none - untrained'
+        y_data_path = 'none - untrained'
+        n_items = 'unknown'
+
     else:
         # # if generator is true
         x_data_path = 'RNN_STM_tools/generate_STM_RNN_seqs'
@@ -425,6 +433,8 @@ def train_model(exp_name,
         print("model_dir not recognised")
 
 
+    print("runs to line 431")
+
     # # loss
     loss_func = 'categorical_crossentropy'
     if not y_1hot:
@@ -461,6 +471,7 @@ def train_model(exp_name,
     elif use_optimizer == 'Nadam':
         this_optimizer = Nadam()
 
+    print("runs to line 469")
 
 
     # # metrics
@@ -475,6 +486,9 @@ def train_model(exp_name,
     # print_nested_round_floats(model_details)
     focussed_dict_print(optimizer_details, 'optimizer_details')
 
+    print("runs to line 484")
+
+
 
     # # get model dict
     model_info = get_model_dict(model)  # , verbose=True)
@@ -483,7 +497,7 @@ def train_model(exp_name,
     tf.compat.v1.keras.utils.plot_model(model, to_file=f'{model_name}_diag.png', show_shapes=True)
 
     # # call backs and training parameters
-    checkpoint_path = f'{output_filename}_model.hdf5'
+    checkpoint_path = f'{output_filename}_untrained.hdf5'
 
     checkpoint_mon = 'loss'
     if use_val_data:
@@ -555,11 +569,13 @@ def train_model(exp_name,
                                   validation_data=(x_val, y_val),
                                   epochs=max_epochs, batch_size=batch_size, verbose=1, callbacks=val_callbacks_list)
         elif not generator:
-            print("Using loaded data")
-            print(f"x: {np.shape(x_train)}, y: {np.shape(y_train)}")
 
-            fit_model = model.fit(x_train, y_train,
-                                  epochs=max_epochs, batch_size=batch_size, verbose=1, callbacks=callbacks_list)
+            print('UNTRAINED MODEL!')
+            # print("Using loaded data")
+            # print(f"x: {np.shape(x_train)}, y: {np.shape(y_train)}")
+            #
+            # fit_model = model.fit(x_train, y_train,
+            #                       epochs=max_epochs, batch_size=batch_size, verbose=1, callbacks=callbacks_list)
         else:
             # # use generator
             print("Using data generator")
@@ -583,24 +599,26 @@ def train_model(exp_name,
     ########################################################
     print("\n**** TRAINING COMPLETE ****")
 
+    model.save(checkpoint_path)
+
     print(f"\nModel name: {checkpoint_path}")
 
-    # # plot the training loss and accuracy
-    fig, (ax1, ax2) = plt.subplots(2, sharex=True)
-    ax1.plot(fit_model.history[main_metric])
-    if use_val_data:
-        ax1.plot(fit_model.history['val_acc'])
-    ax1.set_title(f'{main_metric} (top); loss (bottom)')
-    ax1.set_ylabel(f'{main_metric}')
-    ax1.set_xlabel('epoch')
-    ax2.plot(fit_model.history['loss'])
-    if use_val_data:
-        ax2.plot(fit_model.history['val_loss'])
-    ax2.set_ylabel('loss')
-    ax2.set_xlabel('epoch')
-    fig.legend(['train', 'val'], loc='upper left')
-    plt.savefig(str(output_filename) + '_training.png')
-    plt.close()
+    # # # plot the training loss and accuracy
+    # fig, (ax1, ax2) = plt.subplots(2, sharex=True)
+    # ax1.plot(fit_model.history[main_metric])
+    # if use_val_data:
+    #     ax1.plot(fit_model.history['val_acc'])
+    # ax1.set_title(f'{main_metric} (top); loss (bottom)')
+    # ax1.set_ylabel(f'{main_metric}')
+    # ax1.set_xlabel('epoch')
+    # ax2.plot(fit_model.history['loss'])
+    # if use_val_data:
+    #     ax2.plot(fit_model.history['val_loss'])
+    # ax2.set_ylabel('loss')
+    # ax2.set_xlabel('epoch')
+    # fig.legend(['train', 'val'], loc='upper left')
+    # plt.savefig(str(output_filename) + '_training.png')
+    # plt.close()
 
 
     # # get best epoch number
@@ -611,12 +629,12 @@ def train_model(exp_name,
         end_val_acc = float(fit_model.history['val_acc'][trained_for])
     else:
         # print(fit_model.history['loss'])
-        trained_for = int(fit_model.history['loss'].index(min(fit_model.history['loss'])))
+        trained_for = 0  # int(fit_model.history['loss'].index(min(fit_model.history['loss'])))
         end_val_loss = np.nan
         end_val_acc = np.nan
 
-    end_loss = float(fit_model.history['loss'][trained_for])
-    end_acc = float(fit_model.history[main_metric][trained_for])
+    end_loss = np.nan  # float(fit_model.history['loss'][trained_for])
+    end_acc = np.nan  # float(fit_model.history[main_metric][trained_for])
     print(f'\nTraining Info\nbest loss after {trained_for} epochs\n'
           f'end loss: {end_loss}\nend acc: {end_acc}\n')
     if use_val_data:

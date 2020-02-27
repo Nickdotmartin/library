@@ -283,6 +283,31 @@ def simple_plot_rnn(gha_dict_path,
     if type(plot_what) is str:
         if plot_what == 'all':
             hl_dict = dict()
+
+            # # add model full model structure to hl_dict
+            if letter_sel:
+                sel_per_unit_dict_path = f'{exp_cond_gha_path}/{cond_name}_lett_sel_per_unit.pickle'
+            else:
+                sel_per_unit_dict_path = f'{exp_cond_gha_path}/{cond_name}_sel_per_unit.pickle'
+
+            if os.path.isfile(sel_per_unit_dict_path):
+                sel_per_unit_dict = load_dict(sel_per_unit_dict_path)
+
+                for layer in list(sel_per_unit_dict.keys()):
+                    hl_dict[layer] = dict()
+                    for unit in sel_per_unit_dict[layer].keys():
+                        hl_dict[layer][unit] = dict()
+                        for ts in sel_per_unit_dict[layer][unit].keys():
+                            if measure in sel_per_unit_dict[layer][unit][ts]:
+                                class_sel_dict = sel_per_unit_dict[layer][unit][ts][measure]
+                                key_max = max(class_sel_dict, key=class_sel_dict.get)
+                                val_max = class_sel_dict[key_max]
+                                hl_entry = (measure, val_max, key_max, 'rank_1')
+                                hl_dict[layer][unit][ts] = list()
+                                hl_dict[layer][unit][ts].append(hl_entry)
+
+
+
         elif os.path.isfile(plot_what):
             hl_dict = load_dict(plot_what)
             """plot_what should be:\n
@@ -346,8 +371,17 @@ def simple_plot_rnn(gha_dict_path,
                 print(f"{ts_name} not in hl_dict[{layer_name}][{unit_index}]")
                 continue
 
-            unit_hl_info = [x for x in hl_dict[layer_name][unit_index][ts_name]
-                            if x[0] == measure]
+            # # list comp version fails so use for loop
+            # unit_hl_info = [x for x in hl_dict[layer_name][unit_index][ts_name]
+            #                 if x[0] == measure]
+            unit_hl_info = []
+            print('check line 377')
+            for x in hl_dict[layer_name][unit_index][ts_name]:
+                print(x)
+                if x[0] == measure:
+                    unit_hl_info.append(x)
+
+
             if len(unit_hl_info) == 0:
                 print(f"{measure} not in hl_dict[{layer_name}][{unit_index}][{ts_name}]")
                 continue

@@ -593,8 +593,20 @@ def loop_thru_acts(gha_dict_path,
             correct_items.append(index)
     if correct_items_only:
         item_index == correct_items
-    # print(f"incorrect_items: {np.shape(incorrect_items)}\n{incorrect_items}")
-    # print(f'item_index: {np.shape(item_index)}\n{item_index}\n')
+
+    else:
+        '''tbh I'm not quite sure what the implications of this are, 
+        just a hack to make it work for untrained model'''
+        print("\n\nWARNING\nitem_index == what_shape\njust doing this for untrained model!")
+
+        what_shape = list(range(960))
+        print(f'what_shape: {np.shape(what_shape)}\n{what_shape}\n')
+        item_index = what_shape
+        print(f'item_index: {np.shape(item_index)}\n{item_index}\n')
+
+    print(f"incorrect_items: {np.shape(incorrect_items)}\n{incorrect_items}")
+    print(f'item_index: {np.shape(item_index)}\n{item_index}\n')
+    print(f'correct_items_only: {correct_items_only}')
 
     if gha_incorrect:
         if correct_items_only:
@@ -617,6 +629,8 @@ def loop_thru_acts(gha_dict_path,
                       "correct_items_only: False (I want incorrect responses)")
                 print("no changes needed - don't remove anything from hid_acts, output and "
                       "use y scores as y_df")
+
+                y_df = y_scores_df
     else:
         if correct_items_only:
             if verbose:
@@ -799,6 +813,11 @@ def loop_thru_acts(gha_dict_path,
 
                         these_acts = one_unit_one_timestep
                         these_labels = y_labels_one_timestep
+
+                        if verbose:
+                            print(f'item_index: {np.shape(item_index)}')
+                            print(f'these_acts: {np.shape(these_acts)}')
+                            print(f'these_labels: {np.shape(these_labels)}')
 
                         # insert act values in middle of labels (item, act, cat)
                         item_act_label_array = np.vstack((item_index, these_acts, these_labels)).T
