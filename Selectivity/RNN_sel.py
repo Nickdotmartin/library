@@ -956,7 +956,7 @@ def count_sel_units(word_sel_dict_path, measure='b_sel',
         sel_count_dict[str(thr)] = dict()
         for level in levels:
             sel_count_dict[str(thr)][level] = dict()
-            thr_df = sel_df[sel_df[f"{level}_sel"] >= thr]
+            thr_df = sel_df[sel_df[f"{level}_sel"] > thr]
             class_list = thr_df[f'{level}_c'].to_list()
             sel_count_dict[str(thr)][level]['timesteps'] = len(class_list)
             sel_count_dict[str(thr)][level]['ts_cats'] = len(set(class_list))
@@ -1015,7 +1015,7 @@ def count_sel_units(word_sel_dict_path, measure='b_sel',
         for thr in thresholds:
             for level in levels:
                 if f"{level}_sel" in list(invar_df):
-                    thr_invar_df = invar_df[invar_df[f"{level}_sel"] >= thr]
+                    thr_invar_df = invar_df[invar_df[f"{level}_sel"] > thr]
                     if not thr_invar_df.empty:
                         # print(f"{thr} - {level}\n{thr_invar_df}")
                         class_list = thr_invar_df[f'{level}_label'].to_list()
@@ -1757,6 +1757,11 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                     if this_cat in csb_value.keys():
                         unit_ts_dict[csb_key][this_cat] = csb_value[this_cat]
                     else:
+                        print('\n\n\nline 1760 what is this zero here for?\n'
+                              f'this_cat is NOT in csb_value.keys()'
+                              f'here are all the keys and values'
+                              f'{csb_value.items()}')
+                        # todo: check this isn't giving zeros to classes with no entries!
                         unit_ts_dict[csb_key][this_cat] = 0
 
 
@@ -1803,9 +1808,9 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
             if an_empty_class:
                 if verbose:
-                    print(f"\nCCMA\nno items in class {this_cat} or not this cat\nccma=0")
-                ccma = 0
-                b_sel = 0
+                    print(f"\nCCMA\nno items in class {this_cat} or not this cat\nccma=np.nan")
+                ccma = np.nan
+                b_sel = np.nan
             else:
                 class_a_mean = class_a[act_values].mean()
                 not_class_a_mean = not_class_a[act_values].mean()
@@ -1873,7 +1878,8 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
             # # zhou_prec
             if an_empty_class:
-                zhou_prec = zhou_selects = zhou_thr = 0
+                zhou_prec = zhou_selects = 0
+                zhou_thr = np.nan
             else:
                 zhou_cut_off = .005
                 if n_correct < 20000:
@@ -2020,6 +2026,17 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     if test_run:
         run = 'test'
 
+    unrolled = 'n/a'
+    if 'unroll' in gha_dict['model_info']['overview']:
+        unrolled = gha_dict['model_info']['overview']['unroll']
+    elif 'unroll' in gha_dict['model_info']['config']['layers'][0]['config']:
+        unrolled = gha_dict['model_info']['config']['layers'][0]['config']['unroll']
+
+
+    lens_states = 'n/a'
+    if 'LENS_states' in gha_dict['model_info']['overview']:
+        lens_states = gha_dict['model_info']['overview']['LENS_states']
+
     sel_csv_info = [gha_dict['topic_info']['cond'], run, output_filename,
                     gha_dict['data_info']['dataset'], gha_dict['GHA_info']['use_dataset'],
                     gha_dict['model_info']['overview']['x_data_type'],
@@ -2044,10 +2061,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                     round(max_sel_summary['for_summ_csv_dict']['means_max'], 3),
                     int(datetime.datetime.now().strftime("%y%m%d")),
                     int(datetime.datetime.now().strftime("%H%M")),
-                    gha_dict['model_info']['overview']['unroll'],
-                    gha_dict['model_info']['overview']['y_1hot'],
-                    gha_dict['model_info']['overview']['LENS_states'],
-
+                    unrolled, y_1hot, lens_states,
                     ]
 
     summary_headers = ["cond", "run", "output_filename", "dataset", "use_dataset",
