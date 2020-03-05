@@ -269,8 +269,11 @@ def coi_list(class_sel_basics_dict, verbose=False):
     """
 
     print("**** coi_list() ****")
+    # is it necessary to copy this?
+    # copy_dict = copy.deepcopy(class_sel_basics_dict)
+    copy_dict = class_sel_basics_dict
 
-    copy_dict = copy.deepcopy(class_sel_basics_dict)
+
     means_dict = copy_dict['means']
     del means_dict['total']
     top_mean_cats = sorted(means_dict, key=means_dict.get, reverse=True)[:3]
@@ -305,8 +308,9 @@ def sel_unit_max(all_sel_dict, verbose=False):
 
     if verbose:
         print("\n**** sel_unit_max() ****")
-
-    copy_sel_dict = copy.deepcopy(all_sel_dict)
+    # is it necessary to copy this?
+    # copy_sel_dict = copy.deepcopy(all_sel_dict)
+    copy_sel_dict = all_sel_dict
 
     # focussed_dict_print(copy_sel_dict, 'copy_sel_dict')
 
@@ -1753,11 +1757,14 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             # # run class_sel_basics here for letters, further up page ^ for words
             if letter_sel:
                 # # make new IPC_dict
+                # is it necessary to copy this - yes because I pop the value?
                 ts_IPC_letters = copy.copy(IPC_dict['letter_p_class_p_ts'][ts_name])
+                # ts_IPC_letters = IPC_dict['letter_p_class_p_ts'][ts_name]
+
                 # print(f"ts_IPC_letters:\n{ts_IPC_letters}")
 
                 if this_letter in ts_IPC_letters.keys():
-                    ts_IPC_this_letter = ts_IPC_letters[this_letter]
+                    # ts_IPC_this_letter = ts_IPC_letters[this_letter]
                     ts_IPC_this_letter = ts_IPC_letters.pop(this_letter)
 
                 else:
@@ -1936,6 +1943,13 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                 if n_correct < 100:
                     zhou_cut_off = 1 / n_correct
                 zhou_selects = int(n_correct * zhou_cut_off)
+
+                # print(f'\n\nidiot check - line 1947\n'
+                #       f'IPC_letters.values(): {IPC_letters.values()}\n'
+                #       f'IPC_letters: {IPC_letters}\n')
+                #
+                # if len(IPC_letters.values()) == 0:
+                #     print(f'IPC_letters.values() is an empty list')
 
                 if 9 < min(IPC_letters.values()) < 100:
                     zhou_selects = min(IPC_letters.values())
@@ -2149,3 +2163,47 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     print("\nend of sel script")
 
     return sel_dict  # , mean_sel_per_NN
+
+
+##################################
+# print("\n\nWARNING!!!!!!!!\nrunning from bottom of rnn_sel page")
+# cond_name = '96r0_adam_amsgrad_r0_seq3_RNN_Free_v30_randUni'
+# print(f'\n\ncond_name: {cond_name}')
+#
+# # # open gha and check accuracy
+# gha_dict_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/' \
+#                 '96r0_adam_amsgrad_r0_seq3_RNN_Free_v30_randUni/all_generator_gha/' \
+#                 '96r0_adam_amsgrad_r0_seq3_RNN_Free_v30_randUni_GHA_dict.pickle'
+# # gha_dict = load_dict(gha_dict_path)
+# #
+# # prop_seq_corr = gha_dict['training_info']['scores']['prop_seq_corr']
+# #
+# # if prop_seq_corr > .1:
+# #     print(f'\n\ncond_name: {cond_name}')
+# print("\nrunning sel_dict_words")
+#
+# sel_dict_words = rnn_sel(gha_dict_path=gha_dict_path,
+#                          correct_items_only=True,
+#                          all_classes=True,
+#                          letter_sel=False,
+#                          verbose=False,
+#                          test_run=False
+#                          )
+#
+# # print(f'\n\ncond_name: {cond_name}')
+# # print("\nrunning sel_dict_letters")
+# # sel_dict_letters = rnn_sel(gha_dict_path=gha_dict_path,
+# #                            correct_items_only=True,
+# #                            all_classes=True,
+# #                            letter_sel=True,
+# #                            verbose=False,
+# #                            test_run=False
+# #                            )
+# # # sel_dict_words = load_dict(word_sel_dict_path)
+# # word_sel_dict_path = '/home/nm13850/Documents/PhD/python_v2/experiments/' \
+# #                      f'STM_RNN/{cond_name}/correct_sel/' \
+# #                      f'{cond_name}_sel_dict.pickle'
+# # # # count all timesteps
+# # sel_count_dict_all = count_sel_units(word_sel_dict_path=word_sel_dict_path,
+# #                                      just_1st_ts=False,
+# #                                      save_csv=True)
