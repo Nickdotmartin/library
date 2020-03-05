@@ -269,9 +269,10 @@ def coi_list(class_sel_basics_dict, verbose=False):
     """
 
     print("**** coi_list() ****")
-    # is it necessary to copy this?
+    # is it necessary to copy this - I think so, script failed when I took the copy statements out?
+    copy_dict = copy.copy(class_sel_basics_dict)
     # copy_dict = copy.deepcopy(class_sel_basics_dict)
-    copy_dict = class_sel_basics_dict
+    # copy_dict = class_sel_basics_dict
 
 
     means_dict = copy_dict['means']
@@ -308,9 +309,10 @@ def sel_unit_max(all_sel_dict, verbose=False):
 
     if verbose:
         print("\n**** sel_unit_max() ****")
-    # is it necessary to copy this?
+    # is it necessary to copy this - i think so, script failed when I took copy statements out?
     # copy_sel_dict = copy.deepcopy(all_sel_dict)
-    copy_sel_dict = all_sel_dict
+    copy_sel_dict = copy.copy(all_sel_dict)
+    # copy_sel_dict = all_sel_dict
 
     # focussed_dict_print(copy_sel_dict, 'copy_sel_dict')
 
