@@ -223,7 +223,9 @@ def class_sel_basics(this_unit_acts_df, items_per_cat, n_classes, hi_val_thr=.5,
                     for k in items_per_cat.keys() & nz_count_dict}
 
     # # non_zero precision
-    nz_prec_dict = {k: v / non_zero_count_total for k, v in nz_count_dict.items()}
+    # nz_prec_dict = {k: v / non_zero_count_total for k, v in nz_count_dict.items()}
+    # # changed on 13032020 to not divide by zero.
+    nz_prec_dict = {k: (0 if v == 0 else v / non_zero_count_total) for k, v in nz_count_dict.items()}
 
     # # hi val count
     hi_val_count_dict = dict(this_unit_acts_df[this_unit_acts_df[act_values] >
