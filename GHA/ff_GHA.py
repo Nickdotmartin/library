@@ -16,6 +16,10 @@ from tools.data import load_x_data, load_y_data, get_dset_path
 from tools.network import get_scores
 
 
+# todo: Since I take the max single value from each kernel,
+#  I might as well just record from pooling layers,
+#  just to save on the number of values I am throwing away/the size of the file?
+
 ########################
 def kernel_to_2d(layer_activation_4d, reduce_type='max', verbose=False):
     """
