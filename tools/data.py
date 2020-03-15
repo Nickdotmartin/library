@@ -109,8 +109,14 @@ def load_y_data(y_label_path):
             items, columns = np.shape(y_array)
             if columns == 2:
                 item_and_class_df = pd.DataFrame(data=y_array, columns=['item', 'class'])
+                item_and_class_df.astype('int32').dtypes
             elif columns == 4:
                 item_and_class_df = pd.DataFrame(data=y_array, columns=['item', 'class', 'filename', 'class_name'])
+                item_and_class_df.astype({'item': 'int32',
+                                          'class': 'int32',
+                                          'filename': 'string',
+                                          'class_name': 'string', }).dtypes
+
             else:
                 print("unknown columns in y_array")
 
@@ -272,7 +278,7 @@ def load_hid_acts(hid_act_filename):
         hid_act_np = np.load(hid_act_filename)
         hid_act_df = pd.DataFrame(hid_act_np)
     elif hid_act_filename[-3:] == 'csv':
-        hid_act_df = pd.read_csv(hid_act_filename)
+        hid_act_df = pd.read_csv(hid_act_filename, header=None)
     else:
         try:
             hid_act_np = np.load("{}.npy".format(hid_act_filename))

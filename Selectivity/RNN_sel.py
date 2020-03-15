@@ -223,7 +223,9 @@ def class_sel_basics(this_unit_acts_df, items_per_cat, n_classes, hi_val_thr=.5,
                     for k in items_per_cat.keys() & nz_count_dict}
 
     # # non_zero precision
-    nz_prec_dict = {k: v / non_zero_count_total for k, v in nz_count_dict.items()}
+    # nz_prec_dict = {k: v / non_zero_count_total for k, v in nz_count_dict.items()}
+    # # changed on 13032020 to not divide by zero.
+    nz_prec_dict = {k: (0 if v == 0 else v / non_zero_count_total) for k, v in nz_count_dict.items()}
 
     # # hi val count
     hi_val_count_dict = dict(this_unit_acts_df[this_unit_acts_df[act_values] >
@@ -269,8 +271,12 @@ def coi_list(class_sel_basics_dict, verbose=False):
     """
 
     print("**** coi_list() ****")
+    # is it necessary to copy this - I think so, script failed when I took the copy statements out?
+    copy_dict = copy.copy(class_sel_basics_dict)
+    # copy_dict = copy.deepcopy(class_sel_basics_dict)
+    # copy_dict = class_sel_basics_dict
 
-    copy_dict = copy.deepcopy(class_sel_basics_dict)
+
     means_dict = copy_dict['means']
     del means_dict['total']
     top_mean_cats = sorted(means_dict, key=means_dict.get, reverse=True)[:3]
@@ -305,8 +311,10 @@ def sel_unit_max(all_sel_dict, verbose=False):
 
     if verbose:
         print("\n**** sel_unit_max() ****")
-
-    copy_sel_dict = copy.deepcopy(all_sel_dict)
+    # is it necessary to copy this - i think so, script failed when I took copy statements out?
+    # copy_sel_dict = copy.deepcopy(all_sel_dict)
+    copy_sel_dict = copy.copy(all_sel_dict)
+    # copy_sel_dict = all_sel_dict
 
     # focussed_dict_print(copy_sel_dict, 'copy_sel_dict')
 
@@ -314,13 +322,23 @@ def sel_unit_max(all_sel_dict, verbose=False):
 
     # # loop through unit dict of sel measure vals for each class
     for measure, class_dict in copy_sel_dict.items():
-        # # for each sel measure get max value and class
+
+        # # remove np.NaNs from dict
+        clean_dict = {k: class_dict[k] for k in class_dict if not np.isnan(class_dict[k])}
+
+
+        # # for each sel measure get list of sel values and classes
         measure_c_name = f"{measure}_c"
-        classes = list(class_dict.keys())
-        values = list(class_dict.values())
+        classes = list(clean_dict.keys())
+        values = list(clean_dict.values())
 
         # print("\nidiot check\n"
-        #       f"measure: {measure}\nvalues:\n{values}")
+        #       f"measure_c_name: {measure_c_name}\n"
+        #       f"classes:{classes}\n"
+        #       f"values:{values}"
+        #       )
+
+        # # for each sel measure get max value and class
         max_val = max(values)
         max_class = classes[values.index(max_val)]
         # print(measure, measure_c_name)
@@ -330,6 +348,7 @@ def sel_unit_max(all_sel_dict, verbose=False):
         max_sel_dict[measure_c_name] = max_class
 
 
+    # # remove unnecessary variables rom the dict
     max_sel_dict['max_info_count'] = copy_sel_dict['max_info_count'][max_sel_dict["max_informed_c"]]
     del max_sel_dict['max_info_count_c']
     max_sel_dict['max_info_thr'] = copy_sel_dict['max_info_thr'][max_sel_dict["max_informed_c"]]
@@ -505,6 +524,7 @@ def get_sel_summaries(max_sel_dict_path,
           f"{fourth_layer[list(fourth_layer.keys())[0]]}\n")"""
 
     '''get a list of relevant sel measures'''
+
     # # list of all keys (sel_measures)
     all_sel_measures_list = list(max_sel_dict[list(max_sel_dict.keys())[0]][0]['ts0'].keys())
 
@@ -802,7 +822,8 @@ def get_sel_summaries(max_sel_dict_path,
 def count_sel_units(word_sel_dict_path, measure='b_sel',
                     thresholds=[0.0, .1, .2, .3, .4, .5],
                     just_1st_ts=False,
-                    save_csv=True):
+                    save_csv=True,
+                    verbose=False):
     """
     Given a dataset where selectivity has already been run for letters and words.
 
@@ -877,20 +898,23 @@ def count_sel_units(word_sel_dict_path, measure='b_sel',
     word_sel_df = word_sel_df.astype({measure: 'float32',
                                       f'{measure}_c': 'int32'})
     word_sel_df = word_sel_df.rename(columns={measure: f"word_sel", f'{measure}_c': f'word_c'})
-    # print(f"word_sel_df:\n{word_sel_df.head()}")
+    if verbose:
+        print(f"word_sel_df: {word_sel_df.shape}\n{word_sel_df.head()}")
 
     letter_sel_df = nested_dict_to_df(letter_sel_dict)
     letter_sel_df = letter_sel_df[sel_columns]
     letter_sel_df = letter_sel_df.astype({measure: 'float32',
                                           f'{measure}_c': 'int32'})
     letter_sel_df = letter_sel_df.rename(columns={measure: f"letter_sel", f'{measure}_c': f'letter_c'})
-    # print(f"letter_sel_df:\n{letter_sel_df.head()}")
+    if verbose:
+        print(f"letter_sel_df: {letter_sel_df.shape}\n{letter_sel_df.head()}")
 
     combo_sel_df = nested_dict_to_df(combo_dict)
     combo_sel_df = combo_sel_df.rename(columns={'level': 'level',
                                                 'sel': f"combo_sel",
                                                 'feat': f'combo_c'})
-    # print(f"combo_sel_df:\n{combo_sel_df.head()}")
+    if verbose:
+        print(f"combo_sel_df: {combo_sel_df.shape}\n{combo_sel_df.head()}")
 
 
 
@@ -923,7 +947,11 @@ def count_sel_units(word_sel_dict_path, measure='b_sel',
     letter_sel_df['letter_feat'] = letter_feat
 
 
-    # # - letter in word bool (if letter_feat is in word_feat)
+    # # # - letter in word bool (if letter_feat is in word_feat)
+    # print("fault finding line 927")
+    # print(f"word_feat: {len(word_feat)}\n{word_feat}\n\n"
+    #       f"letter_feat: {len(letter_feat)}\n{letter_feat}")
+
     letter_in_word = []
     for letter, word in zip(letter_feat, word_feat):
         # print(letter, word)
@@ -944,7 +972,8 @@ def count_sel_units(word_sel_dict_path, measure='b_sel',
     if just_1st_ts:
         print("\n\nOnly  considering 1st timestep (a la Bowers et al, 2014)\n")
         sel_df = sel_df.xs('ts0', level='Timestep')
-    print(f"sel_df:\n{sel_df.head()}")
+    if verbose:
+        print(f"sel_df:\n{sel_df.head()}")
 
     sel_count_dict = dict()
 
@@ -956,7 +985,7 @@ def count_sel_units(word_sel_dict_path, measure='b_sel',
         sel_count_dict[str(thr)] = dict()
         for level in levels:
             sel_count_dict[str(thr)][level] = dict()
-            thr_df = sel_df[sel_df[f"{level}_sel"] >= thr]
+            thr_df = sel_df[sel_df[f"{level}_sel"] > thr]
             class_list = thr_df[f'{level}_c'].to_list()
             sel_count_dict[str(thr)][level]['timesteps'] = len(class_list)
             sel_count_dict[str(thr)][level]['ts_cats'] = len(set(class_list))
@@ -973,31 +1002,32 @@ def count_sel_units(word_sel_dict_path, measure='b_sel',
     # # values: level: [word, letter], feature, min_sel
     invar_dict = dict()
 
-    unit_list = list(word_sel_dict['hid0'].keys())
-    for unit in unit_list:
-        unit_df = sel_df.xs(('hid0', unit))
-        # print(f"unit_df: {unit}\n{unit_df}\n")
+    if not just_1st_ts:
+        unit_list = list(word_sel_dict['hid0'].keys())
+        for unit in unit_list:
+            unit_df = sel_df.xs(('hid0', unit))
+            # print(f"unit_df: {unit}\n{unit_df}\n")
 
-        # word invar
-        print(f"\nUnit_df:\n{unit_df}")
-        word_c_list = unit_df['word_c'].to_list()
-        if len(set(word_c_list)) == 1:
-            invar_dict[unit] = dict()
-            # print(f"Invariant for words!\n")
-            invar_dict[unit]['word_label'] = word_c_list[0]
-            invar_dict[unit]['word_feat'] = unit_df['word_feat'].to_list()[0]
-            invar_dict[unit]['word_sel'] = min(unit_df['word_sel'].to_list())
-
-        # letter invar
-        letter_c_list = unit_df['letter_c'].to_list()
-        if len(set(letter_c_list)) == 1:
-            if unit not in invar_dict:
+            # word invar
+            print(f"\nUnit_df:\n{unit_df}")
+            word_c_list = unit_df['word_c'].to_list()
+            if len(set(word_c_list)) == 1:
                 invar_dict[unit] = dict()
-            # print(f"Invariant for letters!\n")
-            invar_dict[unit]['letter_label'] = letter_c_list[0]
-            invar_dict[unit]['letter_feat'] = unit_df['letter_feat'].to_list()[0]
-            invar_dict[unit]['letter_sel'] = min(unit_df['letter_sel'].to_list())
-    focussed_dict_print(invar_dict, 'invar_dict')
+                # print(f"Invariant for words!\n")
+                invar_dict[unit]['word_label'] = word_c_list[0]
+                invar_dict[unit]['word_feat'] = unit_df['word_feat'].to_list()[0]
+                invar_dict[unit]['word_sel'] = min(unit_df['word_sel'].to_list())
+
+            # letter invar
+            letter_c_list = unit_df['letter_c'].to_list()
+            if len(set(letter_c_list)) == 1:
+                if unit not in invar_dict:
+                    invar_dict[unit] = dict()
+                # print(f"Invariant for letters!\n")
+                invar_dict[unit]['letter_label'] = letter_c_list[0]
+                invar_dict[unit]['letter_feat'] = unit_df['letter_feat'].to_list()[0]
+                invar_dict[unit]['letter_sel'] = min(unit_df['letter_sel'].to_list())
+        focussed_dict_print(invar_dict, 'invar_dict')
 
 
 
@@ -1014,7 +1044,7 @@ def count_sel_units(word_sel_dict_path, measure='b_sel',
         for thr in thresholds:
             for level in levels:
                 if f"{level}_sel" in list(invar_df):
-                    thr_invar_df = invar_df[invar_df[f"{level}_sel"] >= thr]
+                    thr_invar_df = invar_df[invar_df[f"{level}_sel"] > thr]
                     if not thr_invar_df.empty:
                         # print(f"{thr} - {level}\n{thr_invar_df}")
                         class_list = thr_invar_df[f'{level}_label'].to_list()
@@ -1034,7 +1064,8 @@ def count_sel_units(word_sel_dict_path, measure='b_sel',
         flat_count_df.rename(index={0: sel_dict['topic_info']['output_filename']}, inplace=True)
         flat_count_df.index.rename('cond_name', inplace=True)
 
-        print(f"flat_count_df:\n{flat_count_df.head()}")
+        if verbose:
+            print(f"flat_count_df:\n{flat_count_df.head()}")
 
         # # add details for filtering
         serial_recall = sel_dict['model_info']['overview']['serial_recall']
@@ -1347,6 +1378,8 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                       "correct_items_only: False (I want incorrect responses)")
                 print("no changes needed - don't remove anything from hid_acts, output and "
                       "use y scores as y_df")
+                y_df = y_scores_df
+
     else:
         if correct_items_only:
             if verbose:
@@ -1381,6 +1414,8 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     if letter_sel:
         corr_test_letters_name = f"{output_filename}_{n_correct}_corr_test_letter_seqs.npy"
         np.save(corr_test_letters_name, y_letters)
+
+
 
 
     # # get items per class
@@ -1445,6 +1480,8 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         # # clear memory
         output_layer_acts = []
 
+
+
     '''save results
     either make a new empty place to save.
     or load previous version and get the units I have already completed'''
@@ -1496,8 +1533,12 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
 
     if test_run:
+        # # for test run from start even if I have already completed some units
         already_completed = dict()
     print(f"\nlayers/units already_completed: {already_completed}")
+
+
+
 
 
     '''
@@ -1517,6 +1558,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             if index == 9:
                 break
 
+        # # make empty dict
         unit_ts_dict = {'roc_auc': {}, 'ave_prec': {}, 'pr_auc': {},
                         'max_informed': {}, 'max_info_count': {},
                         'max_info_thr': {}, 'max_info_sens': {},
@@ -1529,6 +1571,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                         'corr_coef': {}, 'corr_p': {},
                         }
 
+        # # get details for this gha/unit/ts
         # print(f"\n\n{index}:\n{unit_gha}\n")
         sequence_data = unit_gha["sequence_data"]
         y_1hot = unit_gha["y_1hot"]
@@ -1540,6 +1583,16 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         item_act_label_array = unit_gha["item_act_label_array"]
         IPC_words = IPC_dict['word_p_class_p_ts'][ts_name]
         IPC_letters = IPC_dict['letter_p_class_p_ts'][ts_name]
+
+        # if unit_index < 126:
+        #     print(f"skip_unit {unit_index}")
+        #     continue
+        # elif unit_index > 126:
+        #     break
+        # else:
+        #     print(f'running {timestep}')
+
+
 
         # #  make df
         this_unit_acts = pd.DataFrame(data=item_act_label_array,
@@ -1608,6 +1661,8 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         if verbose is True:
             print(f"\nthis_unit_acts_df: {this_unit_acts_df.shape}\n")
             print(f"this_unit_acts_df:\n{this_unit_acts_df.head()}")
+
+
 
         # # run class_sel_basics here for words, further down for letters
         if not letter_sel:
@@ -1685,6 +1740,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                 this_unit_acts_df['label'] = letter_class_list
 
             else:
+                # if letter sel is False
                 if this_cat in IPC_words:
                     this_class_size = IPC_words[this_cat]
                 else:
@@ -1705,11 +1761,14 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             # # run class_sel_basics here for letters, further up page ^ for words
             if letter_sel:
                 # # make new IPC_dict
+                # is it necessary to copy this - yes because I pop the value?
                 ts_IPC_letters = copy.copy(IPC_dict['letter_p_class_p_ts'][ts_name])
+                # ts_IPC_letters = IPC_dict['letter_p_class_p_ts'][ts_name]
+
                 # print(f"ts_IPC_letters:\n{ts_IPC_letters}")
 
                 if this_letter in ts_IPC_letters.keys():
-                    ts_IPC_this_letter = ts_IPC_letters[this_letter]
+                    # ts_IPC_this_letter = ts_IPC_letters[this_letter]
                     ts_IPC_this_letter = ts_IPC_letters.pop(this_letter)
 
                 else:
@@ -1754,6 +1813,12 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                     if this_cat in csb_value.keys():
                         unit_ts_dict[csb_key][this_cat] = csb_value[this_cat]
                     else:
+                        if verbose:
+                            print(f'\n\n\nclass {this_cat} contains no items.\n'
+                              f'setting values for class_sel_basics to zero\n'
+                              f'(means, sd, nz_count, nz_prop, nz_prec, '
+                              f'hi_val_count, hi_val_prop, hi_val_prec).\n'
+                              f'I could use np.NaN, but I don"t think I need to\n\n')
                         unit_ts_dict[csb_key][this_cat] = 0
 
 
@@ -1799,10 +1864,13 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                       f"an_empty_class: {an_empty_class}")
 
             if an_empty_class:
+                # # if class is empty CCMA and b-sel score NaN, not zero.
                 if verbose:
-                    print(f"\nCCMA\nno items in class {this_cat} or not this cat\nccma=0")
-                ccma = 0
-                b_sel = 0
+                    print(f"\nCCMA & b-sel\n"
+                          f"no items in class {this_cat} or not this cat\n"
+                          f"ccma, b-sel, b-sel-off = np.nan")
+                ccma = np.nan
+                b_sel = np.nan
             else:
                 class_a_mean = class_a[act_values].mean()
                 not_class_a_mean = not_class_a[act_values].mean()
@@ -1864,13 +1932,14 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                               f"not_class_a_min: {not_class_a_min} - class_a_max: {class_a_max}\n"
                               f"b_sel: {b_sel}")
 
+            unit_ts_dict["ccma"][this_cat] = ccma
             unit_ts_dict["b_sel"][this_cat] = b_sel
             unit_ts_dict["b_sel_off"][this_cat] = off_unit
 
-
             # # zhou_prec
             if an_empty_class:
-                zhou_prec = zhou_selects = zhou_thr = 0
+                zhou_prec = zhou_selects = 0
+                zhou_thr = np.nan
             else:
                 zhou_cut_off = .005
                 if n_correct < 20000:
@@ -1878,6 +1947,13 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                 if n_correct < 100:
                     zhou_cut_off = 1 / n_correct
                 zhou_selects = int(n_correct * zhou_cut_off)
+
+                # print(f'\n\nidiot check - line 1947\n'
+                #       f'IPC_letters.values(): {IPC_letters.values()}\n'
+                #       f'IPC_letters: {IPC_letters}\n')
+                #
+                # if len(IPC_letters.values()) == 0:
+                #     print(f'IPC_letters.values() is an empty list')
 
                 if 9 < min(IPC_letters.values()) < 100:
                     zhou_selects = min(IPC_letters.values())
@@ -2017,6 +2093,17 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     if test_run:
         run = 'test'
 
+    unrolled = 'n/a'
+    if 'unroll' in gha_dict['model_info']['overview']:
+        unrolled = gha_dict['model_info']['overview']['unroll']
+    elif 'unroll' in gha_dict['model_info']['config']['layers'][0]['config']:
+        unrolled = gha_dict['model_info']['config']['layers'][0]['config']['unroll']
+
+
+    lens_states = 'n/a'
+    if 'LENS_states' in gha_dict['model_info']['overview']:
+        lens_states = gha_dict['model_info']['overview']['LENS_states']
+
     sel_csv_info = [gha_dict['topic_info']['cond'], run, output_filename,
                     gha_dict['data_info']['dataset'], gha_dict['GHA_info']['use_dataset'],
                     gha_dict['model_info']['overview']['x_data_type'],
@@ -2041,10 +2128,7 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                     round(max_sel_summary['for_summ_csv_dict']['means_max'], 3),
                     int(datetime.datetime.now().strftime("%y%m%d")),
                     int(datetime.datetime.now().strftime("%H%M")),
-                    gha_dict['model_info']['overview']['unroll'],
-                    gha_dict['model_info']['overview']['y_1hot'],
-                    gha_dict['model_info']['overview']['LENS_states'],
-
+                    unrolled, y_1hot, lens_states,
                     ]
 
     summary_headers = ["cond", "run", "output_filename", "dataset", "use_dataset",
@@ -2083,3 +2167,47 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     print("\nend of sel script")
 
     return sel_dict  # , mean_sel_per_NN
+
+
+##################################
+# print("\n\nWARNING!!!!!!!!\nrunning from bottom of rnn_sel page")
+# cond_name = '96r0_adam_amsgrad_r0_seq3_RNN_Free_v30_randUni'
+# print(f'\n\ncond_name: {cond_name}')
+#
+# # # open gha and check accuracy
+# gha_dict_path = '/home/nm13850/Documents/PhD/python_v2/experiments/STM_RNN/' \
+#                 '96r0_adam_amsgrad_r0_seq3_RNN_Free_v30_randUni/all_generator_gha/' \
+#                 '96r0_adam_amsgrad_r0_seq3_RNN_Free_v30_randUni_GHA_dict.pickle'
+# # gha_dict = load_dict(gha_dict_path)
+# #
+# # prop_seq_corr = gha_dict['training_info']['scores']['prop_seq_corr']
+# #
+# # if prop_seq_corr > .1:
+# #     print(f'\n\ncond_name: {cond_name}')
+# print("\nrunning sel_dict_words")
+#
+# sel_dict_words = rnn_sel(gha_dict_path=gha_dict_path,
+#                          correct_items_only=True,
+#                          all_classes=True,
+#                          letter_sel=False,
+#                          verbose=False,
+#                          test_run=False
+#                          )
+#
+# # print(f'\n\ncond_name: {cond_name}')
+# # print("\nrunning sel_dict_letters")
+# # sel_dict_letters = rnn_sel(gha_dict_path=gha_dict_path,
+# #                            correct_items_only=True,
+# #                            all_classes=True,
+# #                            letter_sel=True,
+# #                            verbose=False,
+# #                            test_run=False
+# #                            )
+# # # sel_dict_words = load_dict(word_sel_dict_path)
+# # word_sel_dict_path = '/home/nm13850/Documents/PhD/python_v2/experiments/' \
+# #                      f'STM_RNN/{cond_name}/correct_sel/' \
+# #                      f'{cond_name}_sel_dict.pickle'
+# # # # count all timesteps
+# # sel_count_dict_all = count_sel_units(word_sel_dict_path=word_sel_dict_path,
+# #                                      just_1st_ts=False,
+# #                                      save_csv=True)

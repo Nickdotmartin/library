@@ -1327,6 +1327,13 @@ def letter_in_seq(letter, test_label_seqs, vocab_dict):
 
 
 def word_letter_combo_dict(sel_dict_path, measure='b_sel', save_combo_dict=True):
+    '''
+    This function combines the sel dicts for selectivity to words and letters
+    into a single dict
+    '''
+
+    print('\n** word_letter_combo_dict() **')
+
 
     # 1. load sel dict
     if type(sel_dict_path) is dict:
@@ -1358,6 +1365,13 @@ def word_letter_combo_dict(sel_dict_path, measure='b_sel', save_combo_dict=True)
     letter_sel_dict = load_dict(os.path.join(sel_path, letter_sel_dict_name))
     # focussed_dict_print(letter_sel_dict, 'letter_sel_dict')  #, focus_list=['hid0'])
 
+    # print(f'\nidiot check\n'
+    #       f'word_sel_dict inspection\n'
+    #       f'word_sel_dict["hid0"].keys():\n {word_sel_dict["hid0"].keys()}\n\n'
+    #       f'word_sel_dict["hid0"][0].keys():\n '
+    #       f'{word_sel_dict["hid0"][0].keys()}\n\n'
+    #       )
+
     # check if combo dict already exists
     combo_sel_dict_name = f"{word_sel_dict_prefix}combo_{word_sel_dict_suffix}"
 
@@ -1381,7 +1395,10 @@ def word_letter_combo_dict(sel_dict_path, measure='b_sel', save_combo_dict=True)
         # print(layer)
         combo_dict[layer] = dict()
         for unit, steps in units.items():
-            # print(unit)
+        #     print(unit, steps)
+        #     print(f'\nsteps["ts0"]:\n{steps["ts0"]}')
+        #     print(f'\nsteps["ts1"]:\n{steps["ts1"]}')
+
             combo_dict[layer][unit] = dict()
             for ts, scores in steps.items():
                 word_sel_val = scores[measure]

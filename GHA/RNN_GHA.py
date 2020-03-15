@@ -9,6 +9,9 @@ import matplotlib.pyplot as plt
 from keras.utils import to_categorical
 from tensorflow.keras.models import load_model, Model
 
+from tensorflow.keras.optimizers import Adam, SGD, RMSprop, Adagrad, Adadelta, Adamax, Nadam
+
+
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
 from tools.RNN_STM import get_label_seqs, get_test_scores, get_layer_acts
 from tools.RNN_STM import seq_items_per_class, spell_label_seqs
@@ -175,6 +178,7 @@ def rnn_gha(sim_dict_path,
     x_data_type = sim_dict['model_info']["overview"]["x_data_type"]
     end_seq_cue = sim_dict['model_info']["overview"]["end_seq_cue"]
     act_func = sim_dict['model_info']["overview"]["act_func"]
+
     # input_dim = data_dict["X_size"]
     # output_dim = data_dict["n_cats"]
 
@@ -304,8 +308,43 @@ def rnn_gha(sim_dict_path,
     #     if verbose:
     #         print(f"Model layer {layer}: {model_details['layers'][layer]}")
 
+    # # sort optimizers
+    # # I don't think the choice of optimizer should actually mater since I am not training.
+    sgd = SGD(momentum=.9)  # decay=sgd_lr / max_epochs)
+    this_optimizer = sgd
+
+    if optimizer == 'SGD_no_momentum':
+        this_optimizer = SGD(momentum=0.0, nesterov=False)  # decay=sgd_lr / max_epochs)
+    elif optimizer == 'SGD_Nesterov':
+        this_optimizer = SGD(momentum=.1, nesterov=True)  # decay=sgd_lr / max_epochs)
+    elif optimizer == 'SGD_mom_clip':
+        this_optimizer = SGD(momentum=.9, clipnorm=1.)  # decay=sgd_lr / max_epochs)
+    elif optimizer == 'dougs':
+        print("I haven't added the code for doug's momentum to GHA script yet")
+        this_optimizer = None
+        # this_optimizer = dougsMomentum(momentum=.9)
+
+    elif optimizer == 'adam':
+        this_optimizer = Adam(amsgrad=False)
+    elif optimizer == 'adam_amsgrad':
+        # simulations run prior to 05122019 did not have this option, and may have use amsgrad under the name 'adam'
+        this_optimizer = Adam(amsgrad=True)
+
+    elif optimizer == 'RMSprop':
+        this_optimizer = RMSprop()
+    elif optimizer == 'Adagrad':
+        this_optimizer = Adagrad()
+    elif optimizer == 'Adadelta':
+        this_optimizer = Adadelta()
+    elif optimizer == 'Adamax':
+        this_optimizer = Adamax()
+    elif optimizer == 'Nadam':
+        this_optimizer = Nadam()
+
+
+
     # # # PART 3 get_scores() # # #
-    loaded_model.compile(loss=loss_func, optimizer=optimizer, metrics=['accuracy'])
+    loaded_model.compile(loss=loss_func, optimizer=this_optimizer, metrics=['accuracy'])
 
     # # load test_seqs if they are there, else generate some
     data_path = sim_dict['data_info']['data_path']
