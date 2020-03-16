@@ -899,7 +899,7 @@ def count_sel_units(word_sel_dict_path, measure='b_sel',
                                       f'{measure}_c': 'int32'})
     word_sel_df = word_sel_df.rename(columns={measure: f"word_sel", f'{measure}_c': f'word_c'})
     if verbose:
-        print(f"word_sel_df: {word_sel_df.shape}\n{word_sel_df.head()}")
+        print(f"\nword_sel_df: {word_sel_df.shape}\n{word_sel_df.head()}")
 
     letter_sel_df = nested_dict_to_df(letter_sel_dict)
     letter_sel_df = letter_sel_df[sel_columns]
@@ -907,14 +907,14 @@ def count_sel_units(word_sel_dict_path, measure='b_sel',
                                           f'{measure}_c': 'int32'})
     letter_sel_df = letter_sel_df.rename(columns={measure: f"letter_sel", f'{measure}_c': f'letter_c'})
     if verbose:
-        print(f"letter_sel_df: {letter_sel_df.shape}\n{letter_sel_df.head()}")
+        print(f"\nletter_sel_df: {letter_sel_df.shape}\n{letter_sel_df.head()}")
 
     combo_sel_df = nested_dict_to_df(combo_dict)
     combo_sel_df = combo_sel_df.rename(columns={'level': 'level',
                                                 'sel': f"combo_sel",
                                                 'feat': f'combo_c'})
     if verbose:
-        print(f"combo_sel_df: {combo_sel_df.shape}\n{combo_sel_df.head()}")
+        print(f"\ncombo_sel_df: {combo_sel_df.shape}\n{combo_sel_df.head()}")
 
 
 
@@ -947,10 +947,10 @@ def count_sel_units(word_sel_dict_path, measure='b_sel',
     letter_sel_df['letter_feat'] = letter_feat
 
 
-    # # # - letter in word bool (if letter_feat is in word_feat)
-    # print("fault finding line 927")
-    # print(f"word_feat: {len(word_feat)}\n{word_feat}\n\n"
-    #       f"letter_feat: {len(letter_feat)}\n{letter_feat}")
+    # # - letter in word bool (if letter_feat is in word_feat)
+    print("\nfault finding line 927")
+    print(f"word_feat: {len(word_feat)}\n{word_feat}\n\n"
+          f"letter_feat: {len(letter_feat)}\n{letter_feat}")
 
     letter_in_word = []
     for letter, word in zip(letter_feat, word_feat):
