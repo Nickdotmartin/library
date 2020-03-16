@@ -2,7 +2,7 @@ import csv
 import datetime
 import os.path
 import json
-import git
+# import git
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,13 +17,13 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
-from tools.data import load_x_data, load_y_data
+from tools.data import load_x_data, load_y_data, switch_home_dirs
 from tools.network import get_model_dict, get_scores
 
-from mlps import fc1, fc2, fc4
 from models.cnns import con6_pool3_fc1, con2_pool2_fc1, con4_pool2_fc1, \
     con4_pool2_fc1_reluconv, con4_pool2_fc1_noise_layer
 from models.rnns import Bowers14rnn, SimpleRNNn, GRUn, LSTMn, Seq2Seq
+from models.mlps import mlp, fc1, fc2, fc4
 
 
 '''following coding tips session with Ben'''
@@ -41,8 +41,13 @@ def train_model(exp_name,
                 cond=None, run=None,
                 max_epochs=100, use_optimizer='adam',
                 loss_target=0.01, min_loss_change=0.0001, batch_size=32,
+
+                n_layers=1, units_per_layer=200,
+			    act_func='relu', Use_bias=True,
+                y_1hot=True, output_act='softmax',
+                weight_init='GlorotUniform',
                 augmentation=True, grey_image=False,
-                use_batch_norm=True, use_dropout=True,
+                use_batch_norm=False, use_dropout=0.0,
                 use_val_data=True,
                 timesteps=1,
                 exp_root='/home/nm13850/Documents/PhD/python_v2/experiments/',
@@ -111,12 +116,15 @@ def train_model(exp_name,
 
     print(f"\noutput_filename: {output_filename}")
 
-
+    print(data_dict_path)
     # # get info from dict
     if os.path.isfile(data_dict_path):
         data_dict = load_dict(data_dict_path)
     elif os.path.isfile(os.path.join('/home/nm13850/Documents/PhD/python_v2/datasets/', data_dict_path)):
         data_dict_path = os.path.join('/home/nm13850/Documents/PhD/python_v2/datasets/', data_dict_path)
+        data_dict = load_dict(data_dict_path)
+    elif os.path.isfile(switch_home_dirs(data_dict_path)):
+        data_dict_path = switch_home_dirs(data_dict_path)
         data_dict = load_dict(data_dict_path)
     else:
         raise FileNotFoundError(data_dict_path)
@@ -209,21 +217,35 @@ def train_model(exp_name,
 
 
     # # The Model
-    # todo: change how models are loaded, use dicts, see train_STM_RNN
     if model_dir in ['mlp', 'mlps']:
         print("\nloading an mlp model")
         augmentation = False
-        units_per_layer = 32
-        # models[model_name].build(...)
-        if model_name == 'fc4':
-            build_model = fc4.build(classes=n_cats, units_per_layer=units_per_layer,
-                                    batch_norm=use_batch_norm, dropout=use_dropout)
-        if model_name == 'fc2':
-            build_model = fc2.build(classes=n_cats, units_per_layer=units_per_layer,
-                                    batch_norm=use_batch_norm, dropout=use_dropout)
-        if model_name == 'fc1':
-            build_model = fc1.build(classes=n_cats, units_per_layer=units_per_layer,
-                                    batch_norm=use_batch_norm, dropout=use_dropout)
+        model_dict = {'mlp': mlp,
+                      'fc1': fc1,
+                      'fc2': fc2,
+                      'fc4': fc4}
+
+        model = model_dict[model_name].build(features=x_size, classes=n_cats,
+                                             n_layers=n_layers,
+                                             units_per_layer=units_per_layer,
+                                             act_func=act_func,
+                                             use_bias=use_bias,
+                                             y_1hot=y_1hot,
+                                             weight_init='GlorotUniform',
+                                             batch_norm=use_batch_norm,
+                                             dropout=use_dropout)
+        # augmentation = False
+        # units_per_layer = 32
+        # # models[model_name].build(...)
+        # elif model_name == 'fc4':
+        #     build_model = fc4.build(classes=n_cats, units_per_layer=units_per_layer,
+        #                             batch_norm=use_batch_norm, dropout=use_dropout)
+        # elif model_name == 'fc2':
+        #     build_model = fc2.build(classes=n_cats, units_per_layer=units_per_layer,
+        #                             batch_norm=use_batch_norm, dropout=use_dropout)
+        # elif model_name == 'fc1':
+        #     build_model = fc1.build(classes=n_cats, units_per_layer=units_per_layer,
+        #                             batch_norm=use_batch_norm, dropout=use_dropout)
 
     elif model_dir in ['cnn', 'cnns']:
         print("loading a cnn model")
@@ -253,12 +275,6 @@ def train_model(exp_name,
                       'LSTMn': LSTMn,
                       'Seq2Seq': Seq2Seq}
 
-        # todo: add these variables
-        n_layers = 1
-        units_per_layer = 100
-        serial_recall = True
-        act_func = "tanh"
-        y_1hot = True
 
         model = model_dict[model_name].build(features=x_size, classes=n_cats, timesteps=timesteps,
                                              batch_size=batch_size, n_layers=n_layers,
@@ -269,7 +285,7 @@ def train_model(exp_name,
     else:
         print("model_dir not recognised")
 
-    model = build_model
+    # model = build_model
 
     # loss
     loss_func = 'categorical_crossentropy'
