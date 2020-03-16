@@ -2,7 +2,7 @@ import csv
 import datetime
 import os.path
 import json
-# import git
+import git
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -40,10 +40,11 @@ def train_model(exp_name,
                 cond_name=None,
                 cond=None, run=None,
                 max_epochs=100, use_optimizer='adam',
-                loss_target=0.01, min_loss_change=0.0001, batch_size=32,
-
+                loss_target=0.01, min_loss_change=0.0001,
+                batch_size=32,
+                lr=0.001,
                 n_layers=1, units_per_layer=200,
-			    act_func='relu', Use_bias=True,
+			    act_func='relu', use_bias=True,
                 y_1hot=True, output_act='softmax',
                 weight_init='GlorotUniform',
                 augmentation=True, grey_image=False,
@@ -142,11 +143,33 @@ def train_model(exp_name,
 
     # # check for training data
     if 'train_set' in data_dict:
-        x_data_path = os.path.join(data_dict['data_path'], data_dict['train_set']['X_data'])
-        y_data_path = os.path.join(data_dict['data_path'], data_dict['train_set']['Y_labels'])
+        if os.path.isfile(os.path.join(data_dict['data_path'], data_dict['train_set']['X_data'])):
+            x_data_path = os.path.join(data_dict['data_path'], data_dict['train_set']['X_data'])
+            y_data_path = os.path.join(data_dict['data_path'], data_dict['train_set']['Y_labels'])
+        elif os.path.isfile(switch_home_dirs(os.path.join(data_dict['data_path'],
+                                                          data_dict['train_set']['X_data']))):
+            x_data_path = switch_home_dirs(os.path.join(data_dict['data_path'],
+                                                        data_dict['train_set']['X_data']))
+            y_data_path = switch_home_dirs(os.path.join(data_dict['data_path'],
+                                                        data_dict['train_set']['Y_labels']))
+        else:
+            raise FileNotFoundError(f"training data not found\n"
+                                    f"{os.path.join(data_dict['data_path'], data_dict['train_set']['X_data'])}")
     else:
-        x_data_path = os.path.join(data_dict['data_path'], data_dict['X_data'])
-        y_data_path = os.path.join(data_dict['data_path'], data_dict['Y_labels'])
+        # # if no training set
+        if os.path.isfile(os.path.join(data_dict['data_path'], data_dict['X_data'])):
+            x_data_path = os.path.join(data_dict['data_path'], data_dict['X_data'])
+            y_data_path = os.path.join(data_dict['data_path'], data_dict['Y_labels'])
+        else:
+            data_path = switch_home_dirs(data_dict['data_path'])
+            if os.path.isfile(os.path.join(data_path, data_dict['X_data'])):
+                x_data_path = os.path.join(data_path, data_dict['X_data'])
+                y_data_path = os.path.join(data_path, data_dict['Y_labels'])
+                data_dict['data_path'] = data_path
+            else:
+                raise FileNotFoundError(f'cant find x data at\n'
+                                        f'{os.path.join(data_path, data_dict["X_data"])}')
+
 
     x_data = load_x_data(x_data_path)
     y_df, y_label_list = load_y_data(y_data_path)
@@ -231,7 +254,9 @@ def train_model(exp_name,
                                              act_func=act_func,
                                              use_bias=use_bias,
                                              y_1hot=y_1hot,
-                                             weight_init='GlorotUniform',
+                                             output_act=output_act,
+                                             batch_size=batch_size,
+                                             weight_init=weight_init,
                                              batch_norm=use_batch_norm,
                                              dropout=use_dropout)
         # augmentation = False
@@ -293,13 +318,16 @@ def train_model(exp_name,
         loss_func = 'binary_crossentropy'
 
     # optimizer
-    sgd_lr = 0.01  # initialize learning rate
-    sgd = SGD(lr=sgd_lr, decay=sgd_lr / max_epochs)
-    this_optimizer = sgd
-    if use_optimizer == 'adam':
-        this_optimizer = Adam(lr=0.001)
+    if use_optimizer in ['sgd', 'SGD']:
+        this_optimizer = SGD(lr=lr)
+    elif use_optimizer in ['sgd_decay', 'SGD_decay']:
+        this_optimizer = SGD(lr=lr, decay=lr / max_epochs)
+    elif use_optimizer == 'adam':
+        this_optimizer = Adam(lr=lr)
     elif use_optimizer == 'rmsprop':
-        this_optimizer = RMSprop(lr=0.0001, decay=1e-6)
+        this_optimizer = RMSprop(lr=lr, decay=1e-6)
+    else:
+        raise ValueError(f'use_optimizer not recognized: {use_optimizer}')
 
 
     # # compile model
@@ -341,6 +369,14 @@ def train_model(exp_name,
                                                               patience=patience_for_loss_change, verbose=verbose,
                                                               mode='min')
 
+    # # early stop acc
+    # # should stop when acc reaches 1.0 (e.g., will not carry on training)
+    early_stop_acc = tf.keras.callbacks.EarlyStopping(monitor='accuracy', min_delta=.1,
+                                                      patience=1, baseline=1.0)
+
+    val_early_stop_acc = tf.keras.callbacks.EarlyStopping(monitor='val_accuracy', min_delta=.1,
+                                                          patience=1, baseline=1.0)
+
     date_n_time = int(datetime.datetime.now().strftime("%Y%m%d%H%M"))
     tensorboard_path = os.path.join(exp_cond_path, 'tb', str(date_n_time))
 
@@ -362,8 +398,8 @@ def train_model(exp_name,
           f'tensorboard --logdir={tensorboard_path}'
           '\nthen click link''')
 
-    callbacks_list = [early_stop_plateau, checkpointer, tensorboard]
-    val_callbacks_list = [val_early_stop_plateau, checkpointer, tensorboard]
+    callbacks_list = [early_stop_plateau, early_stop_acc, checkpointer, tensorboard]
+    val_callbacks_list = [val_early_stop_plateau, val_early_stop_acc, checkpointer, tensorboard]
 
     ############################
     # # train model
@@ -456,15 +492,40 @@ def train_model(exp_name,
 
     trained_date = int(datetime.datetime.now().strftime("%y%m%d"))
     trained_time = int(datetime.datetime.now().strftime("%H%M"))
-    model_info['overview'] = {'model_type': model_dir, 'model_name': model_name, "trained_model": checkpoint_path,
-                              "units_per_layer": units_per_layer, "optimizer": use_optimizer,
-                              "use_batch_norm": use_batch_norm, "batch_size": batch_size, "augmentation": augmentation,
-                              "grey_image": grey_image, "use_dropout": use_dropout, "loss_target": loss_target,
-                              "min_loss_change": min_loss_change, "max_epochs": max_epochs, 'timesteps': timesteps}
+    model_info['overview'] = {'model_type': model_dir,
+                              'model_name': model_name,
+                              "trained_model": checkpoint_path,
+                              "n_layers": n_layers,
+                              "units_per_layer": units_per_layer,
+                              "act_func": act_func,
+                              "optimizer": use_optimizer,
+                              "use_bias": use_bias,
+                              "weight_init": weight_init,
+
+                              "y_1hot": y_1hot, "output_act": output_act,
+                              "lr": lr, "max_epochs": max_epochs,
+
+                              "batch_size": batch_size,
+                              "use_batch_norm": use_batch_norm,
+                              "use_dropout": use_dropout,
+
+                              "use_val_data": use_val_data,
+
+                              "augmentation": augmentation,
+                              "grey_image": grey_image,
+                              "loss_target": loss_target,
+                              "min_loss_change": min_loss_change,
+                              'timesteps': timesteps
+                              }
 
 
-    repo = git.Repo('/home/nm13850/Documents/PhD/code/library')
+    git_repository = '/home/nm13850/Documents/PhD/code/library'
+    if os.path.isdir('/Users/nickmartin/Documents/PhD/code/library'):
+        git_repository = '/Users/nickmartin/Documents/PhD/code/library'
 
+    repo = git.Repo(git_repository)
+
+    sim_dict_name = f"{output_filename}_sim_dict.txt"
 
     # # simulation_info_dict
     sim_dict = {"topic_info": {"output_filename": output_filename, "cond": cond, "run": run,
@@ -474,7 +535,8 @@ def train_model(exp_name,
                 "data_info": data_dict,
                 "model_info": model_info,
                 'scores': scores_dict,
-                "training_info": {"trained_for": trained_for,
+                "training_info": {"sim_dict_name": sim_dict_name,
+                                  "trained_for": trained_for,
                                   "loss": end_loss, "acc": end_acc, 'use_val_data': use_val_data,
                                   "end_val_acc": end_val_acc, "end_val_loss": end_val_loss,
                                   "trained_date": trained_date, "trained_time": trained_time,
@@ -484,7 +546,6 @@ def train_model(exp_name,
                                   }
                 }
 
-    sim_dict_name = f"{output_filename}_sim_dict.txt"
 
     focussed_dict_print(sim_dict, 'sim_dict')
 
@@ -557,7 +618,7 @@ def train_model(exp_name,
           f'tensorboard --logdir={tensorboard_path}'
           '\nthen click link')
 
-    print("\nff_conv_colour_sim finished")
+    print("\nff_sim finished")
 
     return training_info, sim_dict
 

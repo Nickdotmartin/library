@@ -109,7 +109,11 @@ def ff_gha(sim_dict_path,
 
     # # # PART 1 # # #
     # # load details from dict
-    if os.path.isfile(sim_dict_path):
+    if type(sim_dict_path) is dict:
+        sim_dict = sim_dict_path
+        full_exp_cond_path = sim_dict['topic_info']['exp_cond_path']
+
+    elif os.path.isfile(sim_dict_path):
         print(f"sim_dict_path: {sim_dict_path}")
         sim_dict = load_dict(sim_dict_path)
         full_exp_cond_path, sim_dict_name = os.path.split(sim_dict_path)
@@ -322,7 +326,9 @@ def ff_gha(sim_dict_path,
                 # # save distplot for sanity check
                 sns.distplot(np.ravel(acts_2d))
                 plt.title(str(layer_name))
-                plt.savefig(f"layer_act_dist/{output_filename}_{layer_name}_layer_act_distplot.png")
+                # plt.savefig(f"layer_act_dist/{output_filename}_{layer_name}_layer_act_distplot.png")
+                plt.savefig(f"{output_filename}_{layer_name}_layer_act_distplot.png")
+
                 plt.close()
 
     print("\n**** saving info to summary page and dictionary ****")

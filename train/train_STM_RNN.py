@@ -2,7 +2,7 @@ import csv
 import datetime
 import json
 import os
-# import git
+import git
 import numpy as np
 
 import tensorflow as tf
@@ -701,7 +701,11 @@ def train_model(exp_name,
                               'y_1hot': y_1hot,
                               'LENS_states': LENS_states}
 
+    git_repository = '/home/nm13850/Documents/PhD/code/library'
+    if os.path.isdir('/Users/nickmartin/Documents/PhD/code/library'):
+        git_repository = '/Users/nickmartin/Documents/PhD/code/library'
 
+    repo = git.Repo(git_repository)
     # repo = "git.Repo('/home/nm13850/Documents/PhD/code/library')"
 
     sim_dict_name = f"{output_filename}_sim_dict.txt"
@@ -723,7 +727,7 @@ def train_model(exp_name,
                                   'x_data_path': x_data_path, 'y_data_path': y_data_path,
                                   'sim_dict_path': sim_dict_path,
                                   'tensorboard_path': tensorboard_path,
-                                  # 'commit': repo.head.object.hexsha,
+                                  'commit': repo.head.object.hexsha,
                                   }
                 }
 
