@@ -316,6 +316,8 @@ def train_model(exp_name,
     loss_func = 'categorical_crossentropy'
     if n_cats == 2:
         loss_func = 'binary_crossentropy'
+    if not y_1hot:
+        loss_func = 'binary_crossentropy'
 
     # optimizer
     if use_optimizer in ['sgd', 'SGD']:
@@ -369,13 +371,11 @@ def train_model(exp_name,
                                                               patience=patience_for_loss_change, verbose=verbose,
                                                               mode='min')
 
-    # # early stop acc
-    # # should stop when acc reaches 1.0 (e.g., will not carry on training)
-    early_stop_acc = tf.keras.callbacks.EarlyStopping(monitor='accuracy', min_delta=.1,
-                                                      patience=1, baseline=1.0)
-
-    val_early_stop_acc = tf.keras.callbacks.EarlyStopping(monitor='val_accuracy', min_delta=.1,
-                                                          patience=1, baseline=1.0)
+    # # # early stop acc
+    # # # should stop when acc reaches 1.0 (e.g., will not carry on training)
+    # early_stop_acc = tf.keras.callbacks.EarlyStopping(monitor='acc', baseline=1.0, patience=0)
+    #
+    # val_early_stop_acc = tf.keras.callbacks.EarlyStopping(monitor='val_acc', baseline=1.0, patience=0)
 
     date_n_time = int(datetime.datetime.now().strftime("%Y%m%d%H%M"))
     tensorboard_path = os.path.join(exp_cond_path, 'tb', str(date_n_time))
@@ -398,8 +398,8 @@ def train_model(exp_name,
           f'tensorboard --logdir={tensorboard_path}'
           '\nthen click link''')
 
-    callbacks_list = [early_stop_plateau, early_stop_acc, checkpointer, tensorboard]
-    val_callbacks_list = [val_early_stop_plateau, val_early_stop_acc, checkpointer, tensorboard]
+    callbacks_list = [early_stop_plateau, checkpointer, tensorboard]
+    val_callbacks_list = [val_early_stop_plateau, checkpointer, tensorboard]
 
     ############################
     # # train model
@@ -484,6 +484,7 @@ def train_model(exp_name,
 
     predicted_outputs = model.predict(x_data)  # use x_data NOT x_train to fit shape of y_df
     item_correct_df, scores_dict, incorrect_items = get_scores(predicted_outputs, y_df, output_filename,
+                                                               y_1hot=y_1hot,
                                                                verbose=True, save_all_csvs=True)
 
     if verbose:
@@ -504,7 +505,7 @@ def train_model(exp_name,
 
                               "y_1hot": y_1hot, "output_act": output_act,
                               "lr": lr, "max_epochs": max_epochs,
-
+                              "loss_func": loss_func,
                               "batch_size": batch_size,
                               "use_batch_norm": use_batch_norm,
                               "use_dropout": use_dropout,

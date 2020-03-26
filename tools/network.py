@@ -152,8 +152,9 @@ def get_model_dict(compiled_model, verbose=False):
 
 #########################
 
-
-def get_scores(predicted_outputs, y_df, output_filename, verbose=False, save_all_csvs=True,
+def get_scores(predicted_outputs, y_df, output_filename,
+               y_1hot=True, output_act='softmax',
+               verbose=False, save_all_csvs=True,
                return_flat_conf=False):
     """
     Script will compare predicted class and true class to find whether each item was correct.
@@ -163,6 +164,7 @@ def get_scores(predicted_outputs, y_df, output_filename, verbose=False, save_all
     :param predicted_outputs: from loaded_model.predict(x_data).  shape (n_items, n_cats)
     :param y_df:  y item and class
     :param output_filename:  to use when saving csvs
+    :param y_1hot: (True) get most active class label.  If False, get label for all classes > .5, compare with output.
     :param verbose:
     :param save_all_csvs:
     :param return_flat_conf: if false, just add the name to the dict, if true, return actual flat conf matrix
@@ -177,47 +179,114 @@ def get_scores(predicted_outputs, y_df, output_filename, verbose=False, save_all
 
     n_items, n_cats = np.shape(predicted_outputs)
 
-    predicted_cat = []
+    print(f'y_1hot: {y_1hot}')
+    print(f'predicted_outputs:\n{predicted_outputs}')
 
-    # find the column (class) with the highest prediction
-    for row in range(n_items):
-        this_row = predicted_outputs[row]
-        max_val = max(this_row)
-        # max_cat = this_row.tolist().index(max_val)
-        max_cat = list(this_row).index(max_val)
 
-        predicted_cat.append(max_cat)
+    if y_1hot:
+        predicted_cat = []
 
-    # # save list of which items were incorrect
-    true_cat = [int(i) for i in y_df['class'].tolist()]
-    # true_cat = y_df['class'].tolist()  # was returning strings?
+        # find the column (class) with the highest prediction
+        for row in range(n_items):
+            this_row = predicted_outputs[row]
+            max_val = max(this_row)
+            # max_cat = this_row.tolist().index(max_val)
+            max_cat = list(this_row).index(max_val)
 
-    # make a list of whether the predictions were correct
-    item_score = []
-    incorrect_items = []
-    for index, pred_item in enumerate(predicted_cat):
-        if pred_item == true_cat[index]:
-            item_score.append(int(1))
-        else:
-            item_score.append(int(0))
-            incorrect_items.append(index)
+            predicted_cat.append(max_cat)
 
-    item_correct_df = y_df.copy()
+        # # save list of which items were incorrect
+        true_cat = [int(i) for i in y_df['class'].tolist()]
+        # true_cat = y_df['class'].tolist()  # was returning strings?
 
-    if verbose is True:
-        print("item_correct_df.shape: {}".format(item_correct_df.shape))
-        print("len(item_score): {}".format(len(item_score)))
+        # make a list of whether the predictions were correct
+        item_score = []
+        incorrect_items = []
+        for index, pred_item in enumerate(predicted_cat):
+            if pred_item == true_cat[index]:
+                item_score.append(int(1))
+            else:
+                item_score.append(int(0))
+                incorrect_items.append(index)
 
-    item_correct_df.insert(2, column="full_model", value=item_score)
+        item_correct_df = y_df.copy()
 
-    n_correct = item_score.count(1)
+        if verbose is True:
+            print("item_correct_df.shape: {}".format(item_correct_df.shape))
+            print("len(item_score): {}".format(len(item_score)))
 
-    gha_acc = np.around(n_correct/n_items, decimals=3)
+        item_correct_df.insert(2, column="full_model", value=item_score)
 
-    if verbose is True:
-        print("items: {}\ncorrect: {}\nincorrect: {}\naccuracy: {}".format(n_items, n_correct,
-                                                                           n_items - n_correct, gha_acc))
+        n_correct = item_score.count(1)
 
+        gha_acc = np.around(n_correct/n_items, decimals=3)
+
+        if verbose is True:
+            print("items: {}\ncorrect: {}\nincorrect: {}\naccuracy: {}".format(n_items, n_correct,
+                                                                               n_items - n_correct, gha_acc))
+
+    else:
+        # if not y_1hot
+        # # get labels for classes where value is greater than .5
+        all_pred_labels = []
+        if output_act == 'sigmoid':
+            for item in range(n_items):
+                these_pred_labels = np.argwhere(predicted_outputs[item] > .5)
+
+                # flatted predictions
+                if len(np.shape(these_pred_labels)) > 1:
+                    these_pred_labels = np.ravel(these_pred_labels).tolist()
+                all_pred_labels.append(these_pred_labels)
+
+        elif output_act in ['relu', 'linear']:
+            print('write something to select the most active n values')
+
+
+
+        if verbose:
+            print(f"all_pred_labels: {np.shape(all_pred_labels)}\n{all_pred_labels[0]}\n")
+            print(f"y_df: {y_df}")
+        #
+        # predicted_cat = []
+        #
+        # # find the column (class) with the highest prediction
+        # for row in range(n_items):
+        #     this_row = predicted_outputs[row]
+        #     max_val = max(this_row)
+        #     # max_cat = this_row.tolist().index(max_val)
+        #     max_cat = list(this_row).index(max_val)
+        #
+        #     predicted_cat.append(max_cat)
+
+        # # save list of which items were incorrect
+        true_cat = [int(i) for i in y_df['class'].tolist()]
+        # true_cat = y_df['class'].tolist()  # was returning strings?
+
+        # make a list of whether the predictions were correct
+        item_score = []
+        incorrect_items = []
+        for index, pred_item in enumerate(predicted_cat):
+            if pred_item == true_cat[index]:
+                item_score.append(int(1))
+            else:
+                item_score.append(int(0))
+                incorrect_items.append(index)
+
+        item_correct_df = y_df.copy()
+
+        if verbose is True:
+            print("item_correct_df.shape: {}".format(item_correct_df.shape))
+            print("len(item_score): {}".format(len(item_score)))
+
+        item_correct_df.insert(2, column="full_model", value=item_score)
+
+        n_correct = item_score.count(1)
+
+        gha_acc = np.around(n_correct / n_items, decimals=3)
+
+        if verbose is True:
+            print("items: {}\ncorrect: {}\nincorrect: {}\naccuracy: {}".format(n_items, n_correct,
+                                                                               n_items - n_correct, gha_acc))
 
 
     corr_per_cat_dict = dict()
@@ -282,6 +351,140 @@ def get_scores(predicted_outputs, y_df, output_filename, verbose=False, save_all
                    "scores_date": tools_date, 'scores_time': tools_time}
 
     return item_correct_df, scores_dict, incorrect_items
+
+
+# def get_scores(predicted_outputs, y_df, output_filename,
+#                y_1hot=True,
+#                verbose=False, save_all_csvs=True,
+#                return_flat_conf=False):
+#     """
+#     Script will compare predicted class and true class to find whether each item was correct.
+#
+#     use predicted outputs to get predicted categories
+#
+#     :param predicted_outputs: from loaded_model.predict(x_data).  shape (n_items, n_cats)
+#     :param y_df:  y item and class
+#     :param output_filename:  to use when saving csvs
+#     :param y_1hot: (True)
+#     :param verbose:
+#     :param save_all_csvs:
+#     :param return_flat_conf: if false, just add the name to the dict, if true, return actual flat conf matrix
+#
+#
+#     :return: item_correct_df - item number, class, correct (1 or if incorrect, 0)
+#     :return: scores_dict - descriptives
+#     :return: incorrect_items - list of item numbers that were incorrect
+#
+#     """
+#     print("\n**** get_scores() ****")
+#
+#     n_items, n_cats = np.shape(predicted_outputs)
+#
+#     predicted_cat = []
+#
+#     # find the column (class) with the highest prediction
+#     for row in range(n_items):
+#         this_row = predicted_outputs[row]
+#         max_val = max(this_row)
+#         # max_cat = this_row.tolist().index(max_val)
+#         max_cat = list(this_row).index(max_val)
+#
+#         predicted_cat.append(max_cat)
+#
+#     # # save list of which items were incorrect
+#     true_cat = [int(i) for i in y_df['class'].tolist()]
+#     # true_cat = y_df['class'].tolist()  # was returning strings?
+#
+#     # make a list of whether the predictions were correct
+#     item_score = []
+#     incorrect_items = []
+#     for index, pred_item in enumerate(predicted_cat):
+#         if pred_item == true_cat[index]:
+#             item_score.append(int(1))
+#         else:
+#             item_score.append(int(0))
+#             incorrect_items.append(index)
+#
+#     item_correct_df = y_df.copy()
+#
+#     if verbose is True:
+#         print("item_correct_df.shape: {}".format(item_correct_df.shape))
+#         print("len(item_score): {}".format(len(item_score)))
+#
+#     item_correct_df.insert(2, column="full_model", value=item_score)
+#
+#     n_correct = item_score.count(1)
+#
+#     gha_acc = np.around(n_correct/n_items, decimals=3)
+#
+#     if verbose is True:
+#         print("items: {}\ncorrect: {}\nincorrect: {}\naccuracy: {}".format(n_items, n_correct,
+#                                                                            n_items - n_correct, gha_acc))
+#
+#
+#
+#     corr_per_cat_dict = dict()
+#     for cat in range(n_cats):
+#         corr_per_cat_dict[cat] = len(item_correct_df[(item_correct_df.loc[:, 'class'] == cat) &
+#                                                      (item_correct_df.loc[:, 'full_model'] == 1)])
+#
+#
+#     # # # are any categories missing?
+#     category_fail = sum(value == 0 for value in corr_per_cat_dict.values())
+#     category_low = sum(value < 3 for value in corr_per_cat_dict.values())
+#     n_cats_correct = n_cats - category_fail
+#
+#     # # report scores
+#     conf_matrix = confusion_matrix(y_true=true_cat, y_pred=predicted_cat)
+#     conf_headers = ["pred_{}".format(i) for i in range(n_cats)]
+#     conf_matrix_df = pd.DataFrame(data=conf_matrix, columns=conf_headers)
+#     conf_matrix_df.index.names = ['true_label']
+#
+#     # # names for output files
+#     item_correct_name = "{}_item_correct.csv".format(output_filename)
+#     flat_conf_name = "{}_flat_conf_matrix.csv".format(output_filename)
+#
+#     flat_conf_or_name = flat_conf_name
+#     if return_flat_conf is True:
+#         # make a flat conf_matrix to use with lesioning
+#         flat_conf = np.ravel(conf_matrix)
+#         flat_conf_labels = ["t{}_p{}".format(i[0], i[1]) for i in list(product(list(range(n_cats)), repeat=2))]
+#         flat_conf_n_labels = np.column_stack((flat_conf_labels, flat_conf))
+#         flat_conf_df = pd.DataFrame(data=flat_conf_n_labels, columns=['conf_matrix', 'full_model'])
+#         flat_conf_or_name = flat_conf_df
+#         if save_all_csvs is True:
+#             # flat_conf_df.to_csv(flat_conf_name)
+#             nick_to_csv(flat_conf_df, flat_conf_name)
+#
+#     if verbose is True:
+#         print("\ncategory failures: " + str(category_fail))
+#         print("category_low: " + str(category_low))
+#         print("corr_per_cat_dict: {}".format(corr_per_cat_dict))
+#         print("conf_matrix_df:\n{}".format(conf_matrix_df))
+#
+#     if save_all_csvs is True:
+#         # print(item_correct_df.head())
+#
+#         # # change dtype before saving to make smaller.
+#         # print("\n\nidiot check")
+#         # print(item_correct_df.dtypes)
+#         if n_items < 32000:
+#             int_item_correct_df = item_correct_df.astype('int16')
+#         elif n_items > 2147483647:
+#             int_item_correct_df = item_correct_df  # keeps the current int64
+#         else:
+#             int_item_correct_df = item_correct_df.astype('int32')
+#         # int_item_correct_df.to_csv(item_correct_name, index=False)
+#         nick_to_csv(int_item_correct_df, item_correct_name)
+#
+#     scores_dict = {"n_items": n_items, "n_correct": n_correct, "gha_acc": gha_acc,
+#                    "category_fail": category_fail, "category_low": category_low, "n_cats_correct": n_cats_correct,
+#                    "corr_per_cat_dict": corr_per_cat_dict,
+#                    "item_correct_name": item_correct_name,
+#                    "flat_conf": flat_conf_or_name,
+#                    "scores_date": tools_date, 'scores_time': tools_time}
+#
+#     return item_correct_df, scores_dict, incorrect_items
 
 
 
