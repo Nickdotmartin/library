@@ -948,7 +948,7 @@ def count_sel_units(word_sel_dict_path, measure='b_sel',
 
 
     # # - letter in word bool (if letter_feat is in word_feat)
-    print("\nfault finding line 927")
+    print("\nfault finding line 951")
     print(f"word_feat: {len(word_feat)}\n{word_feat}\n\n"
           f"letter_feat: {len(letter_feat)}\n{letter_feat}")
 
@@ -1068,6 +1068,7 @@ def count_sel_units(word_sel_dict_path, measure='b_sel',
             print(f"flat_count_df:\n{flat_count_df.head()}")
 
         # # add details for filtering
+        cond_num = sel_dict['topic_info']['cond']
         serial_recall = sel_dict['model_info']['overview']['serial_recall']
         x_data_type = sel_dict['model_info']['overview']['x_data_type']
         timesteps = sel_dict['model_info']['overview']['timesteps']
@@ -1076,10 +1077,10 @@ def count_sel_units(word_sel_dict_path, measure='b_sel',
 
         flat_count_df = pd.concat([flat_count_df,
                                    pd.DataFrame(
-            [[x_data_type, timesteps, serial_recall, max_epochs, n_cats]],
+            [[cond_num, x_data_type, timesteps, serial_recall, max_epochs, n_cats]],
             index=flat_count_df.index,
-            columns=['x_data_type', 'timesteps', 'serial_recall', 'max_epochs',
-                     'n_cats'])],
+            columns=['cond_num', 'x_data_type', 'timesteps', 'serial_recall',
+                     'max_epochs', 'n_cats'])],
             axis=1)
 
 
