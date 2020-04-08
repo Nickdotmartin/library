@@ -199,6 +199,7 @@ def train_model(exp_name,
                 timesteps=1,
                 train_cycles=False,
                 weight_init='GlorotUniform',
+                init_range=1,
                 lr=0.001,
                 unroll=False,
                 LENS_states=False,
@@ -257,6 +258,7 @@ def train_model(exp_name,
     :param train_cycles: if False, all lists lengths = timesteps.
                         If True, train on varying length, [1, 2, 3,...timesteps].
     :param weight_init: change the initializatation of the weights
+    :param init_range: Range for random uniform intializer (+/-, e.g., from 1 to -1)
     :param lr: set the learning rate for the optimizer
     :param unroll:  Whether to unroll the model.
     :param exp_root: root directory for saving experiments
@@ -419,6 +421,7 @@ def train_model(exp_name,
                                               dropout=use_dropout,
                                               masking=train_cycles,
                                               weight_init=weight_init,
+                                              init_range=init_range,
                                               unroll=unroll,
                                               stateful=stateful)
     else:
@@ -645,7 +648,9 @@ def train_model(exp_name,
     if train_cycles:
         timesteps = 7
 
-    test_filename = f'seq{timesteps}_v{n_cats}_960_test_seq_labels.npy'
+    # test_filename = f'seq{timesteps}_v{n_cats}_960_test_seq_labels.npy'
+    test_filename = f'seq{timesteps}_v{n_cats}_1per_ts_test_seq_labels.npy'
+
     test_seq_path = os.path.join(data_path, test_filename)
 
     # if not os.path.isfile(test_seq_path):

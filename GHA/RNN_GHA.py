@@ -358,7 +358,8 @@ def rnn_gha(sim_dict_path,
 
     print(f'data_path: {data_path}')
 
-    test_filename = f'seq{timesteps}_v{n_cats}_960_test_seq_labels.npy'
+    # test_filename = f'seq{timesteps}_v{n_cats}_960_test_seq_labels.npy'
+    test_filename = f'seq{timesteps}_v{n_cats}_1per_ts_test_seq_labels.npy'
     test_seq_path = os.path.join(data_path, test_filename)
     test_label_seqs = np.load(test_seq_path)
 
@@ -370,8 +371,9 @@ def rnn_gha(sim_dict_path,
 
     seq_words_df = pd.read_csv(f"{test_label_name}words.csv")
 
-    test_IPC_name = os.path.join(data_path,
-                                 f"seq{timesteps}_v{n_cats}_960_test_IPC.pickle")
+    # test_IPC_name = os.path.join(data_path, f"seq{timesteps}_v{n_cats}_960_test_IPC.pickle")
+    test_IPC_name = os.path.join(data_path, f"seq{timesteps}_v{n_cats}_1per_ts_test_IPC.pickle")
+
     IPC_dict = load_dict(test_IPC_name)
 
     # else:

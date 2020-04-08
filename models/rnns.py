@@ -247,7 +247,9 @@ class SimpleRNNn:
     def build(features, classes, timesteps, batch_size, n_layers=1, units_per_layer=200,
               serial_recall=True, act_func='tanh', y_1hot=False, dropout=0.0,
               masking=False,
-              weight_init='GlorotUniform', unroll=False, stateful=False):
+              weight_init='GlorotUniform',
+              init_range=1,
+              unroll=False, stateful=False):
         """
         :param features: input shape, which is n_letters (30) + 1, for end_of_seq_cue.
         :param classes: Vocab size (either 30 or 300)
@@ -261,6 +263,7 @@ class SimpleRNNn:
         :param dropout: Not used
         :param masking: Whether to use a masking layer for variable seq len
         :param weight_init: weight initialization
+        :param init_range: Range for random uniform intializer (+/-, e.g., from 1 to -1)
         :param unroll: uses more memory but trains faster
         :param stateful: stateful RNN does not reset states after each sequence.
             I need to set this to True in order to set the state to a given value at the start of
@@ -271,7 +274,7 @@ class SimpleRNNn:
         model = Sequential(name="SimpleRNNn")
 
         if weight_init == 'LENS':
-            weight_init = RandomUniform(minval=-1.0, maxval=1.0, seed=None)
+            weight_init = RandomUniform(minval=-init_range, maxval=init_range, seed=None)
 
         layer_seqs = True
         l_input_width = units_per_layer
