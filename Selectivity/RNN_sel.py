@@ -1949,12 +1949,10 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                     zhou_cut_off = 1 / n_correct
                 zhou_selects = int(n_correct * zhou_cut_off)
 
-                # print(f'\n\nidiot check - line 1947\n'
-                #       f'IPC_letters.values(): {IPC_letters.values()}\n'
-                #       f'IPC_letters: {IPC_letters}\n')
-                #
-                # if len(IPC_letters.values()) == 0:
-                #     print(f'IPC_letters.values() is an empty list')
+
+
+                if len(IPC_letters.values()) == 0:
+                    print(f'IPC_letters.values() is an empty list')
 
                 if 9 < min(IPC_letters.values()) < 100:
                     zhou_selects = min(IPC_letters.values())
@@ -1962,8 +1960,23 @@ def rnn_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                 if verbose:
                     print(f"\nZhou\n{IPC_letters}\n{min(IPC_letters.values())}")
 
+                if zhou_selects < min(IPC_letters.values()):
+                    zhou_selects = min(IPC_letters.values())
+
+                print(f'\n\nidiot check - line 1952\n'
+                      f'\n\nn_correct: {n_correct}\n'
+                      f'\n\nzhou_cut_off: {zhou_cut_off}\n'
+                      f'\n\nzhou_selects: {zhou_selects}\n'
+
+                      f'IPC_letters.values(): {IPC_letters.values()}\n'
+                      f'IPC_letters: {IPC_letters}\n')
 
                 most_active = this_unit_acts_df.iloc[:zhou_selects]
+
+                print(f'Error at line 1971,  zhou_thr = list(most_active["activation"])[-1], '
+                      f'IndexError: list index out of range'
+                      f'\n\nzhou_selects: {zhou_selects}\n'
+                      f'\n\n{most_active}\n')
 
                 if act_func in ['relu', 'ReLu', 'Relu']:
                     zhou_thr = list(most_active["normed"])[-1]
