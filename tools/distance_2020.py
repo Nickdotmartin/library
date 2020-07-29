@@ -232,7 +232,7 @@ import csv
 # print(class_sim_df)
 # class_sim_df.to_csv(f'{dataset_name}_{distance}.csv', index_label='class', )
 
-def get_cos_sim(dset, n_cats, dtype, dset_name, version):
+def get_cos_sim(dset, n_cats, dtype, dset_name, version, IPC_dict=None):
     """
     This will take a dataset and calculate the cosine similiarity within and
     between classes, producing a csv with results and updating a main doc.
@@ -242,23 +242,18 @@ def get_cos_sim(dset, n_cats, dtype, dset_name, version):
     :param dtype: binary, chan_dist or chanProp.  only needed for labelling
     :param dset_name: of dataset eg HBHW, HBLW, LBHW, LBLW
     :param version: number with 2 versions of each type
+    :param IPC_dict: defalt = None.  if the number of items per class is not
+                    equal, enter a dict
+
 
     """
-    file_path = "/home/nm13850/Documents/PhD/python_v2/experiments/" \
-               "within_between_dist/New_data/"
-    # os.chdir(file_path)
-    # print(f"os.getcwd(): {os.getcwd()}")
-    # file_name = "cont_dataset_LBLW1"
-    # file_type = ".csv"
-    # file = file_name + file_type
-    # load_file = np.loadtxt(file, delimiter=",")
+    print("\nrunning ** get_cos_sim()**")
 
+    file_path = "/home/nm13850/Documents/PhD/python_v2/experiments/" \
+                "within_between_dist_july2020/New_data/"
 
     # # enter either 'cos_sim, 'cos_dist' or 'taxi'
     distance = 'cos_sim'
-
-    IPC_dict = None
-    # IPC_dict = {0: 3, 1: 3, 2: 4, 3: 2}
 
     dataset = np.asarray(dset)
     items, features = np.shape(dataset)
@@ -270,6 +265,8 @@ def get_cos_sim(dset, n_cats, dtype, dset_name, version):
        cat_size = int(items / n_cats)
        IPC_dict = {i: cat_size for i in range(n_cats)}
        print(f'\nequal size IPC dict\n{IPC_dict}')
+    else:
+        print("using IPC dict")
 
     # separate out the individual classes
     # start with class inidices list containing zero, index of the first class
@@ -330,7 +327,7 @@ def get_cos_sim(dset, n_cats, dtype, dset_name, version):
 
         data_similarity_descriptives = scipy.stats.describe(values_for_descriptives, axis=None)
         mean_sim = str(np.round(data_similarity_descriptives.mean, decimals=2))
-        print(f"\nBetween group mean {distance} for {names_list[index]}: {mean_sim}")
+        print(f"\nWithin group mean {distance} for {names_list[index]}: {mean_sim}")
 
         within_list.append(mean_sim)
 
@@ -465,20 +462,32 @@ def get_cos_sim(dset, n_cats, dtype, dset_name, version):
     mywriter.writerow(similarity_info)
     similarity_overview.close()
 
+    return_dict = {"dtype": dtype,
+                   "dset_name": dset_name,
+                   "version": version,
+                   "n_cats": n_cats,
+                   "dset_between_mean": dset_between_mean,
+                   "dset_between_sd": dset_between_sd,
+                   "dset_within_mean": dset_within_mean,
+                   "dset_within_sd": dset_within_sd
+                   }
+
+    return return_dict
+
     # print(f"similiarity summary:\n{similarity_overview}")
 
 #####################################
 
-print("\n\nthere is stuff at the bottom of the page")
-dset_path = '/home/nm13850/Documents/PhD/python_v2/experiments/' \
-            'within_between_dist/orig_datasets/chanDist_HBHW1.csv'
-load_file = np.loadtxt(dset_path, delimiter=",")
-dataset = np.asarray(load_file)
-
-dset = dataset
-n_cats = 50
-dtype = "chanDist"
-dset_name = "HBHW"
-version = 1
-get_cos_sim(dset, n_cats, dtype, dset_name, version)
-print("finihsed :)")
+# print("\n\nthere is stuff at the bottom of the page")
+# dset_path = '/home/nm13850/Documents/PhD/python_v2/experiments/' \
+#             'within_between_dist/orig_datasets/chanDist_HBHW1.csv'
+# load_file = np.loadtxt(dset_path, delimiter=",")
+# dataset = np.asarray(load_file)
+#
+# dset = dataset
+# n_cats = 50
+# dtype = "chanDist"
+# dset_name = "HBHW"
+# version = 1
+# get_cos_sim(dset, n_cats, dtype, dset_name, version)
+# print("finihsed :)")
