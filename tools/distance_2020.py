@@ -448,7 +448,7 @@ def get_cos_sim(dset, n_cats, dtype, dset_name, version, IPC_dict=None):
     print(f"\nlooking for file:\n{os.path.join(file_path, summary_name)}")
     if not os.path.isfile(os.path.join(file_path, summary_name)):
         print("making summary page")
-        headers = ["dtype", "dset_name","version", "n_cats", 
+        headers = ["dtype", "dset_name","version", "n_cats",
                    "mean_b", "sd_b", "mean_w", "sd_w"]
 
         similarity_overview = open(summary_name, 'w')
@@ -479,15 +479,34 @@ def get_cos_sim(dset, n_cats, dtype, dset_name, version, IPC_dict=None):
 #####################################
 
 # print("\n\nthere is stuff at the bottom of the page")
-# dset_path = '/home/nm13850/Documents/PhD/python_v2/experiments/' \
-#             'within_between_dist/orig_datasets/chanDist_HBHW1.csv'
-# load_file = np.loadtxt(dset_path, delimiter=",")
-# dataset = np.asarray(load_file)
+# dset_root = '/home/nm13850/Documents/PhD/python_v2/experiments/' \
+#             'within_between_dist_july2020/New_data/datasets/'
 #
-# dset = dataset
-# n_cats = 50
-# dtype = "chanDist"
-# dset_name = "HBHW"
-# version = 1
-# get_cos_sim(dset, n_cats, dtype, dset_name, version)
-# print("finihsed :)")
+# dset_names = ["bin_b84_w87_HBHW_v1", "bin_b82_w87_HBHW_v2",
+#               "bin_b74_w85_MBHW_v1", "bin_b74_w85_MBHW_v2",
+#               "bin_b71_w76_MBMW_v1", "bin_b72_w75_MBMW_v2",
+#               "bin_b50_w87_LBHW_v1", "bin_b50_w87_LBHW_v2",
+#               "bin_b50_w76_LBMW_v1", "bin_b50_w76_LBMW_v2",
+#               "bin_b50_w54_LBLW_v1", "bin_b50_w55_LBLW_v2"]
+#
+# for name in dset_names:
+#     this_dset = name
+#     this_file = this_dset + '.csv'
+#     load_path = os.path.join(dset_root, this_file)
+#     load_file = np.loadtxt(load_path, delimiter=",")
+#     dataset = np.asarray(load_file)
+#
+#     print(np.shape(dataset))
+#
+#     dset_sims = this_dset[12:16]
+#     dset_version = this_dset[-1]
+#     dset_name = f'{dset_sims}{dset_version}'
+#     print(dset_name)
+#
+#     dset = dataset
+#     n_cats = 50
+#     dtype = "bin"
+#     dset_name = dset_name
+#     version = dset_version
+#     get_cos_sim(dset, n_cats, dtype, dset_name, version)
+#     print("finihsed :)")
