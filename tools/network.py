@@ -244,19 +244,19 @@ def get_scores(predicted_outputs, y_df, output_filename,
 
 
         if verbose:
-            print(f"all_pred_labels: {np.shape(all_pred_labels)}\n{all_pred_labels[0]}\n")
+            print(f"all_pred_labels: {np.shape(all_pred_labels)}")  #\n{all_pred_labels[0]}\n")
             print(f"y_df: {y_df}")
-        #
-        # predicted_cat = []
-        #
-        # # find the column (class) with the highest prediction
-        # for row in range(n_items):
-        #     this_row = predicted_outputs[row]
-        #     max_val = max(this_row)
-        #     # max_cat = this_row.tolist().index(max_val)
-        #     max_cat = list(this_row).index(max_val)
-        #
-        #     predicted_cat.append(max_cat)
+
+        predicted_cat = []
+
+        # find the column (class) with the highest prediction
+        for row in range(n_items):
+            this_row = predicted_outputs[row]
+            max_val = max(this_row)
+            # max_cat = this_row.tolist().index(max_val)
+            max_cat = list(this_row).index(max_val)
+
+            predicted_cat.append(max_cat)
 
         # # save list of which items were incorrect
         true_cat = [int(i) for i in y_df['class'].tolist()]

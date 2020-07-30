@@ -333,7 +333,7 @@ def train_model(exp_name,
 
 
     # # compile model
-    model.compile(loss=loss_func, optimizer=this_optimizer, metrics=['accuracy'])
+    model.compile(loss=loss_func, optimizer=this_optimizer, metrics=['acc'])
 
 
     # # get model dict
@@ -353,8 +353,9 @@ def train_model(exp_name,
     # checkpointing.  Save model and weights with best val loss.
     checkpointer = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
                                                       monitor=checkpoint_mon, verbose=1,
-                                                      save_best_only=True, save_weights_only=False, mode='auto',
-                                                      load_weights_on_restart=True)
+                                                      save_best_only=True, save_weights_only=False,
+                                                      mode='auto'
+                                                      )
 
 
     # patience_for_loss_change: wait this long to see if loss improves
