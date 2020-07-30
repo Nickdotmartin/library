@@ -784,8 +784,8 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         layer_means_headers = list(layer_sel_mean_dict.keys())
         layer_means_headers = ['name', 'units'] + layer_means_headers
 
+        already_done_means = False
         if not os.path.isfile(os.path.join(sel_path, f"{output_filename}_layer_means.csv")):
-            already_done_means = False
             layer_means_csv = open(os.path.join(sel_path, f"{output_filename}_layer_means.csv"), 'w')
             mywriter = csv.writer(layer_means_csv)
             mywriter.writerow(layer_means_headers)
@@ -826,10 +826,10 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                         items = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'tcs_items'])[i]
                         top_unit_name = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])[i]
                     else:
-                        top_class = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, f'{measure}_c'].item()
-                        thr = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'tcs_thr'].item()
-                        items = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'tcs_items'].item()
-                        top_unit_name = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'].item()
+                        top_class = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, f'{measure}_c'].values.item()
+                        thr = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'tcs_thr'].values.item()
+                        items = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'tcs_items'].values.item()
+                        top_unit_name = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'].values.item()
 
                     new_row = [top_val, top_class, thr, items, layer_name, top_unit_name]
                     print(f"new_row\n{new_row}")
@@ -851,14 +851,14 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                         f1 = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'max_info_f1'])[i]
                         top_unit_name = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])[i]
                     else:
-                        top_class = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, f'{measure}_c'].item()
-                        count = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'max_info_count'].item()
-                        thr = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'max_info_thr'].item()
-                        sens = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'max_info_sens'].item()
-                        spec = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'max_info_spec'].item()
-                        prec = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'max_info_prec'].item()
-                        f1 = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'max_info_f1'].item()
-                        top_unit_name = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'].item()
+                        top_class = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, f'{measure}_c'].values.item()
+                        count = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'max_info_count'].values.item()
+                        thr = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'max_info_thr'].values.item()
+                        sens = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'max_info_sens'].values.item()
+                        spec = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'max_info_spec'].values.item()
+                        prec = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'max_info_prec'].values.item()
+                        f1 = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'max_info_f1'].values.item()
+                        top_unit_name = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'].values.item()
 
                     new_row = [top_val, top_class, count, thr, sens, spec, prec, f1, layer_name, top_unit_name]
                     print(f"new_row\n{new_row}")
@@ -875,10 +875,10 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                         selects = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'zhou_selects'])[i]
                         top_unit_name = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])[i]
                     else:
-                        top_class = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, f'{measure}_c'].item()
-                        thr = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'zhou_thr'].item()
-                        selects = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'zhou_selects'].item()
-                        top_unit_name = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'].item()
+                        top_class = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, f'{measure}_c'].values.item()
+                        thr = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'zhou_thr'].values.item()
+                        selects = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'zhou_selects'].values.item()
+                        top_unit_name = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'].values.item()
 
                     new_row = [top_val, top_class, thr, selects, layer_name, top_unit_name]
                     print(f"new_row\n{new_row}")
@@ -896,9 +896,9 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                         p = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'corr_p'])[i]
                         top_unit_name = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])[i]
                     else:
-                        top_class = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, f'{measure}_c'].item()
-                        p = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'corr_p'].item()
-                        top_unit_name = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'].item()
+                        top_class = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, f'{measure}_c'].values.item()
+                        p = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'corr_p'].values.item()
+                        top_unit_name = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'].values.item()
 
                     new_row = [top_val, top_class, p, layer_name, top_unit_name]
                     print(f"new_row\n{new_row}")
@@ -913,9 +913,9 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                         sd = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'sd'])[i]
                         top_unit_name = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])[i]
                     else:
-                        top_class = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, f'{measure}_c'].item()
-                        sd = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'sd'].item()
-                        top_unit_name = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'].item()
+                        top_class = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, f'{measure}_c'].values.item()
+                        sd = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'sd'].values.item()
+                        top_unit_name = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'].values.item()
 
                     new_row = [top_val, top_class, sd, layer_name, top_unit_name]
                     print(f"new_row\n{new_row}")
@@ -924,14 +924,17 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             else:  # for most most measures use below
                 for i in range(2):
                     top_val = layer_top_3_df[measure].iloc[i]
-                    # print('top_val: ', top_val)
-                    # print(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])
+                    print('top_val: ', top_val)
+                    print(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])
                     if len(list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])) > 1:
                         top_class = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, f'{measure}_c'])[i]
                         top_unit_name = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])[i]
+                    elif len(list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])) < 1:
+                        top_class = np.nan
+                        top_unit_name = np.nan
                     else:
-                        top_class = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, f'{measure}_c'].item()
-                        top_unit_name = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'].item()
+                        top_class = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, f'{measure}_c'].values[0]
+                        top_unit_name = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'].values[0]
 
                     new_row = [top_val, top_class, layer_name, top_unit_name]
 
@@ -949,12 +952,21 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
     # # add means total
     lm_path = os.path.join(sel_path, f"{output_filename}_layer_means.csv")
-    lm = pd.DataFrame.from_csv(lm_path)
+    lm = pd.read_csv(lm_path, index_col='name')
     if not already_done_means:
         print("appending total to layer_means csv")
         total_means = []
+
+        print(f"idiot check\nlm:\n{lm}")
+
         for column_name, column_data in lm.iteritems():
-            if column_name == 'units':
+            print(f"\ncolumn_name: {column_name}")
+            if column_name == 'name':
+                print("adding 'Total' to name column")
+                total_means.append('Total')
+            # elif column_data['name'] == 'name':
+            #     print("this is the name column")
+            elif column_name in ['units', 'unit', 'Units', 'Unit']:
                 sum_c = column_data.sum()
                 total_means.append(sum_c)
             else:
@@ -1018,9 +1030,10 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     key_layers_list = [x for x in gha_dict['GHA_info']['gha_key_layers'] if 'output' not in str.lower(x)]
     last_hid_layer = key_layers_list[-1]
 
-    mean_roc = lm.at['Total', 'roc_auc']
-    mean_ap = lm.at['Total', 'ave_prec']
-    mean_info = lm.at['Total', 'max_informed']
+    print(f"idiot check\nlm:\n{lm}")
+    mean_roc = lm.loc['Total', 'roc_auc']
+    mean_ap = lm.loc['Total', 'ave_prec']
+    mean_info = lm.loc['Total', 'max_informed']
 
     print("\ngetting max sel values from highlights")
     # # roc
