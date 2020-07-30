@@ -418,7 +418,14 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     # # # get values for correct/incorrect items (1/0 or True/False)
     full_model_values = y_scores_df.full_model.unique()
     if len(full_model_values) != 2:
-        print(f"TYPE_ERROR!: what are the scores/acc for items? {full_model_values}")
+        print(f"\nTYPE_ERROR!: what are the scores/acc for items? {full_model_values}")
+        print(f"Were there any incorrect responses? n_incorrect = {n_incorrect}")
+        print(f"type(n_incorrect): {type(n_incorrect)}")
+        if n_incorrect == 0:
+            print("\nthere are no incorrect items so all responses are correct")
+            correct_item = full_model_values[0]
+        else:
+            print("not sure what signifies correct items")
     else:
         correct_item = 1
     if 1 not in full_model_values:
