@@ -492,17 +492,17 @@ def find_path_to_dir(long_path, target_dir, recursion_path=None):
 
 
 
-def running_on_laptop(verbose=False):
+def running_on_laptop(verbose=True):
     """
     Check if I am on my laptop (not my work machine), might need to change paths
     :param verbose:
     :return:
     """
-    if verbose:
-        if sys.executable[:18] == '/Users/nickmartin/':
-            print("Script is running on Nick's laptop")
-        else:
-            print("Script is not running on Nick's laptop")
+    # if verbose:
+    if sys.executable[:18] == '/Users/nickmartin/':
+        print("Script is running on Nick's laptop")
+    else:
+        print("Script is not running on Nick's laptop")
     return sys.executable[:18] == '/Users/nickmartin/'
 
 def switch_home_dirs(path_to_change):
