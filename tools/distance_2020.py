@@ -7,6 +7,8 @@ import pandas as pd
 import os
 import csv
 
+from tools.data import running_on_laptop, switch_home_dirs
+
 
 # # # toy data
 # # a = np.random.choice([0, 1], size=(2, 10), p=[0.2, 0.8])
@@ -251,6 +253,10 @@ def get_cos_sim(dset, n_cats, dtype, dset_name, version, IPC_dict=None):
 
     file_path = "/home/nm13850/Documents/PhD/python_v2/experiments/" \
                 "within_between_dist_july2020/New_data/"
+    if running_on_laptop:
+        file_path = '/Users/nickmartin/Library/Mobile Documents/com~apple~CloudDocs/' \
+                    'Documents/PhD/python_v2/experiments/' \
+                    'within_between_dist_july2020/New_data/'
 
     # # enter either 'cos_sim, 'cos_dist' or 'taxi'
     distance = 'cos_sim'
