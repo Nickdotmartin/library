@@ -292,21 +292,23 @@ def train_model(exp_name,
 
 
     elif 'rnn' in model_dir:
-        print("loading a recurrent model")
-        augmentation = False
-        model_dict = {'Bowers14rnn': Bowers14rnn,
-                      'SimpleRNNn': SimpleRNNn,
-                      'GRUn': GRUn,
-                      'LSTMn': LSTMn,
-                      'Seq2Seq': Seq2Seq}
+        print("\n\nERROR! trying to load an rnn model. probably use train_STM_RNN for that")
 
-
-        model = model_dict[model_name].build(features=x_size, classes=n_cats, timesteps=timesteps,
-                                             batch_size=batch_size, n_layers=n_layers,
-                                             serial_recall=serial_recall,
-                                             units_per_layer=units_per_layer, act_func=act_func,
-                                             y_1hot=serial_recall,
-                                             dropout=use_dropout)
+        # print("loading a recurrent model")
+        # augmentation = False
+        # model_dict = {'Bowers14rnn': Bowers14rnn,
+        #               'SimpleRNNn': SimpleRNNn,
+        #               'GRUn': GRUn,
+        #               'LSTMn': LSTMn,
+        #               'Seq2Seq': Seq2Seq}
+        #
+        #
+        # model = model_dict[model_name].build(features=x_size, classes=n_cats, timesteps=timesteps,
+        #                                      batch_size=batch_size, n_layers=n_layers,
+        #                                      serial_recall=serial_recall,
+        #                                      units_per_layer=units_per_layer, act_func=act_func,
+        #                                      y_1hot=serial_recall,
+        #                                      dropout=use_dropout)
     else:
         print("model_dir not recognised")
 
