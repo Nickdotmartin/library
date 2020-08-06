@@ -453,7 +453,7 @@ def train_model(exp_name,
     ax2.set_xlabel('epoch')
     fig.legend(['train', 'val'], loc='upper left')
     plt.savefig(str(output_filename) + '_training.png')
-
+    plt.close()
 
     # # Training info
     print(f"Model name: {checkpoint_path}")

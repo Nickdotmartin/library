@@ -601,6 +601,8 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                        "hi_val_prop": [['value', 'class', 'layer', 'unit']],
 
                        "hi_val_prec": [['value', 'class', 'layer', 'unit']],
+
+                       # 'all_act_mean': [['value', 'layer', 'unit']],
                        }
 
     # # loop through dict/layers
@@ -619,6 +621,8 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
         # layer_dict = copy.copy(hid_acts_dict[layer_number])
         layer_dict = hid_acts_dict[layer_number]
+
+        layer_act_list = []
 
         # # close hid act dict to save memory space?
         hid_acts_dict = dict()
@@ -690,6 +694,9 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                          'zhou_thr': {},
                          'corr_coef': {},
                          'corr_p': {},
+                         # 'all_act_mean': {},
+                         # 'all_act_sd': {},
+
                          }
 
             this_unit_just_acts = list(hid_acts_df.loc[:, unit])
@@ -713,6 +720,15 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                 max_act = max(just_act_values)
                 normed_acts = np.true_divide(just_act_values, max_act)
                 this_unit_acts_df.insert(2, column='normed', value=normed_acts)
+
+                # # get overall unit mean activation (not class specific)
+                if act_func is 'sigmoid':
+                    unit_mean_act = np.mean(just_act_values)
+                else:
+                    unit_mean_act = np.mean(normed_acts)
+
+                layer_act_list.append(unit_mean_act)
+
 
                 if verbose is True:
                     print(f"\nthis_unit_acts_df: {this_unit_acts_df.shape}\n{this_unit_acts_df.head()}")
@@ -871,6 +887,19 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                 layer_dict[unit] = unit_dict
 
 
+                # get mean activation for layer
+                layer_act_mean = np.mean(layer_act_list)
+                print(f"layer_act_mean: {layer_act_mean}")
+
+                # # calculate layer sd
+                print(f"layer_act_list: {layer_act_list}")
+                differences_from_mean_act = [x - layer_act_mean for x in layer_act_list]
+                print(f"differences_from_mean_act: {differences_from_mean_act}")
+                sum_squared_diff = np.sum([np.square(x) for x in differences_from_mean_act])
+                print(f"sum_squared_diff: {sum_squared_diff}")
+                layer_sd = np.sqrt(sum_squared_diff / len(layer_act_list))
+                print(f"layer_sd: {layer_sd}")
+
 
             else:
                 print("dead unit found")
@@ -906,10 +935,11 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
         # # layer means
         layer_means_list = list(layer_sel_mean_dict.values())
+        layer_means_list = layer_means_list + [layer_act_mean, layer_sd]
         layer_means_list = [layer_name, unit_index + 1] + layer_means_list
 
         layer_means_headers = list(layer_sel_mean_dict.keys())
-        layer_means_headers = ['name', 'units'] + layer_means_headers
+        layer_means_headers = ['name', 'units'] + layer_means_headers + ['layer_act_mean', 'mead_act_sd']
 
         already_done_means = False
         if not os.path.isfile(os.path.join(sel_path, f"{output_filename}_layer_means.csv")):
@@ -933,6 +963,7 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
         # # # get top three highlights for each feature
         highlights_list = list(highlights_dict.keys())
+        print(f"highlights_list: {highlights_list}")
 
         if layer_name not in ['output', 'Output', 'OUTPUT']:
             # don't get highlights for output
@@ -1186,8 +1217,8 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     mean_hi_val_prop = hid_layer_means["hi_val_prop"].mean()
     mean_bsel_zero = hid_layer_means["b_sel_zero"].mean()
     mean_bsel_pfive = hid_layer_means["b_sel_pfive"].mean()
-    mean_act = hid_layer_means["means"].mean()
-    mean_sd_act = hid_layer_means["sd"].mean()
+    mean_act = hid_layer_means["layer_act_mean"].mean()
+    mead_act_sd = hid_layer_means["mead_act_sd"].mean()
 
 
 
@@ -1282,7 +1313,7 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                     # mean_bsel_off, max_bsel_off,
                     mean_nz_prop, max_nz_prop,
                     mean_hi_val_prop, max_hi_v_prop,
-                    mean_act, mean_sd_act
+                    mean_act, mead_act_sd
                     ]
 
     summary_headers = ["cond", "run", "output_filename", "dataset", "use_dataset", "n_layers", "hid_units",
