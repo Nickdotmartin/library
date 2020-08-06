@@ -681,7 +681,13 @@ def loop_thru_acts(gha_dict_path,
 
     # # get model info from dict
     units_per_layer = gha_dict['model_info']["overview"]["units_per_layer"]
-    n_layers = gha_dict['model_info']['overview']['hid_layers']
+
+    if 'n_layers' in gha_dict['model_info']['overview']:
+        n_layers = gha_dict['model_info']['overview']['n_layers']
+    elif 'hid_layers' in gha_dict['model_info']['overview']:
+        n_layers = gha_dict['model_info']['overview']['hid_layers']
+    else:
+        raise ValueError("How many layers? ln 690 Network")
     model_dict = gha_dict['model_info']['config']
     if verbose:
         focussed_dict_print(model_dict, 'model_dict')
@@ -693,10 +699,15 @@ def loop_thru_acts(gha_dict_path,
     y_1hot = True
 
     if 'timesteps' in gha_dict['model_info']['overview']:
-        sequence_data = True
         timesteps = gha_dict['model_info']["overview"]["timesteps"]
-        serial_recall = gha_dict['model_info']["overview"]["serial_recall"]
-        y_1hot = serial_recall
+        if timesteps > 1:
+            sequence_data = True
+            if 'serial_recall' in gha_dict['model_info']['overview']:
+                serial_recall = gha_dict['model_info']["overview"]["serial_recall"]
+                y_1hot = serial_recall
+            if 'y_1hot' in gha_dict['model_info']['overview']:
+                y_1hot = gha_dict['model_info']["overview"]["y_1hot"]
+
 
     # # I can't do class correlations for letters, (as it is the equivillent of
     # having a dist output for letters
@@ -759,10 +770,17 @@ def loop_thru_acts(gha_dict_path,
 
     # # if not sequence data, load y_labels to go with hid_acts and item_correct for items
     elif 'item_correct_name' in gha_dict['GHA_info']['scores_dict']:
+        n_correct = gha_dict['GHA_info']['scores_dict']['n_correct']
+        n_seq_corr = n_correct
         # # load item_correct (y_data)
         item_correct_name = gha_dict['GHA_info']['scores_dict']['item_correct_name']
         # y_df = pd.read_csv(item_correct_name)
         y_scores_df = nick_read_csv(item_correct_name)
+        test_label_seqs = y_scores_df['full_model'].tolist()
+
+
+    # else:
+
 
 
 
@@ -938,7 +956,14 @@ def loop_thru_acts(gha_dict_path,
 
         if verbose:
             print(f"\nrunning layer {layer_number}: {layer_name}")
-        hid_acts_array = layer_dict['hid_acts']
+
+        if 'hid_acts' in layer_dict:
+            hid_acts_array = layer_dict['hid_acts']
+        elif '2d_acts' in layer_dict:
+            hid_acts_array = layer_dict['2d_acts']
+        else:
+            print(f"how are hid_acts labelled in layer_dict?: {layer_dict.keys()}")
+
 
         if verbose:
             if sequence_data:
