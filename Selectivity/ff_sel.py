@@ -953,7 +953,7 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             check_it = pd.read_csv(os.path.join(sel_path, f"{output_filename}_layer_means.csv"))
             if 'Total' not in check_it['name'].to_list():
                 layer_means_csv = open(os.path.join(sel_path, f"{output_filename}_layer_means.csv"), 'a')
-                mywriter = csv.writer(layer_means_csv)
+                mywriter = csv.writer(layer_means_csv, delimiter=',')
                 mywriter.writerow(layer_means_list)
                 layer_means_csv.close()
                 print(f"appending to layer_means csv at: {output_filename}")
@@ -1117,7 +1117,7 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
     # # add means total
     lm_path = os.path.join(sel_path, f"{output_filename}_layer_means.csv")
-    lm = pd.read_csv(lm_path, index_col='name')
+    lm = pd.read_csv(lm_path, index_col='name', delimiter=',')
     if not already_done_means:
         print("appending total to layer_means csv")
         total_means = []
