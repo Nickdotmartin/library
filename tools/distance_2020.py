@@ -253,7 +253,7 @@ def get_cos_sim(dset, n_cats, dtype, dset_name, version, IPC_dict=None):
 
     file_path = "/home/nm13850/Documents/PhD/python_v2/experiments/" \
                 "within_between_dist_july2020/New_data/"
-    if running_on_laptop:
+    if running_on_laptop():
         file_path = '/Users/nickmartin/Library/Mobile Documents/com~apple~CloudDocs/' \
                     'Documents/PhD/python_v2/experiments/' \
                     'within_between_dist_july2020/New_data/'

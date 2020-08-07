@@ -499,6 +499,7 @@ def running_on_laptop(verbose=True):
     :return:
     """
     # if verbose:
+    print("checking for laptop")
     if sys.executable[:18] == '/Users/nickmartin/':
         print("Script is running on Nick's laptop")
     else:
