@@ -407,9 +407,63 @@ def ff_gha(sim_dict_path,
     dict_list.close()
 
     print(f"\nadded to list for selectivity analysis: {gha_dict_name[:-7]}")
+    
+    # # spare variables to make anaysis easier
+    if 'chanProp' in output_filename:
+        var_one = 'chanProp'
+    elif 'chanDist' in output_filename:
+        var_one = 'chanDist'
+    elif 'bin' in output_filename:
+        var_one = 'bin'
+    else:
+        raise ValueError("dset_type not found (v1)")
+
+    if 'HB' in output_filename:
+        var_two = 'HB'
+    elif 'MB' in output_filename:
+        var_two = 'MB'
+    elif 'LB' in output_filename:
+        var_two = 'LB'
+    else:
+        raise ValueError("between not found (v2)")
+
+    if 'HW' in output_filename:
+        var_three = 'HW'
+    elif 'MW' in output_filename:
+        var_three = 'MW'
+    elif 'LW' in output_filename:
+        var_three = 'LW'
+    else:
+        raise ValueError("within not found (v3)")
+
+    var_four = var_two + var_three
+
+    if 'ReLu' in output_filename:
+        var_five = 'ReLu'
+    elif 'sigm' in output_filename:
+        var_five = 'sigm'
+    else:
+        raise ValueError("act_func not found (v4)")
+
+    if '10' in output_filename:
+        var_six = 10
+    elif '25' in output_filename:
+        var_six = 25
+    elif '50' in output_filename:
+        var_six = 50
+    elif '100' in output_filename:
+        var_six = 100
+    elif '500' in output_filename:
+        var_six = 500
+    else:
+        raise ValueError("hid_units not found in output_filename (var6)")
+
+    # print(f"\n{output_filename}: {var_one} {var_two} {var_three} {var_four} {var_five} {var_six}")
+    
 
     gha_info = [cond, run, output_filename, n_layers, hid_units, dataset, use_dataset,
-                gha_incorrect, n_cats, trained_for, end_accuracy, gha_acc, n_cats_correct]
+                gha_incorrect, n_cats, trained_for, end_accuracy, gha_acc, n_cats_correct, 
+                var_one, var_two, var_three, var_four, var_five, var_six]
 
     # # check if gha_summary.csv exists
     # # save summary file in exp folder (grandparent dir to gha folder: exp/cond/gha)
@@ -425,7 +479,8 @@ def ff_gha(sim_dict_path,
         gha_summary = open(exp_name + "_GHA_summary.csv", 'w')
         mywriter = csv.writer(gha_summary)
         summary_headers = ["cond", "run", 'filename', "n_layers", "hid_units", "dataset", "GHA_on",
-                           'incorrect', "n_cats", "trained_for", "train_acc", "gha_acc", 'n_cats_correct']
+                           'incorrect', "n_cats", "trained_for", "train_acc", "gha_acc", 'n_cats_correct', 
+                           'V1', 'V2', 'V3', 'V4', 'V5', 'V6']
 
         mywriter.writerow(summary_headers)
         print(f"creating summary csv at: {exp_path}")

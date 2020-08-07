@@ -568,6 +568,59 @@ def train_model(exp_name,
     str_upl = "-".join(map(str, model_info['layers']['hid_layers']['hid_totals']['UPL']))
     str_fpl = "-".join(map(str, model_info['layers']['hid_layers']['hid_totals']['FPL']))
 
+
+    # # spare variables to make anaysis easier
+    if 'chanProp' in cond_name:
+        var_one = 'chanProp'
+    elif 'chanDist' in cond_name:
+        var_one = 'chanDist'
+    elif 'bin' in cond_name:
+        var_one = 'bin'
+    else:
+        raise ValueError("dset_type not found (v1)")
+
+    if 'HB' in cond_name:
+        var_two = 'HB'
+    elif 'MB' in cond_name:
+        var_two = 'MB'
+    elif 'LB' in cond_name:
+        var_two = 'LB'
+    else:
+        raise ValueError("between not found (v2)")
+
+    if 'HW' in cond_name:
+        var_three = 'HW'
+    elif 'MW' in cond_name:
+        var_three = 'MW'
+    elif 'LW' in cond_name:
+        var_three = 'LW'
+    else:
+        raise ValueError("within not found (v3)")
+
+    var_four = var_two + var_three
+
+    if 'ReLu' in cond_name:
+        var_five = 'ReLu'
+    elif 'sigm' in cond_name:
+        var_five = 'sigm'
+    else:
+        raise ValueError("act_func not found (v4)")
+
+    if '10' in cond_name:
+        var_six = 10
+    elif '25' in cond_name:
+        var_six = 25
+    elif '50' in cond_name:
+        var_six = 50
+    elif '100' in cond_name:
+        var_six = 100
+    elif '500' in cond_name:
+        var_six = 500
+    else:
+        raise ValueError("hid_units not found in cond_name (var6)")
+
+    # print(f"\n{cond_name}: {var_one} {var_two} {var_three} {var_four} {var_five} {var_six}")
+
     # record training info comparrisons
     training_info = [output_filename, cond, run,
                      dset_name, x_size, n_cats, timesteps, n_items,
@@ -585,6 +638,7 @@ def train_model(exp_name,
                      use_val_data, loss_target, min_loss_change,
                      max_epochs, trained_for, end_acc, end_loss, end_val_acc, end_val_loss,
                      checkpoint_path, trained_date, trained_time,
+                     var_one, var_two, var_three, var_four, var_five, var_six
                      ]
 
 
@@ -603,7 +657,8 @@ def train_model(exp_name,
                    "optimizer", "batch_norm", "dropout", "batch_size", "aug", "grey_image",
                    "val_data", "loss_target", "min_loss_change",
                    "max_epochs", "trained_for", "end_acc", "end_loss", "end_val_acc", "end_val_loss",
-                   "model_file", "date", "time"]
+                   "model_file", "date", "time",
+                   'V1', 'V2', 'V3', 'V4', 'V5', 'V6']
 
         training_overview = open(f"{exp_name}_training_summary.csv", 'w')
         mywriter = csv.writer(training_overview)

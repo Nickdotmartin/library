@@ -1296,6 +1296,61 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     top_hi_v = top_hi_v_df[~top_hi_v_df.layer.str.contains('utput')]
     max_hi_v_prop = top_hi_v['value'].to_list()[0]
 
+    # # spare variables to make anaysis easier
+    if 'chanProp' in output_filename:
+        var_one = 'chanProp'
+    elif 'chanDist' in output_filename:
+        var_one = 'chanDist'
+    elif 'bin' in output_filename:
+        var_one = 'bin'
+    else:
+        raise ValueError("dset_type not found (v1)")
+
+    if 'HB' in output_filename:
+        var_two = 'HB'
+    elif 'MB' in output_filename:
+        var_two = 'MB'
+    elif 'LB' in output_filename:
+        var_two = 'LB'
+    else:
+        raise ValueError("between not found (v2)")
+
+    if 'HW' in output_filename:
+        var_three = 'HW'
+    elif 'MW' in output_filename:
+        var_three = 'MW'
+    elif 'LW' in output_filename:
+        var_three = 'LW'
+    else:
+        raise ValueError("within not found (v3)")
+
+    var_four = var_two + var_three
+
+    if 'ReLu' in output_filename:
+        var_five = 'ReLu'
+    elif 'sigm' in output_filename:
+        var_five = 'sigm'
+    else:
+        raise ValueError("act_func not found (v4)")
+
+    if '10' in output_filename:
+        var_six = 10
+    elif '25' in output_filename:
+        var_six = 25
+    elif '50' in output_filename:
+        var_six = 50
+    elif '100' in output_filename:
+        var_six = 100
+    elif '500' in output_filename:
+        var_six = 500
+    else:
+        raise ValueError("hid_units not found in output_filename (var6)")
+
+    # print(f"\n{output_filename}: {var_one} {var_two} {var_three} {var_four} {var_five} {var_six}")
+
+
+
+
     # # selectiviy summary
     sel_csv_info = [gha_dict['topic_info']['cond'], gha_dict['topic_info']['run'], output_filename,
                     gha_dict['data_info']['dataset'], gha_dict['GHA_info']['use_dataset'],
@@ -1313,7 +1368,8 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                     # mean_bsel_off, max_bsel_off,
                     mean_nz_prop, max_nz_prop,
                     mean_hi_val_prop, max_hi_v_prop,
-                    mean_act, mead_act_sd
+                    mean_act, mead_act_sd,
+                    var_one, var_two, var_three, var_four, var_five, var_six
                     ]
 
     summary_headers = ["cond", "run", "output_filename", "dataset", "use_dataset", "n_layers", "hid_units",
@@ -1328,7 +1384,8 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                        # "mean_bsel_off", "max_bsel_off",
                        "mean_nz_prop", "max_nz_prop",
                        "mean_hi_val_prop", "max_hi_v_prop",
-                       'mean_act', 'sd_act'
+                       'mean_act', 'sd_act',
+                       'V1', 'V2', 'V3', 'V4', 'V5', 'V6'
                        ]
 
     exp_path, cond_name = os.path.split(gha_dict['topic_info']['exp_cond_path'])
