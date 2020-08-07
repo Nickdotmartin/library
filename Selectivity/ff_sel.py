@@ -669,6 +669,15 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             print(f"\n*************\nrunning layer {layer_number} of {n_layers} ({layer_name}): "
                   f"unit {unit} of {units_per_layer}\n************")
 
+            sel_measures_list = ['roc_auc', 'ave_prec', 'pr_auc',
+                                 'max_informed', 'max_info_count', 'max_info_thr',
+                                 'max_info_sens', 'max_info_spec', 'max_info_prec',
+                                 'ccma',
+                                 'b_sel', 'b_sel_off', 'b_sel_zero', 'b_sel_pfive',
+                                 'zhou_prec', 'zhou_selects', 'zhou_thr',
+                                 'corr_coef', 'corr_p',
+                                 'means', 'sd', 'nz_prop', 'hi_val_prop']
+
             unit_dict = {'roc_auc': {},
                          'ave_prec': {},
                          'pr_auc': {},
@@ -920,31 +929,63 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         # # for each unit, for each measure, the max_value.
         # # add all these up for the layer.
         # focussed_dict_print(max_sel_dict, 'max_sel_dict')
+        # for unit, unit_sel_dict in max_sel_dict.items():
+        #     print(f"{unit}, {unit_sel_dict}")
+        # print(max_sel_dict.keys())
 
-        if unit_dict != 'dead_unit':
-            for measure in unit_dict:
-                layer_unit_sel_list = []
-                if measure == 'max':
-                    continue
-                for unit, unit_sel_dict in max_sel_dict.items():
-                    layer_unit_sel_list.append(unit_sel_dict[measure])
-                layer_measure_mean = np.mean(layer_unit_sel_list)
-                layer_sel_mean_dict[measure] = layer_measure_mean
+        # focussed_dict_print(unit_dict, 'unit_dict')
+
+        # if unit_dict != 'dead_unit':
+        for measure in sel_measures_list:
+            layer_unit_sel_list = []
+            if measure == 'max':
+                continue
+            for unit, unit_sel_dict in max_sel_dict.items():
+                # print(f"{unit}, {unit_sel_dict}")
+                layer_unit_sel_list.append(unit_sel_dict[measure])
+            layer_measure_mean = np.mean(layer_unit_sel_list)
+            layer_sel_mean_dict[measure] = layer_measure_mean
         # focussed_dict_print(layer_sel_mean_dict, 'layer_sel_mean_dict')
         layer_dict['means'] = layer_sel_mean_dict
 
         # # layer means
         layer_means_list = list(layer_sel_mean_dict.values())
+        # print(f"layer_means_list: {np.shape(layer_means_list)}")
         layer_means_list = layer_means_list + [layer_act_mean, layer_sd]
+        # print(f"layer_means_list: {np.shape(layer_means_list)}")
         layer_means_list = [layer_name, unit_index + 1] + layer_means_list
+        # print(f"layer_means_list: {np.shape(layer_means_list)}")
+
 
         layer_means_headers = list(layer_sel_mean_dict.keys())
         layer_means_headers = ['name', 'units'] + layer_means_headers + ['layer_act_mean', 'mead_act_sd']
 
+        # print(f"preparing layer means.\nlayer_means_list: {np.shape(layer_means_list)}\n"
+        #       f"layer_means_headers: {np.shape(layer_means_headers)}")
+        #
+        # focussed_dict_print(layer_sel_mean_dict, 'layer_sel_mean_dict')
+
+        # if os.path.isfile(os.path.join(sel_path, f"{output_filename}_layer_means.csv")):
+        #     print("yes this file exists")
+        # else:
+        #     print("no it doesnt")
+        #
+        # if os.path.isfile(os.path.join(sel_path, f"{output_filename}_layer_means.csv")):
+        #     print("yes this file exists")
+        # elif not os.path.isfile(os.path.join(sel_path, f"{output_filename}_layer_means.csv")):
+        #     print("no it doesnt")
+        # else:
+        #     print("wtf")
+        #
+        # print(f"sel_path: {sel_path}")
+        #
+        # does_it = input("check if the file exists")
+
         already_done_means = False
         if not os.path.isfile(os.path.join(sel_path, f"{output_filename}_layer_means.csv")):
+            print("layer means not yet saved")
             layer_means_csv = open(os.path.join(sel_path, f"{output_filename}_layer_means.csv"), 'w')
-            mywriter = csv.writer(layer_means_csv)
+            mywriter = csv.writer(layer_means_csv, delimiter=',')
             mywriter.writerow(layer_means_headers)
             mywriter.writerow(layer_means_list)
             layer_means_csv.close()
@@ -1396,12 +1437,12 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
     if not os.path.isfile(exp_name + "_sel_summary.csv"):
         sel_summary = open(exp_name + "_sel_summary.csv", 'w')
-        mywriter = csv.writer(sel_summary)
+        mywriter = csv.writer(sel_summary, delimiter=',')
         mywriter.writerow(summary_headers)
         print(f"creating summary csv at: {exp_path}")
     else:
         sel_summary = open(exp_name + "_sel_summary.csv", 'a')
-        mywriter = csv.writer(sel_summary)
+        mywriter = csv.writer(sel_summary, delimiter=',')
         print(f"appending to summary csv at: {exp_path}")
 
     mywriter.writerow(sel_csv_info)
