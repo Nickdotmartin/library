@@ -1205,6 +1205,9 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     # # save dict
     print("\n\n\n*****************\nanalysis complete\n*****************")
 
+    sel_date = int(datetime.datetime.now().strftime("%y%m%d"))
+    sel_time = int(datetime.datetime.now().strftime("%H%M"))
+
     master_dict = dict()
     master_dict["topic_info"] = gha_dict['topic_info']
     master_dict["data_info"] = gha_dict['data_info']
@@ -1220,8 +1223,8 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                                'sel_highlights_pickle_name': sel_highlights_pickle_name,
                                "correct_items_only": correct_items_only,
                                "all_classes": all_classes, "layer_classes": layer_classes,
-                               "sel_date": int(datetime.datetime.now().strftime("%y%m%d")),
-                               "sel_time": int(datetime.datetime.now().strftime("%H%M")),
+                               "sel_date": sel_date,
+                               "sel_time": sel_time,
                                }
 
     print(f"Saving dict to: {os.getcwd()}")
@@ -1410,7 +1413,8 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                     mean_nz_prop, max_nz_prop,
                     mean_hi_val_prop, max_hi_v_prop,
                     mean_act, mead_act_sd,
-                    var_one, var_two, var_three, var_four, var_five, var_six
+                    var_one, var_two, var_three, var_four, var_five, var_six,
+                    sel_date, sel_time
                     ]
 
     summary_headers = ["cond", "run", "output_filename", "dataset", "use_dataset", "n_layers", "hid_units",
@@ -1426,7 +1430,8 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                        "mean_nz_prop", "max_nz_prop",
                        "mean_hi_val_prop", "max_hi_v_prop",
                        'mean_act', 'sd_act',
-                       'V1', 'V2', 'V3', 'V4', 'V5', 'V6'
+                       'V1', 'V2', 'V3', 'V4', 'V5', 'V6',
+                       'sel_date', 'sel_time'
                        ]
 
     exp_path, cond_name = os.path.split(gha_dict['topic_info']['exp_cond_path'])
