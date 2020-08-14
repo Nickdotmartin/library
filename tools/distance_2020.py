@@ -561,6 +561,10 @@ def get_cos_sim(dset, n_cats, dtype, dset_name, version, sim_type, IPC_dict=None
 #     dtype = 'bin'
 #     if 'cont' in dset_name:
 #         dtype = 'cont'
+#     elif 'chanProp' in dset_name:
+#         dtype = 'cont'
+#     elif 'chanDist' in dset_name:
+#         dtype = 'cont'
 #
 #     if 'v1' in dset_name:
 #         version = 'v1'
