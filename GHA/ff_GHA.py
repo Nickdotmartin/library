@@ -407,39 +407,43 @@ def ff_gha(sim_dict_path,
     dict_list.close()
 
     print(f"\nadded to list for selectivity analysis: {gha_dict_name[:-7]}")
-    
+
     # # spare variables to make anaysis easier
     if 'chanProp' in output_filename:
         var_one = 'chanProp'
     elif 'chanDist' in output_filename:
         var_one = 'chanDist'
+    elif 'cont' in output_filename:
+        var_one = 'cont'
     elif 'bin' in output_filename:
         var_one = 'bin'
     else:
         raise ValueError("dset_type not found (v1)")
 
-    if 'HB' in output_filename:
-        var_two = 'HB'
-    elif 'MB' in output_filename:
-        var_two = 'MB'
-    elif 'LB' in output_filename:
-        var_two = 'LB'
+    if 'pro_sm' in output_filename:
+        var_two = 'pro_sm'
+    elif 'pro_med' in output_filename:
+        var_two = 'pro_med'
+    # elif 'LB' in output_filename:
+    #     var_two = 'LB'
     else:
         raise ValueError("between not found (v2)")
 
-    if 'HW' in output_filename:
-        var_three = 'HW'
-    elif 'MW' in output_filename:
-        var_three = 'MW'
-    elif 'LW' in output_filename:
-        var_three = 'LW'
+    if 'v1' in output_filename:
+        var_three = 'v1'
+    elif 'v2' in output_filename:
+        var_three = 'v2'
+    elif 'v3' in output_filename:
+        var_three = 'v3'
     else:
         raise ValueError("within not found (v3)")
 
     var_four = var_two + var_three
 
     if 'ReLu' in output_filename:
-        var_five = 'ReLu'
+        var_five = 'relu'
+    elif 'relu' in output_filename:
+        var_five = 'relu'
     elif 'sigm' in output_filename:
         var_five = 'sigm'
     else:

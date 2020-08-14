@@ -574,33 +574,37 @@ def train_model(exp_name,
         var_one = 'chanProp'
     elif 'chanDist' in cond_name:
         var_one = 'chanDist'
+    elif 'cont' in cond_name:
+        var_one = 'cont'
     elif 'bin' in cond_name:
         var_one = 'bin'
     else:
         raise ValueError("dset_type not found (v1)")
 
-    if 'HB' in cond_name:
-        var_two = 'HB'
-    elif 'MB' in cond_name:
-        var_two = 'MB'
-    elif 'LB' in cond_name:
-        var_two = 'LB'
+    if 'pro_sm' in cond_name:
+        var_two = 'pro_sm'
+    elif 'pro_med' in cond_name:
+        var_two = 'pro_med'
+    # elif 'LB' in cond_name:
+    #     var_two = 'LB'
     else:
         raise ValueError("between not found (v2)")
 
-    if 'HW' in cond_name:
-        var_three = 'HW'
-    elif 'MW' in cond_name:
-        var_three = 'MW'
-    elif 'LW' in cond_name:
-        var_three = 'LW'
+    if 'v1' in cond_name:
+        var_three = 'v1'
+    elif 'v2' in cond_name:
+        var_three = 'v2'
+    elif 'v3' in cond_name:
+        var_three = 'v3'
     else:
         raise ValueError("within not found (v3)")
 
     var_four = var_two + var_three
 
     if 'ReLu' in cond_name:
-        var_five = 'ReLu'
+        var_five = 'relu'
+    elif 'relu' in cond_name:
+        var_five = 'relu'
     elif 'sigm' in cond_name:
         var_five = 'sigm'
     else:

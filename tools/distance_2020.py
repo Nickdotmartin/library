@@ -6,7 +6,6 @@ import json
 import pandas as pd
 import os
 import csv
-
 from tools.data import running_on_laptop, switch_home_dirs
 
 
@@ -234,7 +233,7 @@ from tools.data import running_on_laptop, switch_home_dirs
 # print(class_sim_df)
 # class_sim_df.to_csv(f'{dataset_name}_{distance}.csv', index_label='class', )
 
-def get_cos_sim(dset, n_cats, dtype, dset_name, version, IPC_dict=None):
+def get_cos_sim(dset, n_cats, dtype, dset_name, version, sim_type, IPC_dict=None):
     """
     This will take a dataset and calculate the cosine similiarity within and
     between classes, producing a csv with results and updating a main doc.
@@ -244,6 +243,7 @@ def get_cos_sim(dset, n_cats, dtype, dset_name, version, IPC_dict=None):
     :param dtype: binary, chan_dist or chanProp.  only needed for labelling
     :param dset_name: of dataset eg HBHW, HBLW, LBHW, LBLW
     :param version: number with 2 versions of each type
+    :param sim_type: Describe the similarity e.g., HBHW or vary etc
     :param IPC_dict: defalt = None.  if the number of items per class is not
                     equal, enter a dict
 
@@ -257,6 +257,8 @@ def get_cos_sim(dset, n_cats, dtype, dset_name, version, IPC_dict=None):
         file_path = '/Users/nickmartin/Library/Mobile Documents/com~apple~CloudDocs/' \
                     'Documents/PhD/python_v2/experiments/' \
                     'within_between_dist_july2020/New_data/'
+
+    save_path = os.path.join(file_path, 'similarity_details')
 
     # # enter either 'cos_sim, 'cos_dist' or 'taxi'
     distance = 'cos_sim'
@@ -439,11 +441,11 @@ def get_cos_sim(dset, n_cats, dtype, dset_name, version, IPC_dict=None):
     class_sim_df = pd.DataFrame(class_sim_dict)
     print(class_sim_df)
     csv_name = f'{dset_name}_{distance}.csv'
-    csv_path = os.path.join(file_path, csv_name)
+    csv_path = os.path.join(save_path, csv_name)
     class_sim_df.to_csv(csv_path, index_label='class', )
 
     # check if similiarity summary exists
-    similarity_info = [dtype, dset_name, version, n_cats,
+    similarity_info = [dtype, dset_name, sim_type, version, n_cats,
                        dset_between_mean, dset_between_sd,
                        dset_within_mean, dset_within_sd]
     print(f"similarity_info:\n{similarity_info}")
@@ -451,18 +453,18 @@ def get_cos_sim(dset, n_cats, dtype, dset_name, version, IPC_dict=None):
 
     # check if training_info.csv exists
     summary_name = 'similarity_summary.csv'
-    print(f"\nlooking for file:\n{os.path.join(file_path, summary_name)}")
-    if not os.path.isfile(os.path.join(file_path, summary_name)):
+    print(f"\nlooking for file:\n{os.path.join(save_path, summary_name)}")
+    if not os.path.isfile(os.path.join(save_path, summary_name)):
         print("making summary page")
-        headers = ["dtype", "dset_name","version", "n_cats",
+        headers = ["dtype", "dset_name", 'sim_type', "version", "n_cats",
                    "mean_b", "sd_b", "mean_w", "sd_w"]
 
-        similarity_overview = open(summary_name, 'w')
+        similarity_overview = open(os.path.join(save_path, summary_name), 'w')
         mywriter = csv.writer(similarity_overview)
         mywriter.writerow(headers)
     else:
         print("appending to summary page")
-        similarity_overview = open(os.path.join(file_path, summary_name), 'a')
+        similarity_overview = open(os.path.join(save_path, summary_name), 'a')
         mywriter = csv.writer(similarity_overview)
 
     mywriter.writerow(similarity_info)
@@ -470,6 +472,7 @@ def get_cos_sim(dset, n_cats, dtype, dset_name, version, IPC_dict=None):
 
     return_dict = {"dtype": dtype,
                    "dset_name": dset_name,
+                   'sim_type': sim_type,
                    "version": version,
                    "n_cats": n_cats,
                    "dset_between_mean": dset_between_mean,
@@ -485,34 +488,111 @@ def get_cos_sim(dset, n_cats, dtype, dset_name, version, IPC_dict=None):
 #####################################
 
 # print("\n\nthere is stuff at the bottom of the page")
-# dset_root = '/home/nm13850/Documents/PhD/python_v2/experiments/' \
-#             'within_between_dist_july2020/New_data/datasets/'
+# datasets_path = '/home/nm13850/Documents/PhD/python_v2/experiments/' \
+#                   'within_between_dist_july2020/New_data/datasets'
 #
-# dset_names = ["bin_b84_w87_HBHW_v1", "bin_b82_w87_HBHW_v2",
-#               "bin_b74_w85_MBHW_v1", "bin_b74_w85_MBHW_v2",
-#               "bin_b71_w76_MBMW_v1", "bin_b72_w75_MBMW_v2",
-#               "bin_b50_w87_LBHW_v1", "bin_b50_w87_LBHW_v2",
-#               "bin_b50_w76_LBMW_v1", "bin_b50_w76_LBMW_v2",
-#               "bin_b50_w54_LBLW_v1", "bin_b50_w55_LBLW_v2"]
 #
-# for name in dset_names:
-#     this_dset = name
-#     this_file = this_dset + '.csv'
-#     load_path = os.path.join(dset_root, this_file)
+# dset_names = ["bin_b82_w87_HBHW_v2.csv",
+#              "bin_b84_w87_HBHW_v1.csv",
+#              "bin_b74_w85_MBHW_v1.csv",
+#              "bin_b74_w85_MBHW_v2.csv",
+#              "bin_b71_w76_MBMW_v1.csv",
+#              "bin_b72_w75_MBMW_v2.csv",
+#              "bin_b50_w87_LBHW_v1.csv",
+#              "bin_b50_w87_LBHW_v2.csv",
+#              "bin_b50_w76_LBMW_v1.csv",
+#              "bin_b50_w76_LBMW_v2.csv",
+#              "bin_b50_w54_LBLW_v1.csv",
+#              "bin_b50_w55_LBLW_v2.csv",
+#              "chanProp_b84_w86_HBHW_v1.csv",
+#              "chanProp_b84_w87_HBHW_v2.csv",
+#              "chanProp_b83_w86_HBHW_v1.csv",
+#              "chanProp_b74_w87_MBHW_v1.csv",
+#              "chanProp_b73_w87_MBHW_v2.csv",
+#              "chanProp_b67_w76_MBMW_v1.csv",
+#              "chanProp_b66_w76_MBMW_v2.csv",
+#              "chanProp_b48_w86_LBHW_v1.csv",
+#              "chanProp_b49_w87_LBHW_v2.csv",
+#              "chanProp_b48_w75_LBMW_v1.csv",
+#              "chanProp_b46_w75_LBMW_v2.csv",
+#              "chanProp_b42_w51_LBLW_v1.csv",
+#              "chanProp_b42_w51_LBLW_v2.csv",
+#              "chanDist_b83_w86_HBHW_v1.csv",
+#              "chanDist_b83_w86_HBHW_v2.csv",
+#              "chanDist_b74_w86_MBHW_v1.csv",
+#              "chanDist_b74_w86_MBHW_v2.csv",
+#              "chanDist_b66_w74_MBMW_v1.csv",
+#              "chanDist_b65_w73_MBMW_v2.csv",
+#              "chanDist_b51_w86_LBHW_v1.csv",
+#              "chanDist_b51_w86_LBHW_v2.csv",
+#              "chanDist_b50_w73_LBMW_v1.csv",
+#              "chanDist_b50_w73_LBMW_v2.csv",
+#              "chanDist_b45_w54_LBLW_v1.csv",
+#              "chanDist_b45_w54_LBLW_v2.csv",
+#              "bin_pro_sm_v1_r_vary_max.csv",
+#              "bin_pro_sm_v2_r_vary_max.csv",
+#              "bin_pro_sm_v3_r_vary_max.csv",
+#              "cont_pro_sm_v1_r_vary_max.csv",
+#              "cont_pro_sm_v2_r_vary_max.csv",
+#              "cont_pro_sm_v3_r_vary_max.csv",
+#              "bin_pro_med_v1_r_vary_max.csv",
+#              "bin_pro_med_v2_r_vary_max.csv",
+#              "bin_pro_med_v3_r_vary_max.csv",
+#              "cont_pro_med_v1_r_vary_max.csv",
+#              "cont_pro_med_v2_r_vary_max.csv",
+#              "cont_pro_med_v3_r_vary_max.csv",
+#              ]
+#
+# for file_name in dset_names:
+#
+#     if 'load_dict' in file_name:
+#         continue
+#
+#
+#     dset_name = file_name[:-4]
+#     print(dset_name)
+#
+#     load_path = os.path.join(datasets_path, file_name)
 #     load_file = np.loadtxt(load_path, delimiter=",")
 #     dataset = np.asarray(load_file)
 #
 #     print(np.shape(dataset))
 #
-#     dset_sims = this_dset[12:16]
-#     dset_version = this_dset[-1]
-#     dset_name = f'{dset_sims}{dset_version}'
-#     print(dset_name)
+#     dtype = 'bin'
+#     if 'cont' in dset_name:
+#         dtype = 'cont'
 #
-#     dset = dataset
-#     n_cats = 50
-#     dtype = "bin"
-#     dset_name = dset_name
-#     version = dset_version
-#     get_cos_sim(dset, n_cats, dtype, dset_name, version)
+#     if 'v1' in dset_name:
+#         version = 'v1'
+#     elif 'v2' in dset_name:
+#         version = 'v2'
+#     elif 'v3' in dset_name:
+#         version = 'v3'
+#     else:
+#         raise ValueError("version unknown")
+#
+#     if 'HBHW' in dset_name:
+#         dset_sims = 'HBHW'
+#     elif 'MBHW' in dset_name:
+#         dset_sims = 'MBHW'
+#     elif 'MBMW' in dset_name:
+#         dset_sims = 'MBMW'
+#     elif 'LBHW' in dset_name:
+#         dset_sims = 'LBHW'
+#     elif 'LBMW' in dset_name:
+#         dset_sims = 'LBMW'
+#     elif 'LBLW' in dset_name:
+#         dset_sims = 'LBLW'
+#     elif 'pro_sm' in dset_name:
+#         dset_sims = 'pro_sm_vary'
+#     elif 'pro_med' in dset_name:
+#         dset_sims = 'pro_med_vary'
+#     else:
+#         raise ValueError('what dataset similarity type is this')
+#
+#     print(f"{dset_name}\t{dtype}\t{version}\t{dset_sims}")
+#
+#     get_cos_sim(dset=dataset, n_cats=10, dtype=dtype,
+#                 dset_name=dset_name, version=version, sim_type=dset_sims)
 #     print("finihsed :)")
+#
