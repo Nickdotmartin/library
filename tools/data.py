@@ -499,11 +499,13 @@ def running_on_laptop(verbose=True):
     :return:
     """
     # if verbose:
-    print("checking for laptop")
+    # print("checking for laptop")
     if sys.executable[:18] == '/Users/nickmartin/':
-        print("Script is running on Nick's laptop")
+        if verbose:
+            print("Script is running on Nick's laptop")
     else:
-        print("Script is not running on Nick's laptop")
+        if verbose:
+            print("Script is not running on Nick's laptop")
     return sys.executable[:18] == '/Users/nickmartin/'
 
 def switch_home_dirs(path_to_change):
