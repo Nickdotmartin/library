@@ -370,31 +370,60 @@ import os.path
 # print("script finished")
 
 # # part 1 # # load summary csv - check conditions
-topic_name = 'cos_sim_3_vary'
+topic_name = 'cos_sim2'
 experiment_chapter = 'within_between_dist_july2020'
 master_df_name = f"{topic_name}_sel_p_u_master"  # don't need to include the .csv bit
 master_df_path = '/home/nm13850/Documents/PhD/python_v2/experiments/' \
                  f'{experiment_chapter}/{topic_name}/{topic_name}_sel_p_u_master.csv'
 
+# # part 2. decide on how to group the data (dependent variables)
+# # decide whether to include simulations based on 'dset_type', 'hid_units', 'act_func', 'dataset', 'gha_acc',
+use_dset_type = 'all'  # 'all', 'bin', 'cont', 'chanprop', 'chanDist'
+use_act_func = 'all'  # 'all', 'sigm' 'ReLu'
+min_hid_units = 10
+max_hid_units = 500
+min_gha_acc = .15
+n_cats = 10
 
+# # variables
+IV = [
+    'cos_sim',
+    #   'act_func', 'dtype',
+    #   'between', 'within',
+    # 'n_units'
+    # 'output_class'
+      ]
+# DV = ["trained_for", "gha_acc",
+#       'combo', "max_informed", "max_info_sens", "b_sel",
+#       "means", 'sd', 'nz_prop', 'hi_val_prop']
+# DV = ['combo', "max_informed", "max_info_sens", "b_sel",
+#       "trained_for", "means", 'sd', 'nz_prop', 'hi_val_prop']
+DV = ["trained_for", "means", "max_informed", "b_sel"]
+# DV = [
+#     # "means",
+#     "means_c",
+#     # "max_informed",
+#     "max_informed_c",
+#     # "b_sel",
+#     "b_sel_c"]
+
+
+# # plot details
+font_size = 10
 
 
 
 master_df = pd.read_csv(master_df_path)
 print(f"\ntopic name {topic_name}")
 print(f"master_df.shape: {master_df.shape}")
-print(list(master_df))
 print(master_df.head())
 
+for index, header in enumerate(list(master_df)):
+    print(index, header)
+# print(list(master_df))
 
-# # part 2. decide on how to group the data (dependent variables)
-# # decide whether to include simulations based on 'dset_type', 'hid_units', 'act_func', 'dataset', 'gha_acc',
-use_dset_type = 'all'  # 'chanprop', 'chanDist'
-use_act_func = 'all'  # 'sigm' 'ReLu'
-min_hid_units = 10
-max_hid_units = 500
-min_gha_acc = .15
-n_cats = 10
+
+
 
 if (use_act_func == 'all') and (use_dset_type == 'all'):
     plots_dir = 'ALL_sel_p_u'
@@ -450,29 +479,9 @@ print(f"\nmaster_df.shape: {master_df.shape}\n\n{master_df.head()}")
 
 
 # IV_datasets_df.to_csv("{}IV_datasets_df.csv".format(topic_name))
-IV = [
-    # 'cos_sim',
-    #   'act_func', 'dtype',
-      # 'between', 'within',
-    # 'n_units'
-    'output_class'
-      ]
-# DV = ["trained_for", "gha_acc",
-#       'combo', "max_informed", "max_info_sens", "b_sel",
-#       "means", 'sd', 'nz_prop', 'hi_val_prop']
-# DV = ['combo', "max_informed", "max_info_sens", "b_sel",
-#       "trained_for", "means", 'sd', 'nz_prop', 'hi_val_prop']
-# DV = ["trained_for", "means", "max_informed", "b_sel"]
-DV = [
-    # "means",
-    "means_c",
-    # "max_informed",
-    "max_informed_c",
-    # "b_sel",
-    "b_sel_c"]
+
 
 counter = 0
-
 
 for var_name in IV:
     for measure in DV:
@@ -562,6 +571,9 @@ for var_name in IV:
 
         print(f"plot_type: {plot_type}")
 
+        # plt.figure(figsize=(3.5, 3))
+        plt.figure(figsize=(4.08, 3.5))
+
         if plot_type == 'violin':
             if use_order:
                 ax = sns.violinplot(x=variable, y=measure, data=master_df, cut=0,
@@ -572,27 +584,36 @@ for var_name in IV:
         elif plot_type == 'countplot':
             ax = sns.countplot(x=measure, data=master_df)
 
-        ax.set_title(f"{plot_title_use}: {m_name} by {by}")
+        ax.set_title(f"{plot_title_use}: {m_name} by {by}", fontsize=font_size, wrap=True)
 
         if var_name is 'dtype':
             # ax.set_xticklabels(["Binary", "Cont-chanDist", "Cont-chanProp"])
-            ax.set_xticklabels(["Binary", "Cont"])
+            ax.set_xticklabels(["Binary", "Cont"], fontsize=font_size)
 
         elif var_name is 'act_func':
-            ax.set_xticklabels(["ReLu", "Sigmoid"])
+            ax.set_xticklabels(["ReLu", "Sigmoid"], fontsize=font_size)
         elif var_name in ['between', 'within']:
-            ax.set_xticklabels(['High', 'Medium', 'Low'])
+            ax.set_xticklabels(['High', 'Medium', 'Low'], fontsize=font_size)
 
-        ax.set_xlabel(f"{by}")
-        ax.set_ylabel(f"{m_name}")
+        elif var_name is 'cos_sim':
+            ax.set_xticklabels(labels=order, rotation=20)
+
+
+        ax.set_xlabel(f"{by}", fontsize=font_size)
+        ax.set_ylabel(f"{m_name}", fontsize=font_size)
 
         if measure is 'combo':
             ax.axhline(1.0, ls='--', color='grey')
         elif measure is 'b_sel':
             ax.axhline(0.0, ls='--', color='grey')
 
+        # plt.tight_layout(rect=[0, 0.03, 1, 0.90])
+        # plt.tight_layout(rect=[0, 0.01, 1, 0.99])
+        # plt.subplots_adjust(wspace=0)
 
-
+        # plt.tight_layout(
+        #     pad=0.4, w_pad=0.5, h_pad=1.0
+        # )
         # plt.show()
         plot_name = f'{topic_name}_{plots_dir}_{measure}_by_{var_name}'
         plt.savefig(os.path.join(plots_path, plot_name))

@@ -487,9 +487,19 @@ def get_cos_sim(dset, n_cats, dtype, dset_name, version, sim_type, IPC_dict=None
 
 #####################################
 
-# print("\n\nthere is stuff at the bottom of the page")
-# datasets_path = '/home/nm13850/Documents/PhD/python_v2/experiments/' \
-#                   'within_between_dist_july2020/New_data/datasets'
+print("\n\nthere is stuff at the bottom of the page")
+datasets_path = '/home/nm13850/Documents/PhD/python_v2/experiments/' \
+                  'within_between_dist_july2020/New_data/datasets'
+counter = 0
+for index, file_name in enumerate(os.listdir(datasets_path)):
+    if 'load_dict' in file_name:
+        continue
+    elif 'labels_10cats_50IPC' in file_name:
+        continue
+    else:
+        counter += 1
+        print(counter, file_name)
+
 #
 #
 # dset_names = ["bin_b82_w87_HBHW_v2.csv",
@@ -544,59 +554,56 @@ def get_cos_sim(dset, n_cats, dtype, dset_name, version, sim_type, IPC_dict=None
 #              ]
 #
 # for file_name in dset_names:
-#
-#     if 'load_dict' in file_name:
-#         continue
-#
-#
-#     dset_name = file_name[:-4]
-#     print(dset_name)
-#
-#     load_path = os.path.join(datasets_path, file_name)
-#     load_file = np.loadtxt(load_path, delimiter=",")
-#     dataset = np.asarray(load_file)
-#
-#     print(np.shape(dataset))
-#
-#     dtype = 'bin'
-#     if 'cont' in dset_name:
-#         dtype = 'cont'
-#     elif 'chanProp' in dset_name:
-#         dtype = 'cont'
-#     elif 'chanDist' in dset_name:
-#         dtype = 'cont'
-#
-#     if 'v1' in dset_name:
-#         version = 'v1'
-#     elif 'v2' in dset_name:
-#         version = 'v2'
-#     elif 'v3' in dset_name:
-#         version = 'v3'
-#     else:
-#         raise ValueError("version unknown")
-#
-#     if 'HBHW' in dset_name:
-#         dset_sims = 'HBHW'
-#     elif 'MBHW' in dset_name:
-#         dset_sims = 'MBHW'
-#     elif 'MBMW' in dset_name:
-#         dset_sims = 'MBMW'
-#     elif 'LBHW' in dset_name:
-#         dset_sims = 'LBHW'
-#     elif 'LBMW' in dset_name:
-#         dset_sims = 'LBMW'
-#     elif 'LBLW' in dset_name:
-#         dset_sims = 'LBLW'
-#     elif 'pro_sm' in dset_name:
-#         dset_sims = 'pro_sm_vary'
-#     elif 'pro_med' in dset_name:
-#         dset_sims = 'pro_med_vary'
-#     else:
-#         raise ValueError('what dataset similarity type is this')
-#
-#     print(f"{dset_name}\t{dtype}\t{version}\t{dset_sims}")
-#
-#     get_cos_sim(dset=dataset, n_cats=10, dtype=dtype,
-#                 dset_name=dset_name, version=version, sim_type=dset_sims)
-#     print("finihsed :)")
+
+
+    dset_name = file_name[:-4]
+    print(dset_name)
+
+    load_path = os.path.join(datasets_path, file_name)
+    load_file = np.loadtxt(load_path, delimiter=",")
+    dataset = np.asarray(load_file)
+
+    print(np.shape(dataset))
+
+    dtype = 'bin'
+    if 'cont' in dset_name:
+        dtype = 'cont'
+    elif 'chanProp' in dset_name:
+        dtype = 'cont'
+    elif 'chanDist' in dset_name:
+        dtype = 'cont'
+
+    if 'v1' in dset_name:
+        version = 'v1'
+    elif 'v2' in dset_name:
+        version = 'v2'
+    elif 'v3' in dset_name:
+        version = 'v3'
+    else:
+        raise ValueError("version unknown")
+
+    if 'HBHW' in dset_name:
+        dset_sims = 'HBHW'
+    elif 'MBHW' in dset_name:
+        dset_sims = 'MBHW'
+    elif 'MBMW' in dset_name:
+        dset_sims = 'MBMW'
+    elif 'LBHW' in dset_name:
+        dset_sims = 'LBHW'
+    elif 'LBMW' in dset_name:
+        dset_sims = 'LBMW'
+    elif 'LBLW' in dset_name:
+        dset_sims = 'LBLW'
+    elif 'pro_sm' in dset_name:
+        dset_sims = 'pro_sm_vary'
+    elif 'pro_med' in dset_name:
+        dset_sims = 'pro_med_vary'
+    else:
+        raise ValueError('what dataset similarity type is this')
+
+    print(f"{dset_name}\t{dtype}\t{version}\t{dset_sims}")
+
+    get_cos_sim(dset=dataset, n_cats=10, dtype=dtype,
+                dset_name=dset_name, version=version, sim_type=dset_sims)
+    print("finihsed :)")
 #
