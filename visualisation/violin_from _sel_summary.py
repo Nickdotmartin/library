@@ -387,8 +387,10 @@ n_cats = 10
 
 # # variables
 IV = [
+    # 'dset'
     'cos_sim',
-    #   'act_func', 'dtype',
+    #   'act_func',
+    # 'dtype',
     #   'between', 'within',
     # 'n_units'
     # 'output_class'
@@ -398,14 +400,16 @@ IV = [
 #       "means", 'sd', 'nz_prop', 'hi_val_prop']
 # DV = ['combo', "max_informed", "max_info_sens", "b_sel",
 #       "trained_for", "means", 'sd', 'nz_prop', 'hi_val_prop']
-DV = ["trained_for", "means", "max_informed", "b_sel"]
-# DV = [
-#     # "means",
-#     "means_c",
-#     # "max_informed",
-#     "max_informed_c",
-#     # "b_sel",
-#     "b_sel_c"]
+# DV = ["trained_for", "means", "max_informed", "b_sel"]
+DV = [
+# #     # "means",
+# #     "means_c",
+# #      "max_informed",
+# #     "max_informed_c",
+# #     # "b_sel",
+# #     "b_sel_c"
+    'nz_prop', 'hi_val_prop'
+        ]
 
 
 # # plot details
@@ -447,10 +451,10 @@ plots_path = f'/home/nm13850/Documents/PhD/python_v2/experiments/{experiment_cha
 if not os.path.isdir(plots_path):
     os.makedirs(plots_path)
 
-# # # sanity check on layers
-# get_values = master_df.between.unique()
+# # sanity check on layers
+# get_values = master_df.dset.unique()
 # for i in range(len(get_values)):
-#     get_value_count = master_df.between.value_counts()[get_values[i]]
+#     get_value_count = master_df.dset.value_counts()[get_values[i]]
 #     print("{} value: {} {}".format(i, get_values[i], get_value_count))
 # print(get_values)
 
@@ -496,13 +500,17 @@ for var_name in IV:
             use_order = True
             by = 'between and within class similarity'
 
+        elif var_name is 'dset':
+            order = ["pro_sm_", "pro_med"]
+            use_order = True
+            by = 'Prototype difference'
+
         elif var_name is 'act_func':
             by = 'activation function'
 
         elif var_name is 'dtype':
             # order = ['bin', 'chanDist', 'chanProp']
             order = ['bin', 'cont']
-
             use_order = True
             by = 'data type'
 
@@ -524,10 +532,8 @@ for var_name in IV:
             variable = list(range(n_cats))
             # plot_type = 'countplot'
 
-
         else:
-            raise ValueError(f'unknown independent var_name\n'
-                             f'var_name: {var_name}')
+            raise ValueError(f'unknown independent var_name: {var_name}')
 
 
         # measure (DV)
@@ -610,7 +616,7 @@ for var_name in IV:
         # plt.tight_layout(rect=[0, 0.03, 1, 0.90])
         # plt.tight_layout(rect=[0, 0.01, 1, 0.99])
         # plt.subplots_adjust(wspace=0)
-
+        # plt.tight_layout()
         # plt.tight_layout(
         #     pad=0.4, w_pad=0.5, h_pad=1.0
         # )
