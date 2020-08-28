@@ -22,7 +22,7 @@ from tools.RNN_STM import get_X_and_Y_data_from_seq, seq_items_per_class, spell_
 
 def simple_plot(gha_dict_path,
                 plot_what='all',
-                measure='b_sel',
+                measure=['max_informed'],
                 letter_sel=False,
                 correct_items_only=True,
                 verbose=False, test_run=False,
@@ -87,14 +87,16 @@ def simple_plot(gha_dict_path,
     if verbose:
         print(f"the are {n_cats} classes")
 
-    # if letter_sel:
-    #     X_size = gha_dict['data_info']["X_size"]
-    #     n_cats = X_size
-    #     print(f"the are {X_size} letters classes\nn_cats now set as X_size")
-    #
-    #     letter_id_dict = load_dict(os.path.join(gha_dict['data_info']['data_path'],
-    #                                             'letter_id_dict.txt'))
-    #     print(f"\nletter_id_dict:\n{letter_id_dict}")
+    # # how many measures
+    if type(measure) == str:
+        n_measures = 1
+    elif type(measure) == tuple:
+        n_measures = len(measure)
+    elif type(measure) == list:
+        n_measures = len(measure)
+    else:
+        raise TypeError("measure should be a string or a list of strings")
+
 
     # # get model info from dict
     model_dict = gha_dict['model_info']['config']
@@ -117,49 +119,6 @@ def simple_plot(gha_dict_path,
 
     '''Part 2 - load y, sort out incorrect resonses'''
     print("\n\nPart 2: loading labels")
-    # # load y_labels to go with hid_acts and item_correct for sequences
-    # if 'seq_corr_list' in gha_dict['GHA_info']['scores_dict']:
-    #     n_seqs = gha_dict['GHA_info']['scores_dict']['n_seqs']
-    #     n_seq_corr = gha_dict['GHA_info']['scores_dict']['n_seq_corr']
-    #     n_incorrect = n_seqs - n_seq_corr
-    #
-    #     test_label_seq_name = gha_dict['GHA_info']['y_data_path']
-    #     seqs_corr = gha_dict['GHA_info']['scores_dict']['seq_corr_list']
-    #
-    #     test_label_seqs = np.load(f"{test_label_seq_name}labels.npy")
-    #
-    #     if verbose:
-    #         print(f"test_label_seqs: {np.shape(test_label_seqs)}")
-    #         print(f"seqs_corr: {np.shape(seqs_corr)}")
-    #         print(f"n_seq_corr: {n_seq_corr}")
-
-        # if letter_sel:
-        #     # # get 1hot item vectors for 'words' and 3 hot for letters
-        #     '''Always use serial_recall True. as I want a separate 1hot vector for each item.
-        #     Always use x_data_type 'local_letter_X' as I want 3hot vectors'''
-        #     y_letters = []
-        #     y_words = []
-        #     for this_seq in test_label_seqs:
-        #         get_letters, get_words = get_X_and_Y_data_from_seq(vocab_dict=vocab_dict,
-        #                                                            seq_line=this_seq,
-        #                                                            serial_recall=True,
-        #                                                            end_seq_cue=False,
-        #                                                            x_data_type='local_letter_X')
-        #         y_letters.append(get_letters)
-        #         y_words.append(get_words)
-        #
-        #     y_letters = np.array(y_letters)
-        #     y_words = np.array(y_words)
-        #     if verbose:
-        #         print(f"\ny_letters: {type(y_letters)}  {np.shape(y_letters)}")
-        #         print(f"y_words: {type(y_words)}  {np.shape(y_words)}")
-
-        # y_df_headers = [f"ts{i}" for i in range(timesteps)]
-        # y_scores_df = pd.DataFrame(data=test_label_seqs, columns=y_df_headers)
-        # y_scores_df['full_model'] = seqs_corr
-        # if verbose:
-        #     print(f"\ny_scores_df: {y_scores_df.shape}\n{y_scores_df.head()}")
-
 
     # # if not sequence data, load y_labels to go with hid_acts and item_correct for items
     # el
@@ -228,9 +187,6 @@ def simple_plot(gha_dict_path,
             mask[incorrect_items] = False
             test_label_seqs = item_correct_list[mask]
 
-            # if letter_sel:
-            #     y_letters = y_letters[mask]
-
         else:
             y_df = y_scores_df
             test_label_seqs = item_correct_list
@@ -260,31 +216,12 @@ def simple_plot(gha_dict_path,
                                 "for analysis  - don't remove anything from hid_acts, output and "
                                 "use y scores as y_df")
 
-            # correct_items_only = True
 
     if verbose is True:
         print(f"\ny_df: {y_df.shape}\n{y_df.head()}")
         print(f"\ntest_label_seqs: {np.shape(test_label_seqs)}\n{test_label_seqs}")
-        # if letter_sel:
-        #     y_letters = np.asarray(y_letters)
-        #     print(f"y_letters: {np.shape(y_letters)}")  # \n{test_label_seqs}")
 
 
-    # # do I need to make test label seqs have shape n_correct, timesteps?
-    # print(f"test_label_seqs shape\n{np.shape(test_label_seqs)}\n{test_label_seqs}")
-    # reshaped_tls = np.reshape(test_label_seqs, (n_correct, timesteps))
-    # print(f"reshaped_tls shape\n{np.shape(reshaped_tls)}\n{reshaped_tls}")
-
-    # n_correct, timesteps = np.shape(test_label_seqs)
-    corr_test_seq_name = f"{output_filename}_{n_correct}_corr_test_label_seqs.npy"
-    np.save(corr_test_seq_name, test_label_seqs)
-    corr_test_letters_name = 'not_processed_yet'
-    # if letter_sel:
-    #     corr_test_letters_name = f"{output_filename}_{n_correct}_corr_test_letter_seqs.npy"
-    #     np.save(corr_test_letters_name, y_letters)
-
-    # # get items per class
-    # IPC_dict = seq_items_per_class(label_seqs=test_label_seqs, vocab_dict=vocab_dict)
 
     if correct_items_only:
         IPC_dict = gha_dict['GHA_info']['scores_dict']['corr_per_cat_dict']
@@ -307,48 +244,96 @@ def simple_plot(gha_dict_path,
     with open(corr_test_IPC_name, "wb") as pickle_out:
         pickle.dump(IPC_dict, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
 
-    # # how many times is each item represented at each timestep.
-    # if timesteps > 1:
-    # word_p_class_p_ts = IPC_dict['word_p_class_p_ts']
-    # letter_p_class_p_ts = IPC_dict['letter_p_class_p_ts']
-    #
-    # for i in range(timesteps):
-    #     n_words_p_ts = len(word_p_class_p_ts[f"ts{i}"].keys())
-    #     n_letters_p_ts = len(letter_p_class_p_ts[f"ts{i}"].keys())
-    #
-    #     print(f"ts{i}) words:{n_words_p_ts}/{n_cats}\tletters: {n_letters_p_ts}/{X_size}")
-    #     # print(word_p_class_p_ts[f"ts{i}"].keys())
+
+    # # sel_per_unit_dict
+    sel_per_unit_dict_path = f'{exp_cond_gha_path}/correct_sel/{cond_name}_sel_per_unit.pickle'
+    if os.path.isfile(sel_per_unit_dict_path):
+        sel_per_unit_dict = load_dict(sel_per_unit_dict_path)
+        # print_nested_round_floats(sel_per_unit_dict, 'sel_per_unit_dict')
+        # focussed_dict_print(sel_per_unit_dict, 'sel_per_unit_dict')
+    else:
+        raise ValueError(f"sel_per_u dict not found: {sel_per_unit_dict_path}")
 
     # # sort plot_what
     print(f"\nplotting: {plot_what}")
 
     if type(plot_what) is str:
         if plot_what == 'all':
+            print(f"plot_what: {plot_what}")
             hl_dict = dict()
 
-            # # # add model full model structure to hl_dict
-            # if letter_sel:
-            #     sel_per_unit_dict_path = f'{exp_cond_gha_path}/{cond_name}_lett_sel_per_unit.pickle'
-            # else:
-            sel_per_unit_dict_path = f'{exp_cond_gha_path}/{cond_name}_sel_per_unit.pickle'
+            sel_per_unit_dict_path = f'{exp_cond_gha_path}/' \
+                                     f'correct_sel/' \
+                                     f'{cond_name}_sel_per_unit.pickle'
+            # print(f"sel_per_unit_dict_path: {sel_per_unit_dict_path}")
 
             if os.path.isfile(sel_per_unit_dict_path):
                 sel_per_unit_dict = load_dict(sel_per_unit_dict_path)
+                # focussed_dict_print(sel_per_unit_dict, 'sel_per_unit_dict')
 
                 for layer in list(sel_per_unit_dict.keys()):
+                    if layer == "output":
+                        continue
                     hl_dict[layer] = dict()
                     for unit in sel_per_unit_dict[layer].keys():
-                        hl_dict[layer][unit] = dict()
-                        # for ts in sel_per_unit_dict[layer][unit].keys():
-                        if measure in sel_per_unit_dict[layer][unit]:
-                            class_sel_dict = sel_per_unit_dict[layer][unit][measure]
-                            key_max = max(class_sel_dict, key=class_sel_dict.get)
-                            val_max = class_sel_dict[key_max]
-                            hl_entry = (measure, val_max, key_max, 'rank_1')
-                            hl_dict[layer][unit] = list()
-                            hl_dict[layer][unit].append(hl_entry)
+                        if unit == 'means':
+                            continue
+
+                        hl_dict[layer][unit] = list()
+
+                        print(f"{layer} {unit} dict: {sel_per_unit_dict[layer][unit].keys()}")
+
+                        if 'max' in sel_per_unit_dict[layer][unit].keys():
+
+                            if n_measures > 1:
+                                print("we're dealing with multiple measures here")
+                                hl_entry_list = []
+                                for this_measure in measure:
+                                    val_max = sel_per_unit_dict[layer][unit]['max'][this_measure]
+                                    key_max = sel_per_unit_dict[layer][unit]['max'][f'{this_measure}_c']
+                                    hl_entry = (this_measure, val_max, key_max, 'rank_1')
+                                    hl_entry_list.append(hl_entry)
+                                    hl_dict[layer][unit].append(hl_entry)
 
 
+                            else:
+                                # if there is only one measure
+                                # print("we're dealing with one measure here")
+
+                                if measure in sel_per_unit_dict[layer][unit]['max']:
+                                    val_max = sel_per_unit_dict[layer][unit]['max'][measure]
+                                    key_max = sel_per_unit_dict[layer][unit]['max'][f'{measure}_c']
+                                    hl_entry = (measure, val_max, key_max, 'rank_1')
+                                    hl_dict[layer][unit] = list()
+                                    hl_dict[layer][unit].append(hl_entry)
+
+
+
+                        else:
+                            # if there isn't a separate sub dict of max classes
+
+                            # for measure in measure:
+                            if measure in sel_per_unit_dict[layer][unit]:
+                                class_sel_dict = sel_per_unit_dict[layer][unit][measure]
+                                print(f"\nclass_sel_dict: {layer} {unit} {measure} \n{class_sel_dict}")
+
+                                key_max = max(class_sel_dict, key=class_sel_dict.get)
+                                # m = max(class_sel_dict.values())
+                                # key_max =  [k for k, v in class_sel_dict.items() if v == m][0]
+
+
+                                val_max = class_sel_dict[key_max]
+                                hl_entry = (measure, val_max, key_max, 'rank_1')
+                                hl_dict[layer][unit] = list()
+                                hl_dict[layer][unit].append(hl_entry)
+
+            else:
+                # if dict is not a valid path
+                raise ValueError(f"sel_per_u dict not found: {sel_per_unit_dict_path}")
+
+
+            # print(f"\n\n\nHey Nick!\nHere is the sel_dict stuff\n"
+            #       f"{focussed_dict_print(hl_dict, 'hl_dict1')}")
 
         elif os.path.isfile(plot_what):
             hl_dict = load_dict(plot_what)
@@ -368,7 +353,7 @@ def simple_plot(gha_dict_path,
                          "iv. dict with structure [layers][units][timesteps]")
 
     if hl_dict:
-        focussed_dict_print(hl_dict, 'hl_dict')
+        focussed_dict_print(hl_dict, 'hl_dict2')
 
     '''save results
     either make a new empty place to save.
@@ -398,14 +383,11 @@ def simple_plot(gha_dict_path,
         y_1hot = unit_gha["y_1hot"]
         layer_name = unit_gha["layer_name"]
         unit_index = unit_gha["unit_index"]
-        timestep = unit_gha["timestep"]
-        ts_name = f"ts{timestep}"
+        # timestep = unit_gha["timestep"]
+        # ts_name = f"ts{timestep}"
         item_act_label_array = unit_gha["item_act_label_array"]
 
 
-
-        # print(f"check item_act_label_array\nI want class label not whether it was correct\n"
-        #       f"{item_act_label_array}")
 
         # # only plot units of interest according to hl dict
         if hl_dict:
@@ -415,71 +397,88 @@ def simple_plot(gha_dict_path,
             if unit_index not in hl_dict[layer_name]:
                 print(f"unit {unit_index} not in hl_dict[{layer_name}]")
                 continue
-            if ts_name not in hl_dict[layer_name][unit_index]:
-                print(f"{ts_name} not in hl_dict[{layer_name}][{unit_index}]")
-                continue
+            # if ts_name not in hl_dict[layer_name][unit_index]:
+            #     print(f"{ts_name} not in hl_dict[{layer_name}][{unit_index}]")
+            #     continue
 
-            # # list comp version fails so use for loop
-            # unit_hl_info = [x for x in hl_dict[layer_name][unit_index][ts_name]
-            #                 if x[0] == measure]
+            # # get sel_scores
+            print(f"hl_dict[layer_name][unit_index]: {hl_dict[layer_name][unit_index]}")
+
+
+
+            #     if len(measure) == 2:
+            #         measure1_unit = hl_dict[layer_name][unit_index][0]
+            #         measure2_unit = hl_dict[layer_name][unit_index][0]
+            # else:
+            #     # if just one measure
+            #     measure1_unit = hl_dict[layer_name][unit_index]
+
+
             unit_hl_info = []
-            print('check line 377')
-            for x in hl_dict[layer_name][unit_index][ts_name]:
-                print(x)
-                if x[0] == measure:
-                    unit_hl_info.append(x)
+
+            if n_measures > 1:
+                # for this_measure in range(len(measure)):
+                for these_details in hl_dict[layer_name][unit_index]:
+                    print(f"these_details: {these_details}")
+                    unit_hl_info.append(these_details)
+
+            else:
+                # if there is just one measure
+
+                for x in hl_dict[layer_name][unit_index]:
+                    if x[0] == measure:
+                        unit_hl_info.append(x)
 
             if len(unit_hl_info) == 0:
-                print(f"{measure} not in hl_dict[{layer_name}][{unit_index}][{ts_name}]")
+                # print(f"{measure} not in hl_dict[{layer_name}][{unit_index}][{ts_name}]")
+                print(f"{measure} not in hl_dict[{layer_name}][{unit_index}]")
                 continue
-
-            if 'ts_invar' in hl_dict[layer_name][unit_index]:
-                if measure not in hl_dict[layer_name][unit_index]['ts_invar']:
-                    print(f"{measure} not in hl_dict[{layer_name}][{unit_index}]['ts_invar']")
-                    continue
 
             if test_run:
                 if test_run_counter == 3:
                     break
                 test_run_counter += 1
 
-            unit_hl_info = list(unit_hl_info[0])
 
-            print(f"plotting {layer_name} {unit_index} {ts_name} "
-                  f"{unit_hl_info}")
-
+            # print(f"plotting {layer_name} {unit_index} {ts_name} "
+            #       f"{unit_hl_info}")
+            print(f"plotting {layer_name} {unit_index} {unit_hl_info}")
             print(f"\nsequence_data: {sequence_data}")
             print(f"y_1hot: {y_1hot}")
             print(f"unit_index: {unit_index}")
-            print(f"timestep: {timestep}")
-            print(f"ts_name: {ts_name}")
+            # print(f"timestep: {timestep}")
+            # print(f"ts_name: {ts_name}")
 
-            # # selective_for_what
-            sel_idx = unit_hl_info[2]
-            # if letter_sel:
-            #     sel_for = 'letter'
-            #     sel_item = letter_id_dict[sel_idx]
-            # else:
-            sel_for = 'word'
-            sel_item = vocab_dict[sel_idx]['word']
-
-            # # add in sel item
-            unit_hl_info.insert(3, sel_item)
-
-            # # change rank to int
-            rank_str = unit_hl_info[4]
-            unit_hl_info[4] = int(rank_str[5:])
-
-            # hl_text = f'measure\tvalue\tclass\t{sel_for}\trank\n'
-            hl_keys = ['measure: ', 'value: ', 'label: ', f'{sel_for}: ', 'rank: ']
+            # # sort text info
             hl_text = ''
-            for idx, info in enumerate(unit_hl_info):
-                key = hl_keys[idx]
-                str_info = str(info)
-                # hl_text = ''.join([hl_text, str_info[1:-1], '\n'])
-                hl_text = ''.join([hl_text, key, str_info, '\n'])
+            for this_info in range(n_measures):
+                print(f"unit_hl_info: {unit_hl_info}")
+                this_measure_info = list(unit_hl_info[this_info])
+                # unit_hl_info = list(unit_hl_info[0])
+                # unit_hl_info = list(unit_hl_info)
+                print(f"this_measure_info: {this_measure_info}")
 
-            print(f"\nhl_text: {hl_text}")
+
+                # # change rank to int
+                rank_str = this_measure_info[3][5:]
+                this_measure_info[3] = int(rank_str)
+
+                # # shorted float sel score
+                this_measure_info[1] = round(this_measure_info[1], 2)
+
+                # hl_text = f'measure\tvalue\tclass\t{sel_for}\trank\n'
+                # hl_keys = ['measure: ', 'value: ', 'label: ', f'{sel_for}: ', 'rank: ']
+                # hl_keys = ['measure: ', 'value: ', 'class: ', 'rank: ']
+                hl_keys = ['\n', 'value: ', 'class: ', 'rank: ']
+
+                for idx, info in enumerate(this_measure_info):
+                    key = hl_keys[idx]
+                    str_info = str(info)
+                    # hl_text = ''.join([hl_text, str_info[1:-1], '\n'])
+                    hl_text = ''.join([hl_text, key, str_info, '\n'])
+
+                print(f"\nhl_text: {hl_text}")
+                # hl_text = hl_text + '\n'
 
         else:
             print("no hl_dict")
@@ -487,43 +486,30 @@ def simple_plot(gha_dict_path,
         # #  make df
         this_unit_acts = pd.DataFrame(data=item_act_label_array,
                                       columns=['item', 'activation', 'label'])
+
+        # # # normalize activations
+        just_act_values = this_unit_acts['activation'].tolist()
+        max_act = max(just_act_values)
+        normed_acts = np.true_divide(just_act_values, max_act)
+        this_unit_acts.insert(2, column='normed', value=normed_acts)
+
+
         this_unit_acts_df = this_unit_acts.astype(
-            {'item': 'int32', 'activation': 'float', 'label': 'int32'})
+            {'item': 'int32', 'activation': 'float', 'normed': 'float', 'label': 'int32'})
 
-        # if letter_sel:
-        #     y_letters_1ts = np.array(y_letters[:, timestep])
-        #     print(f"y_letters_1ts: {np.shape(y_letters_1ts)}")
-        #     # print(f"y_letters_1ts: {y_letters_1ts}")
 
-        # if test_run:
-        # # get word ids to check results more easily.
-        unit_ts_labels = this_unit_acts_df['label'].tolist()
-        print(f"unit_ts_labels:\n{unit_ts_labels}")
 
-        # seq_words_df = spell_label_seqs(test_label_seqs=np.asarray(unit_ts_labels),
-        #                                 vocab_dict=vocab_dict, save_csv=False)
-        # seq_words_list = seq_words_df.iloc[:, 0].tolist()
-        # # print(f"seq_words_df:\n{seq_words_df}")
-        # this_unit_acts_df['words'] = seq_words_list
-        # # print(f"this_unit_acts_df:\n{this_unit_acts_df.head()}")
-        #
-        # # # get labels for selective item
-        # # if letter_sel:
-        # #     sel_item_list = y_letters_1ts[:, sel_idx]
-        # #
-        # # else:
-        # sel_item_list = [1 if x == sel_item else 0 for x in seq_words_list]
-        #
-        # this_unit_acts_df['sel_item'] = sel_item_list
-        #
-        # # sort by ascending word labels
-        # this_unit_acts_df = this_unit_acts_df.sort_values(by='words', ascending=True)
+        # # if test_run:
+        # # # get word ids to check results more easily.
+        # unit_ts_labels = this_unit_acts_df['label'].tolist()
+        # print(f"unit_ts_labels:\n{unit_ts_labels}")
+
 
         # # get class labels
         this_unit_acts_df['class'] = test_label_seqs
 
         # # chec mean act
-        acts_mean = np.mean(list(this_unit_acts_df['activation']))
+        acts_mean = np.mean(list(this_unit_acts_df['normed']))
         mean_activations.append(acts_mean)
 
 
@@ -533,30 +519,39 @@ def simple_plot(gha_dict_path,
             print(f"this_unit_acts_df:\n{this_unit_acts_df.head()}")
 
         # # make simple plot
-        title = f"{layer_name} unit{unit_index} {ts_name} (of {timesteps})"
+        # title = f"{layer_name} unit{unit_index} {ts_name} (of {timesteps})"
+        title = f"{cond_name} {layer_name} unit{unit_index}"
 
         print(f"title: {title}")
 
+        font_size = 12
+
         if hl_dict:
-            gridkw = dict(width_ratios=[2, 1])
+            gridkw = dict(width_ratios=[4, 1])
             fig, (spotty_axis, text_box) = plt.subplots(1, 2, gridspec_kw=gridkw)
-            sns.catplot(x='activation', y="words", hue='sel_item',
+            sns.catplot(x='normed', y="class",
+                        # hue='sel_item',
                         data=this_unit_acts_df,
                         ax=spotty_axis, orient='h', kind="strip",
                         jitter=1, dodge=True, linewidth=.5,
                         palette="Set2", marker="D", edgecolor="gray")  # , alpha=.25)
-            text_box.text(0.0, -0.01, hl_text, fontsize=10, clip_on=False)
+            # text_box.text(0.0, -0.01, hl_text, fontsize=10, clip_on=False)
+            text_box.text(0.0, 0.3, hl_text, fontsize=font_size, clip_on=False)
+
             text_box.axes.get_yaxis().set_visible(False)
             text_box.axes.get_xaxis().set_visible(False)
             text_box.patch.set_visible(False)
             text_box.axis('off')
-            spotty_axis.get_legend().set_visible(False)
-            spotty_axis.set_xlabel("Unit activations")
-            fig.suptitle(title)
+            # spotty_axis.get_legend().set_visible(False)
+            spotty_axis.set_xlabel("Unit activations", fontsize=font_size)
+            spotty_axis.set_ylabel("Class", fontsize=font_size)
+
+            fig.suptitle(title, fontsize=font_size)
             plt.close()  # extra blank plot
         else:
-            # sns.catplot(x='activation', y="words", data=this_unit_acts_df,
-            sns.catplot(x='activation', y="class", data=this_unit_acts_df,
+            # if no hl_dict
+
+            sns.catplot(x='normed', y="class", data=this_unit_acts_df,
                         orient='h', kind="strip",
                         jitter=1, dodge=True, linewidth=.5,
                         palette="Set2", marker="D", edgecolor="gray")  # , alpha=.25)
@@ -564,19 +559,25 @@ def simple_plot(gha_dict_path,
             plt.suptitle(title)
             plt.tight_layout(rect=[0, 0.03, 1, 0.90])
 
-        # if letter_sel:
-        #     save_name = f"{plots_path}/" \
-        #                 f"{output_filename}_{layer_name}_{unit_index}_{ts_name}" \
-        #                 f"_{measure}_lett.png"
-        # else:
+
+        if n_measures == 1:
+            measure_names = measure
+        else:
+            measure_names = ''
+            for m in measure:
+                measure_names = measure_names + str(m) + '_'
+
         save_name = f"{plots_path}/" \
-                    f"{output_filename}_{layer_name}_{unit_index}_{ts_name}" \
-                    f"_{measure}_word.png"
+                    f"{output_filename}_{layer_name}_{unit_index}" \
+                    f"_{measure_names}.png"
 
         plt.savefig(save_name)
         if show_plots:
             plt.show()
         plt.close()
+
+        print(f"saving plot to\n{os.getcwd()}")
+        print(f"{save_name}")
 
     # # mean activations
     total_mean_act = np.mean(mean_activations)
@@ -621,7 +622,7 @@ def raincloud_compare_dset(sel_dict_path,
     # :param lesion_dict_path: path to lesion dict
     :param plot_type: all classes or OneVsAll.  if n_cats > 10, should automatically revert to oneVsAll.
     :param coi_measure: measure to use when choosing which class should be the coi.  Either the best performing sel
-            measures (c_informed, c_ROC) or max class drop from lesioning.
+            measure (c_informed, c_ROC) or max class drop from lesioning.
     :param top_layers: if int, it will just do the top n layers (excluding output).  If not int, will do all layers.
     :param selected_units: default is to test all units on all layers.  But If I just want individual units, I should be
                     able to input a dict with layer names as keys and a list for each unit on that layer.
@@ -1430,7 +1431,7 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', coi_m
     :param lesion_dict_path: path to lesion dict
     :param plot_type: all classes or OneVsAll.  if n_cats > 10, should automatically revert to oneVsAll.
     :param coi_measure: measure to use when choosing which class should be the coi.  Either the best performing sel
-            measures (c_informed, c_ROC) or max class drop from lesioning.
+            measure (c_informed, c_ROC) or max class drop from lesioning.
     :param top_layers: if int, it will just do the top n mayers (excluding output).  If not int, will do all layers.
     :param selected_units: default is to test all units on all layers.  But If I just want individual units, I should be
                     able to input a dict with layer names as keys and a list for each unit on that layer.

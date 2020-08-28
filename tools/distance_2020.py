@@ -487,123 +487,123 @@ def get_cos_sim(dset, n_cats, dtype, dset_name, version, sim_type, IPC_dict=None
 
 #####################################
 
-print("\n\nthere is stuff at the bottom of the page")
-datasets_path = '/home/nm13850/Documents/PhD/python_v2/experiments/' \
-                  'within_between_dist_july2020/New_data/datasets'
-counter = 0
-for index, file_name in enumerate(os.listdir(datasets_path)):
-    if 'load_dict' in file_name:
-        continue
-    elif 'labels_10cats_50IPC' in file_name:
-        continue
-    else:
-        counter += 1
-        print(counter, file_name)
-
+# print("\n\nthere is stuff at the bottom of the page")
+# datasets_path = '/home/nm13850/Documents/PhD/python_v2/experiments/' \
+#                   'within_between_dist_july2020/New_data/datasets'
+# counter = 0
+# for index, file_name in enumerate(os.listdir(datasets_path)):
+#     if 'load_dict' in file_name:
+#         continue
+#     elif 'labels_10cats_50IPC' in file_name:
+#         continue
+#     else:
+#         counter += 1
+#         print(counter, file_name)
+#
+# #
+# #
+# # dset_names = ["bin_b82_w87_HBHW_v2.csv",
+# #              "bin_b84_w87_HBHW_v1.csv",
+# #              "bin_b74_w85_MBHW_v1.csv",
+# #              "bin_b74_w85_MBHW_v2.csv",
+# #              "bin_b71_w76_MBMW_v1.csv",
+# #              "bin_b72_w75_MBMW_v2.csv",
+# #              "bin_b50_w87_LBHW_v1.csv",
+# #              "bin_b50_w87_LBHW_v2.csv",
+# #              "bin_b50_w76_LBMW_v1.csv",
+# #              "bin_b50_w76_LBMW_v2.csv",
+# #              "bin_b50_w54_LBLW_v1.csv",
+# #              "bin_b50_w55_LBLW_v2.csv",
+# #              "chanProp_b84_w86_HBHW_v1.csv",
+# #              "chanProp_b84_w87_HBHW_v2.csv",
+# #              "chanProp_b83_w86_HBHW_v1.csv",
+# #              "chanProp_b74_w87_MBHW_v1.csv",
+# #              "chanProp_b73_w87_MBHW_v2.csv",
+# #              "chanProp_b67_w76_MBMW_v1.csv",
+# #              "chanProp_b66_w76_MBMW_v2.csv",
+# #              "chanProp_b48_w86_LBHW_v1.csv",
+# #              "chanProp_b49_w87_LBHW_v2.csv",
+# #              "chanProp_b48_w75_LBMW_v1.csv",
+# #              "chanProp_b46_w75_LBMW_v2.csv",
+# #              "chanProp_b42_w51_LBLW_v1.csv",
+# #              "chanProp_b42_w51_LBLW_v2.csv",
+# #              "chanDist_b83_w86_HBHW_v1.csv",
+# #              "chanDist_b83_w86_HBHW_v2.csv",
+# #              "chanDist_b74_w86_MBHW_v1.csv",
+# #              "chanDist_b74_w86_MBHW_v2.csv",
+# #              "chanDist_b66_w74_MBMW_v1.csv",
+# #              "chanDist_b65_w73_MBMW_v2.csv",
+# #              "chanDist_b51_w86_LBHW_v1.csv",
+# #              "chanDist_b51_w86_LBHW_v2.csv",
+# #              "chanDist_b50_w73_LBMW_v1.csv",
+# #              "chanDist_b50_w73_LBMW_v2.csv",
+# #              "chanDist_b45_w54_LBLW_v1.csv",
+# #              "chanDist_b45_w54_LBLW_v2.csv",
+# #              "bin_pro_sm_v1_r_vary_max.csv",
+# #              "bin_pro_sm_v2_r_vary_max.csv",
+# #              "bin_pro_sm_v3_r_vary_max.csv",
+# #              "cont_pro_sm_v1_r_vary_max.csv",
+# #              "cont_pro_sm_v2_r_vary_max.csv",
+# #              "cont_pro_sm_v3_r_vary_max.csv",
+# #              "bin_pro_med_v1_r_vary_max.csv",
+# #              "bin_pro_med_v2_r_vary_max.csv",
+# #              "bin_pro_med_v3_r_vary_max.csv",
+# #              "cont_pro_med_v1_r_vary_max.csv",
+# #              "cont_pro_med_v2_r_vary_max.csv",
+# #              "cont_pro_med_v3_r_vary_max.csv",
+# #              ]
+# #
+# # for file_name in dset_names:
 #
 #
-# dset_names = ["bin_b82_w87_HBHW_v2.csv",
-#              "bin_b84_w87_HBHW_v1.csv",
-#              "bin_b74_w85_MBHW_v1.csv",
-#              "bin_b74_w85_MBHW_v2.csv",
-#              "bin_b71_w76_MBMW_v1.csv",
-#              "bin_b72_w75_MBMW_v2.csv",
-#              "bin_b50_w87_LBHW_v1.csv",
-#              "bin_b50_w87_LBHW_v2.csv",
-#              "bin_b50_w76_LBMW_v1.csv",
-#              "bin_b50_w76_LBMW_v2.csv",
-#              "bin_b50_w54_LBLW_v1.csv",
-#              "bin_b50_w55_LBLW_v2.csv",
-#              "chanProp_b84_w86_HBHW_v1.csv",
-#              "chanProp_b84_w87_HBHW_v2.csv",
-#              "chanProp_b83_w86_HBHW_v1.csv",
-#              "chanProp_b74_w87_MBHW_v1.csv",
-#              "chanProp_b73_w87_MBHW_v2.csv",
-#              "chanProp_b67_w76_MBMW_v1.csv",
-#              "chanProp_b66_w76_MBMW_v2.csv",
-#              "chanProp_b48_w86_LBHW_v1.csv",
-#              "chanProp_b49_w87_LBHW_v2.csv",
-#              "chanProp_b48_w75_LBMW_v1.csv",
-#              "chanProp_b46_w75_LBMW_v2.csv",
-#              "chanProp_b42_w51_LBLW_v1.csv",
-#              "chanProp_b42_w51_LBLW_v2.csv",
-#              "chanDist_b83_w86_HBHW_v1.csv",
-#              "chanDist_b83_w86_HBHW_v2.csv",
-#              "chanDist_b74_w86_MBHW_v1.csv",
-#              "chanDist_b74_w86_MBHW_v2.csv",
-#              "chanDist_b66_w74_MBMW_v1.csv",
-#              "chanDist_b65_w73_MBMW_v2.csv",
-#              "chanDist_b51_w86_LBHW_v1.csv",
-#              "chanDist_b51_w86_LBHW_v2.csv",
-#              "chanDist_b50_w73_LBMW_v1.csv",
-#              "chanDist_b50_w73_LBMW_v2.csv",
-#              "chanDist_b45_w54_LBLW_v1.csv",
-#              "chanDist_b45_w54_LBLW_v2.csv",
-#              "bin_pro_sm_v1_r_vary_max.csv",
-#              "bin_pro_sm_v2_r_vary_max.csv",
-#              "bin_pro_sm_v3_r_vary_max.csv",
-#              "cont_pro_sm_v1_r_vary_max.csv",
-#              "cont_pro_sm_v2_r_vary_max.csv",
-#              "cont_pro_sm_v3_r_vary_max.csv",
-#              "bin_pro_med_v1_r_vary_max.csv",
-#              "bin_pro_med_v2_r_vary_max.csv",
-#              "bin_pro_med_v3_r_vary_max.csv",
-#              "cont_pro_med_v1_r_vary_max.csv",
-#              "cont_pro_med_v2_r_vary_max.csv",
-#              "cont_pro_med_v3_r_vary_max.csv",
-#              ]
+#     dset_name = file_name[:-4]
+#     print(dset_name)
 #
-# for file_name in dset_names:
-
-
-    dset_name = file_name[:-4]
-    print(dset_name)
-
-    load_path = os.path.join(datasets_path, file_name)
-    load_file = np.loadtxt(load_path, delimiter=",")
-    dataset = np.asarray(load_file)
-
-    print(np.shape(dataset))
-
-    dtype = 'bin'
-    if 'cont' in dset_name:
-        dtype = 'cont'
-    elif 'chanProp' in dset_name:
-        dtype = 'cont'
-    elif 'chanDist' in dset_name:
-        dtype = 'cont'
-
-    if 'v1' in dset_name:
-        version = 'v1'
-    elif 'v2' in dset_name:
-        version = 'v2'
-    elif 'v3' in dset_name:
-        version = 'v3'
-    else:
-        raise ValueError("version unknown")
-
-    if 'HBHW' in dset_name:
-        dset_sims = 'HBHW'
-    elif 'MBHW' in dset_name:
-        dset_sims = 'MBHW'
-    elif 'MBMW' in dset_name:
-        dset_sims = 'MBMW'
-    elif 'LBHW' in dset_name:
-        dset_sims = 'LBHW'
-    elif 'LBMW' in dset_name:
-        dset_sims = 'LBMW'
-    elif 'LBLW' in dset_name:
-        dset_sims = 'LBLW'
-    elif 'pro_sm' in dset_name:
-        dset_sims = 'pro_sm_vary'
-    elif 'pro_med' in dset_name:
-        dset_sims = 'pro_med_vary'
-    else:
-        raise ValueError('what dataset similarity type is this')
-
-    print(f"{dset_name}\t{dtype}\t{version}\t{dset_sims}")
-
-    get_cos_sim(dset=dataset, n_cats=10, dtype=dtype,
-                dset_name=dset_name, version=version, sim_type=dset_sims)
-    print("finihsed :)")
+#     load_path = os.path.join(datasets_path, file_name)
+#     load_file = np.loadtxt(load_path, delimiter=",")
+#     dataset = np.asarray(load_file)
+#
+#     print(np.shape(dataset))
+#
+#     dtype = 'bin'
+#     if 'cont' in dset_name:
+#         dtype = 'cont'
+#     elif 'chanProp' in dset_name:
+#         dtype = 'cont'
+#     elif 'chanDist' in dset_name:
+#         dtype = 'cont'
+#
+#     if 'v1' in dset_name:
+#         version = 'v1'
+#     elif 'v2' in dset_name:
+#         version = 'v2'
+#     elif 'v3' in dset_name:
+#         version = 'v3'
+#     else:
+#         raise ValueError("version unknown")
+#
+#     if 'HBHW' in dset_name:
+#         dset_sims = 'HBHW'
+#     elif 'MBHW' in dset_name:
+#         dset_sims = 'MBHW'
+#     elif 'MBMW' in dset_name:
+#         dset_sims = 'MBMW'
+#     elif 'LBHW' in dset_name:
+#         dset_sims = 'LBHW'
+#     elif 'LBMW' in dset_name:
+#         dset_sims = 'LBMW'
+#     elif 'LBLW' in dset_name:
+#         dset_sims = 'LBLW'
+#     elif 'pro_sm' in dset_name:
+#         dset_sims = 'pro_sm_vary'
+#     elif 'pro_med' in dset_name:
+#         dset_sims = 'pro_med_vary'
+#     else:
+#         raise ValueError('what dataset similarity type is this')
+#
+#     print(f"{dset_name}\t{dtype}\t{version}\t{dset_sims}")
+#
+#     get_cos_sim(dset=dataset, n_cats=10, dtype=dtype,
+#                 dset_name=dset_name, version=version, sim_type=dset_sims)
+#     print("finihsed :)")
 #

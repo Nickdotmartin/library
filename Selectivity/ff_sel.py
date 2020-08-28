@@ -154,11 +154,10 @@ def class_sel_basics(this_unit_acts_df, items_per_cat, n_classes, hi_val_thr=.5,
     if verbose:
         print("\n**** class_sel_basics() ****")
 
-    act_values = 'activation'
-    if act_func is 'relu':
-        act_values = 'normed'
-    if act_func is 'sigmoid':
+
+    if act_func in ['sigmoid', 'Sigmoid', 'sigm']:
         hi_val_thr = .75
+        act_values = 'activation'
 
     if not n_classes:
         n_classes = max(list(items_per_cat.keys()))
