@@ -508,9 +508,10 @@ def simple_plot(gha_dict_path,
         # # get class labels
         this_unit_acts_df['class'] = test_label_seqs
 
-        # # chec mean act
+        # # check mean act
         acts_mean = np.mean(list(this_unit_acts_df['normed']))
         mean_activations.append(acts_mean)
+        print(f"Unit mean acts: {round(acts_mean)}")
 
 
 
@@ -520,15 +521,60 @@ def simple_plot(gha_dict_path,
 
         # # make simple plot
         # title = f"{layer_name} unit{unit_index} {ts_name} (of {timesteps})"
-        title = f"{cond_name} {layer_name} unit{unit_index}"
+        # title = f"{cond_name}\n{layer_name} unit{unit_index}"
+
+        dtype = 'cont'
+        if 'bin' in cond_name:
+            dtype = 'binary'
+
+        if 'ReLu' in cond_name:
+            act_func = 'ReLu'
+        elif 'Relu' in cond_name:
+            act_func = 'ReLu'
+        elif 'relu' in cond_name:
+            act_func = 'ReLu'
+        elif 'sigmoid' in cond_name:
+            act_func = 'sigmoid'
+        elif 'Sigmoid' in cond_name:
+            act_func = 'sigmoid'
+        else:
+            raise ValueError(f"What is the act func? {cond_name}")
+
+        if 'HBHW' in cond_name:
+            dset = 'HBHW'
+        elif 'MBHW' in cond_name:
+            dset = 'MBHW'
+        elif 'MBMW' in cond_name:
+            dset = 'MBMW'
+        elif 'LBHW' in cond_name:
+            dset = 'LBHW'
+        elif 'LBMW' in cond_name:
+            dset = 'LBMW'
+        elif 'LBLW' in cond_name:
+            dset = 'LBLW'
+        elif 'pro_sm' in cond_name:
+            dset = 'pro_sm'
+        elif 'pro_med' in cond_name:
+            dset = 'pro_med'
+
+        else:
+            raise ValueError(f"WHAT IS THE DATASET?: {cond_name}")
+
+        title = f"{dset} {dtype} {act_func} {n_units}: unit {unit_index}"
 
         print(f"title: {title}")
 
-        font_size = 12
+        font_size = 10
 
         if hl_dict:
             gridkw = dict(width_ratios=[4, 1])
-            fig, (spotty_axis, text_box) = plt.subplots(1, 2, gridspec_kw=gridkw)
+            fig, (spotty_axis, text_box) = plt.subplots(1, 2, gridspec_kw=gridkw,
+                                                        figsize=(4.08, 3.5))
+            # plt.figure(figsize=(3.5, 3))
+            # fig_dims = (6, 4)
+            #
+            # fig, ax = plt.subplots(figsize=fig_dims)
+
             sns.catplot(x='normed', y="class",
                         # hue='sel_item',
                         data=this_unit_acts_df,
@@ -536,7 +582,8 @@ def simple_plot(gha_dict_path,
                         jitter=1, dodge=True, linewidth=.5,
                         palette="Set2", marker="D", edgecolor="gray")  # , alpha=.25)
             # text_box.text(0.0, -0.01, hl_text, fontsize=10, clip_on=False)
-            text_box.text(0.0, 0.3, hl_text, fontsize=font_size, clip_on=False)
+            # text_box.text(0.0, 0.1, hl_text, fontsize=font_size, clip_on=False)
+            text_box.text(0.05, 0.1, hl_text, fontsize=font_size, clip_on=False)
 
             text_box.axes.get_yaxis().set_visible(False)
             text_box.axes.get_xaxis().set_visible(False)
@@ -545,8 +592,12 @@ def simple_plot(gha_dict_path,
             # spotty_axis.get_legend().set_visible(False)
             spotty_axis.set_xlabel("Unit activations", fontsize=font_size)
             spotty_axis.set_ylabel("Class", fontsize=font_size)
+            fig.subplots_adjust(wspace=0, bottom=0.15)
 
             fig.suptitle(title, fontsize=font_size)
+            plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+            # plt.tight_layout()
+
             plt.close()  # extra blank plot
         else:
             # if no hl_dict
@@ -556,6 +607,9 @@ def simple_plot(gha_dict_path,
                         jitter=1, dodge=True, linewidth=.5,
                         palette="Set2", marker="D", edgecolor="gray")  # , alpha=.25)
             plt.xlabel("Unit activations")
+
+            fig.subplots_adjust(wspace=0)
+
             plt.suptitle(title)
             plt.tight_layout(rect=[0, 0.03, 1, 0.90])
 
