@@ -35,13 +35,36 @@ from tools.dicts import load_dict, focussed_dict_print, print_nested_round_float
 
 # todo: Zhou used spearman correlations rather than pearson
 
-def lesion_sel_regression(lesion_dict_path, sel_dict_path, use_relu=False, test_run=False, verbose=False):
+def lesion_sel_regression(lesion_dict_path, sel_dict_path,
+                          lesion_meas='prop_change',
+                          use_relu=False, test_run=False, verbose=False):
     """
     Script uses lesion dict and sel dict and has a simple logistic regression model to see how well various selectivity
     measures predict max class fail
 
     :param lesion_dict_path: path to dict from output of lesioning
     :param sel_dict_path: path to dict of output from selectivity
+    :param lesion_meas: Which measure to use as to asses impact of lesioning.
+                        'Prop_change' is the original 2019 measure: the change in accuracy per class
+                                                                    ---------------------------------
+                                                                    the class accuracy in unlesioned model
+
+                        'chan_contri' is the new 2020 measure:  change in accuracy per class
+                                                                ----------------------------
+                                                                total change in acc         (zero if opposite sign).
+
+                        'sign_contri' is the new 2020 measure v2!:
+                                        change in accuracy per class
+                        -----------------------------------------------------
+                        sum of all classes with same sign as the total change  (zero if opposite sign).
+
+                        'class_change': Change (items) per class
+
+                        'just_drops': Drop (items) per class (or zero if class increases)
+
+                        'drop_prop': Class drop as a proportion of sum of all classes that dropped.
+                            Classes that increase score zero.  Even if unit Total improves, will still use sum of drops.
+
     :param use_relu: if False, only uses sel scores for lesioned layers (conv, dense), if true, only uses sel scores
         for ReLu layers, as found with link_layers_dict
     :param test_run: if True, just run two layers and two sel measures
@@ -51,6 +74,12 @@ def lesion_sel_regression(lesion_dict_path, sel_dict_path, use_relu=False, test_
     """
 
     print("\n**** running lesion_sel_regression() ****")
+    print(f"sel_dict_path: {sel_dict_path}\nlesion_meas: {lesion_meas}")
+
+    lesion_measure_list = ['prop_change', 'class_change', 'chan_contri', 'sign_contri', 'drop_prop', 'just_drops']
+    if lesion_meas not in lesion_measure_list:
+        raise ValueError(f"lesion_meas ({lesion_meas}) not recognised.\n"
+                         f"Lesion_meas should be one of: {lesion_measure_list}.")
 
     lesion_dict = load_dict(lesion_dict_path)
     focussed_dict_print(lesion_dict, "lesion dict")
@@ -93,9 +122,15 @@ def lesion_sel_regression(lesion_dict_path, sel_dict_path, use_relu=False, test_
         sel_measures_list = list(sel_info[key_lesion_layers_list[0]][0].keys())
 
     # # remove measures that I don't want
-    sel_measures_to_remove = ['nz_count', 'max_info_f1', 'max_info_count',
+    sel_measures_to_remove = ['nZ_ave_prec', 'nZ_pr_auc', 'tcs_items', 'tcs_recall',
+                              'corr_coef', 'corr_p',
+                              'nz_count', 'max_info_f1', 'max_info_count',
                               'max_info_thr', 'max_info_sens', 'max_info_spec',
                               'max_info_prec', 'tcs_thr', 'Zhou_selects', 'Zhou_thr', 'max', ]
+
+    # sel_measures_list = ['roc_auc', 'ave_prec', 'pr_auc', 'max_informed', 'CCMAs', 'Zhou_prec',
+    #                      'means', 'sd', 'nz_prop', 'nz_prec', 'hi_val_count', 'hi_val_prop', 'hi_val_prec']
+
 
     sel_measures_list = [x for x in sel_measures_list if x not in sel_measures_to_remove]
 
@@ -135,6 +170,16 @@ def lesion_sel_regression(lesion_dict_path, sel_dict_path, use_relu=False, test_
     print(f"\nsel_measures_list\n{sel_measures_list}")
 
     regression_measures_dict = dict()  # key=measure, val=score
+
+    print("\n\nSaving lesion_regression_dict")
+    # # # set dir to save les_sel_rel stuff stuff # # #
+    les_sel_reg_path = os.path.join(lesion_dict['GHA_info']['gha_path'], 'les_sel_rel')
+    if test_run is True:
+        les_sel_reg_path = os.path.join(les_sel_reg_path, 'test')
+    if not os.path.exists(les_sel_reg_path):
+        os.makedirs(les_sel_reg_path)
+    os.chdir(les_sel_reg_path)
+    print(f"saving les_sel_rel data to: {les_sel_reg_path}")
 
     """loop through sel_measures_list
     get long array of all layers concatenated and list all max lesion drops.
@@ -221,42 +266,58 @@ def lesion_sel_regression(lesion_dict_path, sel_dict_path, use_relu=False, test_
             all_layer_sel_array = all_layer_sel_array + layer_sel_array
 
             # # lesion stuff
-            lesion_per_unit_path = f'{lesion_path}/{output_filename}_{lesion_layer}_prop_change.csv'
+            lesion_per_unit_path = f'{lesion_path}/{output_filename}_{lesion_layer}_{lesion_meas}.csv'
 
             lesion_per_unit = pd.read_csv(lesion_per_unit_path, index_col=0)
+            print(f"lesion_per_unit:\n{lesion_per_unit}")
+            lesion_per_unit.drop('total', inplace=True)
             # lesion_per_unit = nick_read_csv(lesion_per_unit_path)
             # lesion_per_unit.set_index(0)
+            print("\nlesion_per_unit")
+            print(lesion_per_unit)
 
             lesion_cols = list(lesion_per_unit)
-            # print("\nlesion_per_unit")
-            # print(lesion_cols)
-            # print(lesion_per_unit.head())
 
             '''get max class drop per lesion_layer'''
-            # # loop through lesion units (df columns) to find min class drop
-            lesion_min_dict = dict()
-            max_class_drop_list = []
-            for index, l_unit in enumerate(lesion_cols):
-                min_class_val = lesion_per_unit[l_unit].min()
-                min_class = lesion_per_unit[l_unit].idxmin()
-                max_class_drop_list.append(int(min_class))
-                # print("{}: class: {}  {}".format(index, min_class, min_class_val))
-                lesion_min_dict[index] = {'unit': index, "l_min_class": min_class, 'l_min_drop': min_class_val}
+            if lesion_meas in ['prop_change', 'class_change', 'just_drops']:
+                # # loop through lesion units (df columns) to find min class drop
+                lesion_cat_p_u_dict = dict()
+                lesion_unit_cat_list = []
+                for index, l_unit in enumerate(lesion_cols):
+                    unit_les_val = lesion_per_unit[l_unit].min()
+                    unit_les_cat = lesion_per_unit[l_unit].idxmin()
+                    lesion_unit_cat_list.append(int(unit_les_cat))
+                    lesion_cat_p_u_dict[index] = {'unit': index, "l_min_class": unit_les_cat, 'l_min_drop': unit_les_val}
+                    if verbose:
+                        print(f"{index}: class: {unit_les_cat}  {unit_les_val}")
+
+            elif lesion_meas in ['chan_contri', 'sign_contri', 'drop_prop']:
+                # # loop through lesioned units (df columns) to find max class contri
+                lesion_cat_p_u_dict = dict()
+                lesion_unit_cat_list = []
+                for index, l_unit in enumerate(lesion_cols):
+                    unit_les_val = lesion_per_unit[l_unit].max()
+                    unit_les_cat = lesion_per_unit[l_unit].idxmax()
+                    lesion_unit_cat_list.append(int(unit_les_cat))
+                    lesion_cat_p_u_dict[index] = {'unit': index, "l_min_class": unit_les_cat, 'l_min_drop': unit_les_val}
+                    if verbose:
+                        print(f"{index}: class: {unit_les_cat}  {unit_les_val}")
+
 
             # # check for missing values (prob dead relus) (originally just for when using different layers)
             sel_units, classes = np.shape(layer_sel_array)
-            les_units = len(max_class_drop_list)
+            les_units = len(lesion_unit_cat_list)
 
             # if use_relu:  # now trying if for any runs, not just if using different layers
             if sel_units != les_units:
-                if len(max_class_drop_list) > sel_units:
+                if len(lesion_unit_cat_list) > sel_units:
                     available_sel_units = list(sel_layer_info.keys())
-                    masked_class_drops = [max_class_drop_list[i] for i in available_sel_units]
-                    max_class_drop_list = masked_class_drops
+                    masked_class_drops = [lesion_unit_cat_list[i] for i in available_sel_units]
+                    lesion_unit_cat_list = masked_class_drops
 
-                if sel_units != len(max_class_drop_list):
+                if sel_units != len(lesion_unit_cat_list):
                     raise ValueError(f"unequal number of "
-                                     f"sel units {sel_units} and class drop values {len(max_class_drop_list)}")
+                                     f"sel units {sel_units} and class drop values {len(lesion_unit_cat_list)}")
 
             # # if there are any NaNs:
             if np.any(np.isnan(layer_sel_array)):
@@ -269,7 +330,7 @@ def lesion_sel_regression(lesion_dict_path, sel_dict_path, use_relu=False, test_
             # layer_sel_array = np.nan_to_num(layer_sel_array, copy=False)
             # layer_sel_array[np.isneginf(layer_sel_array)] = 0
 
-            all_layer_class_drops.extend(max_class_drop_list)
+            all_layer_class_drops.extend(lesion_unit_cat_list)
 
             if verbose:
                 print(f"\n\t\tlayer_sel: {np.shape(layer_sel_array)}, "
@@ -298,7 +359,7 @@ def lesion_sel_regression(lesion_dict_path, sel_dict_path, use_relu=False, test_
               "\n*********************************")
 
         # # part 2 , use master to do stats
-        txt = open(f'{output_filename}_{sel_measure}_les_sel_reg.txt', 'w')
+        txt = open(f'{output_filename}_{sel_measure}_{lesion_meas}_les_sel_reg.txt', 'w')
 
         # x_data = sel measure values
         x_data = all_layer_sel_array
@@ -332,12 +393,12 @@ def lesion_sel_regression(lesion_dict_path, sel_dict_path, use_relu=False, test_
         x_data_df = pd.DataFrame(data=x_data, columns=class_labels)
         # plt.subplots()
         plt.figure()
-        ax = sns.heatmap(x_data_df.corr(), annot=True, cmap="RdYlGn")
+        ax = sns.heatmap(x_data_df.corr(), annot=True, cmap="RdYlGn", fmt='.1g')
         plt.title("Correlations of selected features")
         ax.set(xlim=(0, n_cats), ylim=(0, n_cats))
         plt.tight_layout()
         # plt.tight_layout(pad=1, h_pad=5.0, )
-        plt.savefig("{}_feat_corr.png".format(output_filename))
+        plt.savefig(f"{output_filename}_{sel_measure}_{lesion_meas}_feat_corr.png")
         if test_run:
             plt.show()
         plt.close()
@@ -524,15 +585,15 @@ def lesion_sel_regression(lesion_dict_path, sel_dict_path, use_relu=False, test_
 
     regression_measures_dict['dummy_mode'] = dummy_score
 
-    print("\n\nSaving lesion_regression_dict")
-    # # # set dir to save les_sel_rel stuff stuff # # #
-    les_sel_reg_path = os.path.join(lesion_dict['GHA_info']['gha_path'], 'les_sel_rel')
-    if test_run is True:
-        les_sel_reg_path = os.path.join(les_sel_reg_path, 'test')
-    if not os.path.exists(les_sel_reg_path):
-        os.makedirs(les_sel_reg_path)
-    os.chdir(les_sel_reg_path)
-    print(f"saving les_sel_rel data to: {les_sel_reg_path}")
+    # print("\n\nSaving lesion_regression_dict")
+    # # # # set dir to save les_sel_rel stuff stuff # # #
+    # les_sel_reg_path = os.path.join(lesion_dict['GHA_info']['gha_path'], 'les_sel_rel')
+    # if test_run is True:
+    #     les_sel_reg_path = os.path.join(les_sel_reg_path, 'test')
+    # if not os.path.exists(les_sel_reg_path):
+    #     os.makedirs(les_sel_reg_path)
+    # os.chdir(les_sel_reg_path)
+    # print(f"saving les_sel_rel data to: {les_sel_reg_path}")
 
     lesion_regression_dict = lesion_dict
     lesion_regression_dict['regression_info'] = regression_measures_dict
@@ -542,14 +603,15 @@ def lesion_sel_regression(lesion_dict_path, sel_dict_path, use_relu=False, test_
         output_filename = output_filename + '_onlyReLu'
     print("output_filename: ", output_filename)
 
-    les_sel_rel_dict_name = f"{output_filename}_les_sel_rel_dict.pickle"
+    les_sel_rel_dict_name = f"{output_filename}_{lesion_meas}_les_sel_rel_dict.pickle"
     pickle_out = open(les_sel_rel_dict_name, "wb")
     pickle.dump(lesion_regression_dict, pickle_out)
     pickle_out.close()
 
-    les_sel_rel_df = pd.DataFrame(data=regression_measures_dict, index=[0])
+    # les_sel_rel_df = pd.DataFrame(data=regression_measures_dict, index=[0], )
+    les_sel_rel_df = pd.DataFrame.from_dict(regression_measures_dict, orient='index')
     # nick_to_csv(les_sel_rel_df, f"{output_filename}_les_sel_rel_dict_nm.csv")
-    les_sel_rel_df.to_csv(f"{output_filename}_les_sel_rel_dict_pd.csv")
+    les_sel_rel_df.to_csv(f"{output_filename}_{lesion_meas}_les_sel_rel_dict_pd.csv")
 
     return lesion_regression_dict
 
@@ -1559,15 +1621,15 @@ def class_acc_sel_corr(lesion_dict_path, sel_dict_path,
 
             '''get max class drop per lesion_layer'''
             # # loop through lesion units (df columns) to find min class drop
-            lesion_min_dict = dict()
-            max_class_drop_list = []
+            lesion_cat_p_u_dict = dict()
+            lesion_unit_cat_list = []
             for index, l_unit in enumerate(lesion_cols):
                 # print(lesion_per_unit[l_unit])
-                min_class_val = lesion_per_unit[l_unit].min()
-                min_class = lesion_per_unit[l_unit].idxmin()
-                max_class_drop_list.append(int(min_class))
-                # print("{}: class: {}  {}".format(index, min_class, min_class_val))
-                lesion_min_dict[index] = {'unit': index, "l_min_class": min_class, 'l_min_drop': min_class_val}
+                unit_les_val = lesion_per_unit[l_unit].min()
+                unit_les_cat = lesion_per_unit[l_unit].idxmin()
+                lesion_unit_cat_list.append(int(unit_les_cat))
+                # print("{}: class: {}  {}".format(index, unit_les_cat, unit_les_val))
+                lesion_cat_p_u_dict[index] = {'unit': index, "l_min_class": unit_les_cat, 'l_min_drop': unit_les_val}
 
             '''get sel_layer sel values'''
             # get array of sel values
@@ -1610,11 +1672,11 @@ def class_acc_sel_corr(lesion_dict_path, sel_dict_path,
 
                 layer_sel_array.append(sel_values)
 
-                les_drop_class = int(lesion_min_dict[unit]['l_min_class'])
+                les_drop_class = int(lesion_cat_p_u_dict[unit]['l_min_class'])
                 drop_class_sel = sel_values[les_drop_class]
 
-                all_les_sel_pairs.append([lesion_min_dict[unit]['l_min_drop'], drop_class_sel])
-                layer_les_sel_pairs.append([lesion_min_dict[unit]['l_min_drop'], drop_class_sel])
+                all_les_sel_pairs.append([lesion_cat_p_u_dict[unit]['l_min_drop'], drop_class_sel])
+                layer_les_sel_pairs.append([lesion_cat_p_u_dict[unit]['l_min_drop'], drop_class_sel])
 
                 # print(unit, sel_values)
 
@@ -1628,16 +1690,16 @@ def class_acc_sel_corr(lesion_dict_path, sel_dict_path,
 
             # # check for missing values (prob dead relus) when using different layers
             sel_units, classes = np.shape(layer_sel_array)
-            les_units = len(max_class_drop_list)
+            les_units = len(lesion_unit_cat_list)
             if use_relu:
                 if sel_units != les_units:
                     print("\n\number of units is wrong")
                     print(f"sel_units: {sel_units}\nles_units: {les_units}")
 
-                    if len(max_class_drop_list) > sel_units:
+                    if len(lesion_unit_cat_list) > sel_units:
                         available_sel_units = list(sel_layer_info.keys())
-                        masked_class_drops = [max_class_drop_list[i] for i in available_sel_units]
-                        max_class_drop_list = masked_class_drops
+                        masked_class_drops = [lesion_unit_cat_list[i] for i in available_sel_units]
+                        lesion_unit_cat_list = masked_class_drops
 
             # # if there are any NaNs:
             if np.any(np.isnan(layer_sel_array)):
@@ -1654,11 +1716,11 @@ def class_acc_sel_corr(lesion_dict_path, sel_dict_path,
             # layer_sel_array = np.nan_to_num(layer_sel_array, copy=False)
             # layer_sel_array[np.isneginf(layer_sel_array)] = 0
 
-            all_layer_class_drops.extend(max_class_drop_list)
+            all_layer_class_drops.extend(lesion_unit_cat_list)
             # print("\t\tall_layer_class_drops: {}".format(np.shape(all_layer_class_drops)))
 
-            # focussed_dict_print(lesion_min_dict)
-            # print("\nmax_class_drop_list\n{}".format(max_class_drop_list))
+            # focussed_dict_print(lesion_cat_p_u_dict)
+            # print("\nlesion_unit_cat_list\n{}".format(lesion_unit_cat_list))
             if verbose:
                 print(f"\t\tlayer_sel: {np.shape(layer_sel_array)}; "
                       f"all_layers_sel: {np.shape(all_layer_sel_array)}; "

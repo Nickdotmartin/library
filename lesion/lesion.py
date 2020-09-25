@@ -17,9 +17,9 @@ from tools.network import get_scores, VGG_get_scores
 
 
 def lesion_2020(gha_dict_path,
-                 get_classes=("Conv2D", "Dense", "Activation"),
-                 verbose=False,
-                 test_run=False):
+                get_classes=("Conv2D", "Dense", "Activation"),
+                verbose=False,
+                test_run=False):
     """
         lesion study
     1. load dict from study (should run with sim, GHA or sel dict)
@@ -125,9 +125,15 @@ def lesion_2020(gha_dict_path,
 
     # # set up dicts to save stuff
     count_per_cat_dict = dict()  # count_per_cat_dict is for storing n_items_correct for the lesion study
-    prop_change_dict = dict()  # prop_change dict - to compare with Zhou_2018
-    item_change_dict = dict()
-    prop_of_change_2020_dict = dict()
+    prop_change_dict = dict()   # prop_change dict - to compare with Zhou_2018
+    class_change_dict = dict()  # number of items difference to full model (plus or mimus)
+    just_drops_dict = dict()  # drop in acc compared to full model (or zero if incr)
+    item_change_dict = dict()  # whether an item has changed in the lesioned model and how
+    chan_contri_dict = dict()   # class change as a proportion of total change (can be > 1!)
+    # chan_contri_both_dict = dict()  # class change as prop of total change with neg for total drop and pos for tot incr
+    sign_contri_dict = dict()  # class change as a proportion of changes in same direction as total
+    # sign_contri_both_dict = dict()
+    drop_prop_dict = dict()  # class drop as a proportion of sum of all drops.
     lesion_highlights_dict = dict()  # biggest total and per class change
     lesion_highlights_dict["highlights"] = {"total_increase": ("None", 0),
                                             "total_decrease": ("None", 0),
@@ -238,7 +244,7 @@ def lesion_2020(gha_dict_path,
 
     key_layers_df.reset_index(inplace=True)
 
-    total_units_filts = key_layers_df['n_units_filts'].sum()
+    total_units_filts = int(key_layers_df['n_units_filts'].sum())
 
     if verbose is True:
         print(f"\nmodel_df:\n{model_df}\n"
@@ -351,7 +357,13 @@ def lesion_2020(gha_dict_path,
         count_per_cat_dict[layer_name] = dict()
         item_correct_LAYER = copy.copy(item_correct_MASTER)
         prop_change_dict[layer_name] = dict()
-
+        class_change_dict[layer_name] = dict()
+        just_drops_dict[layer_name] = dict()
+        # chan_contri_both_dict[layer_name] = dict()
+        chan_contri_dict[layer_name] = dict()
+        # sign_contri_both_dict[layer_name] = dict()
+        sign_contri_dict[layer_name] = dict()
+        drop_prop_dict[layer_name] = dict()
         lesion_means_dict[layer_name] = dict()
 
         layer_total_change_list = []
@@ -482,18 +494,138 @@ def lesion_2020(gha_dict_path,
 
 
             # # # get class_change scores for this layer
-            print("\tget class_change scores:")
+            print("\n\tget class_change scores:")
             # proportion change = (after_lesion/unlesioned) - 1
             unit_prop_change_dict = dict()
+
+            print("\n\n\nNew lesion measures")
+            print(f"corr_per_cat_dict: {corr_per_cat_dict}")
+            print(f"full_model_CPC: {full_model_CPC}")
+
+            # les_dif_dict = full_model_CPC.subtract(corr_per_cat_dict)
+            # # difference per class (items) after lesioning.
+            les_dif_dict = dict()
+            for k, v in corr_per_cat_dict.items():
+                les_dif_dict[k] = v - full_model_CPC.get(k, 0)
+            print(f"\nles_dif_dict: {les_dif_dict}")
+
+            # # overall change in accuracy
+            total_les_fx = les_dif_dict['total']
+
+            # # sign contribution dict
+            # # get each classes contribution to sum of changes in the same direction as the total.
+            # # Only includes classes that change in same direction as total (either incre or decrease)
+            # # note the total change might be +88 but actually the sum of classes is +100 (and -12)
+            # print("\nstep 1: remove classes with opposite sign to total")
+            if total_les_fx == 0.0:
+                check_sign_dict = {k: 0 for k, v in les_dif_dict.items()}
+            elif total_les_fx > 0:
+                check_sign_dict = {k: (v if v > 0 else 0) for k, v in les_dif_dict.items()}
+            elif total_les_fx < 0:
+                # # this is same as just_drops dict
+                check_sign_dict = {k: (v if v < 0 else 0) for k, v in les_dif_dict.items()}
+
+            print(f"\ncheck_sign_dict: {check_sign_dict}")
+
+            # drop total and sum remaining
+            del check_sign_dict['total']
+            print(f"\ncheck_sign_dict: {check_sign_dict}")
+
+            class_sign_total = sum(check_sign_dict.values())
+            print(f"\nclass_sign_total: {class_sign_total}")
+
+            print("\nstep 2: get class contribution to sum of classes with same sign as total")
+            # if total is zero, all classes are zero
+            if total_les_fx == 0:
+                unit_sign_contri_dict = {k: 0 for k, v in check_sign_dict.items()}
+                # unit_sign_contri_both_dict = {k: 0 for k, v in check_sign_dict.items()}
+            elif total_les_fx > 0:
+                unit_sign_contri_dict = {k: (round(v/class_sign_total, 2) if v > 0 else 0) for k, v in check_sign_dict.items()}
+                # unit_sign_contri_both_dict = {k: (round(v/class_sign_total, 2) if v > 0 else 0) for k, v in check_sign_dict.items()}
+            elif total_les_fx < 0:
+                unit_sign_contri_dict = {k: (round(v/class_sign_total, 2) if v < 0 else 0) for k, v in check_sign_dict.items()}
+                # unit_sign_contri_both_dict = {k: (round(-v/class_sign_total, 2) if v < 0 else 0) for k, v in check_sign_dict.items()}
+
+            # unit_sign_contri_dict['total'] = total_les_fx
+            unit_sign_contri_dict['total'] = class_sign_total
+            # unit_sign_contri_both_dict['sign_total'] = class_sign_total
+            print(f"\nunit_sign_contri_dict: {unit_sign_contri_dict}")
+            sign_contri_dict[layer_name][unit] = unit_sign_contri_dict
+            # sign_contri_both_dict[layer_name][unit] = unit_sign_contri_both_dict
+
+            # new measure v1, no longer using this.
+            # # this measure gets each classes contribution to the total change in accuracy
+            # # This measure can be > 1 as a class might be -50 but the total is -25 (some classes incr)
+            class_contri_dict = dict()
+            # class_contri_both_dict = dict()
+
+            for i in range(n_cats):
+
+                # if total is zero, all classes are zero
+                if total_les_fx == 0:
+                    class_contri_dict[i] = 0
+                    # class_contri_both_dict[i] = 0
+
+                # if total is positive, ignore negatives, get all positivies as a proprortion of total
+                elif total_les_fx > 0:
+                    if les_dif_dict[i] > 0:
+                        class_contri_dict[i] = round(les_dif_dict[i] / total_les_fx, 2)
+                        # class_contri_both_dict[i] = round(les_dif_dict[i] / total_les_fx, 2)
+                    else:
+                        class_contri_dict[i] = 0
+                        # class_contri_both_dict[i] = 0
+
+                # if total is negative, ignore positives, get negatives as proportion of total.
+                elif total_les_fx < 0:
+                    if les_dif_dict[i] < 0:
+                        class_contri_dict[i] = round(les_dif_dict[i] / total_les_fx, 2)
+                        # class_contri_both_dict[i] = round(-les_dif_dict[i] / total_les_fx, 2)
+                    else:
+                        class_contri_dict[i] = 0
+                        # class_contri_both_dict[i] = 0
+
+
+            class_contri_dict['total'] = total_les_fx
+            # class_contri_both_dict['total'] = total_les_fx
+            print(f"class_contri_dict: {class_contri_dict}")
+            chan_contri_dict[layer_name][unit] = class_contri_dict
+            # chan_contri_both_dict[layer_name][unit] = class_contri_both_dict
+
+
+            # # Change (items) per class
+            # # I think this is the same as les_dif_dict
+            unit_class_chan_dict = {key: corr_per_cat_dict[key] - full_model_CPC.get(key, 0)
+                                    for key in corr_per_cat_dict}
+            class_change_dict[layer_name][unit] = unit_class_chan_dict
+            print(f"unit_class_chan_dict: {unit_class_chan_dict}")
+
+
+            # # Drops (items, or zero if increase) per class
+            unit_just_drops_dict = {k: (v if v < 0 else 0) for k, v in unit_class_chan_dict.items()}
+            just_drops_dict[layer_name][unit] = unit_just_drops_dict
+
+            # # adds all classes where overall acc drops, ignores increases
+            sum_of_drops = sum(list(unit_just_drops_dict.values())[:-1])
+
+            # # class drop as proportion of sum of drops (zero if class increases)
+            unit_drop_prop_dict = {k: (round(v / sum_of_drops, 2) if v < 0 else 0) for k, v in unit_just_drops_dict.items()}
+
+            unit_drop_prop_dict["total"] = sum_of_drops
+            drop_prop_dict[layer_name][unit] = unit_drop_prop_dict
+            print(f"\nunit_drop_prop_dict: {unit_drop_prop_dict}")
+
+
             for (fk, fv), (k2, v2) in zip(full_model_CPC.items(), corr_per_cat_dict.items()):
                 if fv == 0:
                     prop_change = -1
                 else:
-                    prop_change = (v2 / fv) - 1
+                    prop_change = round((v2 / fv) - 1, 2)
                 unit_prop_change_dict[fk] = prop_change
-                # print(fk, 'v2: ', v2, '/ fv: ', fv, '= pc: ', prop_change)
 
             prop_change_dict[layer_name][unit] = unit_prop_change_dict
+
+            print(f"prop_change_dict: {prop_change_dict[layer_name][unit]}")
+
 
             # # get layer means
             layer_total_change_list.append(unit_prop_change_dict['total'])
@@ -515,49 +647,45 @@ def lesion_2020(gha_dict_path,
         prop_change_df = pd.DataFrame.from_dict(prop_change_dict[layer_name])
         prop_change_df.to_csv(f"{output_filename}_{layer_name}_prop_change.csv")
         # nick_to_csv(prop_change_df, "{}_{}_prop_change.csv".format(output_filename, layer_name))
-
         if verbose:
             print(f"\n\nprop_change_df:\n{prop_change_df}")
 
+        drop_prop_df = pd.DataFrame.from_dict(drop_prop_dict[layer_name])
+        drop_prop_df.to_csv(f"{output_filename}_{layer_name}_drop_prop.csv")
+        # nick_to_csv(prop_change_df, "{}_{}_prop_change.csv".format(output_filename, layer_name))
+        if verbose:
+            print(f"\n\ndrop_prop_df:\n{drop_prop_df}")
 
-        """NEW lesion 2020 measure"""
-        print("\n\n\nNew lesion measure")
-        print(f"corr_per_cat_dict: {corr_per_cat_dict}")
-        print(f"full_model_CPC: {full_model_CPC}")
-        prop_of_change_2020_dict
-        """
-        This doesn't really fit here - needs to go higher where this first occurs
-        # # # get class_change scores for this layer
-        print("\tget class_change scores:")
-        # proportion change = (after_lesion/unlesioned) - 1
-        unit_prop_change_dict = dict()
-        for (fk, fv), (k2, v2) in zip(full_model_CPC.items(), corr_per_cat_dict.items()):
-            if fv == 0:
-                prop_change = -1
-            else:
-                prop_change = (v2 / fv) - 1
-            unit_prop_change_dict[fk] = prop_change
-            # print(fk, 'v2: ', v2, '/ fv: ', fv, '= pc: ', prop_change)
+        class_change_df = pd.DataFrame.from_dict(class_change_dict[layer_name])
+        class_change_df.to_csv(f"{output_filename}_{layer_name}_class_change.csv")
+        # nick_to_csv(prop_change_df, "{}_{}_prop_change.csv".format(output_filename, layer_name))
+        if verbose:
+            print(f"\n\nclass_change_df:\n{class_change_df}")
 
-        prop_change_dict[layer_name][unit] = unit_prop_change_dict
+        just_drops_df = pd.DataFrame.from_dict(just_drops_dict[layer_name])
+        just_drops_df.to_csv(f"{output_filename}_{layer_name}_just_drops.csv")
+        # nick_to_csv(prop_change_df, "{}_{}_prop_change.csv".format(output_filename, layer_name))
+        if verbose:
+            print(f"\n\njust_drops_df:\n{just_drops_df}")
 
-        # # get layer means
-        layer_total_change_list.append(unit_prop_change_dict['total'])
-        layer_max_drop_list.append(min(list(unit_prop_change_dict.values())[:-1]))
+        chan_contri_df = pd.DataFrame.from_dict(chan_contri_dict[layer_name])
+        chan_contri_df.to_csv(f"{output_filename}_{layer_name}_chan_contri.csv")
+        if verbose:
+            print(f"\n\nchan_contri_df:\n{chan_contri_df}")
+        # chan_contri_both_df = pd.DataFrame.from_dict(chan_contri_both_dict[layer_name])
+        # chan_contri_both_df.to_csv(f"{output_filename}_{layer_name}_chan_contri_both.csv")
 
-    lesion_means_dict[layer_name]['mean_total'] = np.mean(layer_total_change_list)
-    lesion_means_dict[layer_name]['mean_max_drop'] = np.mean(layer_max_drop_list)
-
-    # # save layer info
-    print(f"\n**** save layer info for {layer_name} ****")"""
-
-
+        sign_contri_df = pd.DataFrame.from_dict(sign_contri_dict[layer_name])
+        sign_contri_df.to_csv(f"{output_filename}_{layer_name}_sign_contri.csv")
+        if verbose:
+            print(f"\n\nsign_contri_df:\n{sign_contri_df}")
+        # sign_contri_both_df = pd.DataFrame.from_dict(sign_contri_both_dict[layer_name])
+        # sign_contri_both_df.to_csv(f"{output_filename}_{layer_name}_sign_contri_both.csv")
 
         # # convert item_change_dict to df
         item_change_df = pd.DataFrame.from_dict(item_change_dict[layer_name])
         item_change_df.to_csv(f"{output_filename}_{layer_name}_item_change.csv")
         # nick_to_csv(item_change_df, "{}_{}_item_change.csv".format(output_filename, layer_name))
-
         if verbose:
             print(f"\n\nitem_change_df:\n{item_change_df.head()}")
 
