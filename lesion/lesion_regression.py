@@ -1435,6 +1435,7 @@ def item_act_fail_regression(sel_dict_path, lesion_dict_path, plot_type='classes
 def class_acc_sel_corr(lesion_dict_path, sel_dict_path,
                        use_relu=False,
                        sel_measures='all',
+                       lesion_meas='prop_change',
                        test_run=False,
                        verbose=False):
     """
@@ -1456,6 +1457,7 @@ def class_acc_sel_corr(lesion_dict_path, sel_dict_path,
     :param use_relu: if False, only uses sel scores for lesioned layers (conv, dense), if true, only uses sel scores
         for ReLu layers, as found with link_layers_dict
     :param sel_measures: list of measures to test or 'all'
+    :param lesion_meas: which lesion measure to use
     :param verbose: how much to print to screen
     :param test_run: if True...
 
@@ -1463,6 +1465,12 @@ def class_acc_sel_corr(lesion_dict_path, sel_dict_path,
     """
 
     print("**** running class_acc_sel_corr() ****")
+    print(f"sel_dict_path: {sel_dict_path}\nlesion_meas: {lesion_meas}")
+
+    lesion_measure_list = ['prop_change', 'class_change', 'chan_contri', 'sign_contri', 'drop_prop', 'just_drops']
+    if lesion_meas not in lesion_measure_list:
+        raise ValueError(f"lesion_meas ({lesion_meas}) not recognised.\n"
+                         f"Lesion_meas should be one of: {lesion_measure_list}.")
 
     lesion_dict = load_dict(lesion_dict_path)
     focussed_dict_print(lesion_dict, "lesion dict")
@@ -1608,28 +1616,40 @@ def class_acc_sel_corr(lesion_dict_path, sel_dict_path,
 
             # # lesion stuff
             # # conv2d_6
-            lesion_per_unit_path = f'{lesion_path}/{output_filename}_{lesion_layer}_prop_change.csv'
+            lesion_per_unit_path = f'{lesion_path}/{output_filename}_{lesion_layer}_{lesion_meas}.csv'
 
             lesion_per_unit = pd.read_csv(lesion_per_unit_path, index_col=0)
-            # lesion_per_unit = nick_read_csv(lesion_per_unit_path)
-            # lesion_per_unit.set_index(0)
-
+            lesion_per_unit.drop('total', inplace=True)
+            print(f"lesion_per_unit:\n{lesion_per_unit}")
             lesion_cols = list(lesion_per_unit)
-            # print("\nlesion_per_unit")
-            # print(lesion_cols)
-            # print(lesion_per_unit.head())
+            print(lesion_cols)
 
             '''get max class drop per lesion_layer'''
-            # # loop through lesion units (df columns) to find min class drop
-            lesion_cat_p_u_dict = dict()
-            lesion_unit_cat_list = []
-            for index, l_unit in enumerate(lesion_cols):
-                # print(lesion_per_unit[l_unit])
-                unit_les_val = lesion_per_unit[l_unit].min()
-                unit_les_cat = lesion_per_unit[l_unit].idxmin()
-                lesion_unit_cat_list.append(int(unit_les_cat))
-                # print("{}: class: {}  {}".format(index, unit_les_cat, unit_les_val))
-                lesion_cat_p_u_dict[index] = {'unit': index, "l_min_class": unit_les_cat, 'l_min_drop': unit_les_val}
+            if lesion_meas in ['prop_change', 'class_change', 'just_drops']:
+                # # loop through lesion units (df columns) to find min class drop
+                lesion_cat_p_u_dict = dict()
+                lesion_unit_cat_list = []
+                for index, l_unit in enumerate(lesion_cols):
+                    unit_les_val = lesion_per_unit[l_unit].min()
+                    unit_les_cat = lesion_per_unit[l_unit].idxmin()
+                    lesion_unit_cat_list.append(int(unit_les_cat))
+                    lesion_cat_p_u_dict[index] = {'unit': index, "l_min_class": unit_les_cat,
+                                                  'l_min_drop': unit_les_val}
+                    if verbose:
+                        print(f"{index}: class: {unit_les_cat}  {unit_les_val}")
+
+            elif lesion_meas in ['chan_contri', 'sign_contri', 'drop_prop']:
+                # # loop through lesioned units (df columns) to find max class contri
+                lesion_cat_p_u_dict = dict()
+                lesion_unit_cat_list = []
+                for index, l_unit in enumerate(lesion_cols):
+                    unit_les_val = lesion_per_unit[l_unit].max()
+                    unit_les_cat = lesion_per_unit[l_unit].idxmax()
+                    lesion_unit_cat_list.append(int(unit_les_cat))
+                    lesion_cat_p_u_dict[index] = {'unit': index, "l_min_class": unit_les_cat,
+                                                  'l_min_drop': unit_les_val}
+                    if verbose:
+                        print(f"{index}: class: {unit_les_cat}  {unit_les_val}")
 
             '''get sel_layer sel values'''
             # get array of sel values
@@ -1743,16 +1763,16 @@ def class_acc_sel_corr(lesion_dict_path, sel_dict_path,
             sns.regplot(x=sel_pair_score, y=max_lesion_vals)
             plt.ylabel("Max class drop")
             plt.xlabel("selectivity score")
-            plt.suptitle(f"{lesion_layer} class drop vs {sel_measure}")
+            plt.suptitle(f"{lesion_layer} {lesion_meas} vs {sel_measure}")
             if round(corr_p, 3) == 0.000:
                 plt.title(f"r={corr_coef:.3f}, p<.001")
             else:
                 plt.title(f"r={corr_coef:.3f}, p={corr_p:.3f}")
             print(os.getcwd())
             if use_relu:
-                plt.savefig(f"{sel_les_corr_path}/{output_filename}_{lesion_layer}_{sel_measure}_ReLu_corr.png")
+                plt.savefig(f"{sel_les_corr_path}/{output_filename}_{lesion_layer}_{sel_measure}_{lesion_meas}_ReLu_corr.png")
             else:
-                plt.savefig(f"{sel_les_corr_path}/{output_filename}_{lesion_layer}_{sel_measure}_corr.png")
+                plt.savefig(f"{sel_les_corr_path}/{output_filename}_{lesion_layer}_{sel_measure}_{lesion_meas}_corr.png")
             plt.close()
 
             # sel_corr_dict[lesion_layer] = measure_sel_corr_dict
@@ -1766,7 +1786,8 @@ def class_acc_sel_corr(lesion_dict_path, sel_dict_path,
         sel_pair_score = [i[1] for i in all_les_sel_pairs]
         print("max_lesion_vals shape: ", np.shape(max_lesion_vals))
 
-        corr_coef, corr_p = stats.pearsonr(sel_pair_score, max_lesion_vals)
+        # corr_coef, corr_p = stats.pearsonr(sel_pair_score, max_lesion_vals)
+        corr_coef, corr_p = stats.spearmanr(sel_pair_score, max_lesion_vals)
 
         print(f"{sel_measure} corr: {corr_coef:.3f}, p = {corr_p:.3f}")
 
@@ -1779,16 +1800,16 @@ def class_acc_sel_corr(lesion_dict_path, sel_dict_path,
         sns.regplot(x=sel_pair_score, y=max_lesion_vals)
         plt.ylabel("Max class drop")
         plt.xlabel("selectivity score")
-        plt.suptitle(f"class drop vs {sel_measure}")
+        plt.suptitle(f"{lesion_meas} vs {sel_measure}")
         if round(corr_p, 3) == 0.000:
             plt.title(f"r={corr_coef:.3f}, p<.001")
         else:
             plt.title(f"r={corr_coef:.3f}, p={corr_p:.3f}")
         print(os.getcwd())
         if use_relu:
-            plt.savefig(f"{sel_les_corr_path}/{output_filename}_{sel_measure}_ReLu_corr.png")
+            plt.savefig(f"{sel_les_corr_path}/{output_filename}_{sel_measure}_{lesion_meas}_ReLu_corr.png")
         else:
-            plt.savefig(f"{sel_les_corr_path}/{output_filename}_{sel_measure}_corr.png")
+            plt.savefig(f"{sel_les_corr_path}/{output_filename}_{sel_measure}_{lesion_meas}_corr.png")
         plt.close()
 
         # plt.show()
@@ -1805,7 +1826,7 @@ def class_acc_sel_corr(lesion_dict_path, sel_dict_path,
     lesion_corr_dict['corr_info'] = sel_corr_dict
     # print_nested_round_floats(lesion_corr_dict, 'lesion_corr_dict')
 
-    les_reg_dict_name = f"{sel_les_corr_path}/{output_filename}_les_sel_corr_dict.pickle"
+    les_reg_dict_name = f"{sel_les_corr_path}/{output_filename}_{lesion_meas}_les_sel_corr_dict.pickle"
     pickle_out = open(les_reg_dict_name, "wb")
     pickle.dump(lesion_corr_dict, pickle_out)
     pickle_out.close()
@@ -1815,7 +1836,7 @@ def class_acc_sel_corr(lesion_dict_path, sel_dict_path,
 
     print(les_reg_df.head())
     # nick_to_csv(les_reg_df, "{}/{}_les_sel_corr_dict_nm.csv".format(sel_les_corr_path, output_filename))
-    les_reg_df.to_csv(f"{sel_les_corr_path}/{output_filename}_les_sel_corr_dict_pd.csv")
+    les_reg_df.to_csv(f"{sel_les_corr_path}/{output_filename}_{lesion_meas}_les_sel_corr_dict_pd.csv")
 
     best_corr_list = les_reg_df.loc['all_layers', :].tolist()
 
@@ -1857,6 +1878,8 @@ def class_acc_sel_corr(lesion_dict_path, sel_dict_path,
     best_corr_df = best_corr_df.sort_values(by=['sig_stars', 'abs_coef'], ascending=False)
 
     print(f"\nbest_corr_df:\n{best_corr_df}")
+
+    best_corr_df.to_csv(f"{sel_les_corr_path}/{output_filename}_{lesion_meas}_best_corr_df.csv")
 
     return lesion_corr_dict
 
