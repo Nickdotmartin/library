@@ -134,6 +134,8 @@ def lesion_2020(gha_dict_path,
     sign_contri_dict = dict()  # class change as a proportion of changes in same direction as total
     # sign_contri_both_dict = dict()
     drop_prop_dict = dict()  # class drop as a proportion of sum of all drops.
+    bal_acc_dict = dict()  # binary classification accuracy for that class
+    rel_bal_act_dict = dict()
     lesion_highlights_dict = dict()  # biggest total and per class change
     lesion_highlights_dict["highlights"] = {"total_increase": ("None", 0),
                                             "total_decrease": ("None", 0),
@@ -364,6 +366,8 @@ def lesion_2020(gha_dict_path,
         # sign_contri_both_dict[layer_name] = dict()
         sign_contri_dict[layer_name] = dict()
         drop_prop_dict[layer_name] = dict()
+        bal_acc_dict[layer_name] = dict()
+        rel_bal_act_dict[layer_name] = dict()
         lesion_means_dict[layer_name] = dict()
 
         layer_total_change_list = []
@@ -626,7 +630,86 @@ def lesion_2020(gha_dict_path,
 
             print(f"prop_change_dict: {prop_change_dict[layer_name][unit]}")
 
+            '''
+            For each class, balanced accuracy is 
+            class TP        class TN
+            --------    +   --------            / 2
+            class_items     non_class items
+            
+            The bal_acc measure used the dataset class size and number of items.
+            This is the more traditional approach.
+            
+            Rel_bal_acc uses number of items correct in full model.
+            This allows scores greater than 1 (if accuracy improved compared to full model), 
+            which gives a better indication of how lesioning  has impacted a unit.
+            
+            '''
+            print(f"\n\nBalanced acc stuff here")
+            print(f"items_per_cat: {items_per_cat}\n"
+                  f"full_model_CPC: {full_model_CPC}\n"
+                  f"corr_per_cat_dict: {corr_per_cat_dict}\n")
 
+            unit_bal_acc_dict = dict()
+            unit_rel_bal_act_dict = dict()
+
+            flat_conf = scores_dict['flat_conf']
+
+
+            for this_class in range(n_cats):
+                tp = corr_per_cat_dict[this_class]
+
+                # # first values for traditional balanced acc (based on dataset class sizes)
+                class_items = items_per_cat[this_class]
+                non_class_items = items_per_cat['total'] - class_items
+                fn = class_items - tp
+                fp_df = flat_conf.loc[flat_conf['conf_matrix'].isin([f't0_p{this_class}',
+                                                                     f't1_p{this_class}',
+                                                                     f't2_p{this_class}',
+                                                                     f't3_p{this_class}',
+                                                                     f't4_p{this_class}',
+                                                                     f't5_p{this_class}',
+                                                                     f't6_p{this_class}',
+                                                                     f't7_p{this_class}',
+                                                                     f't8_p{this_class}',
+                                                                     f't9_p{this_class}'])]
+                fp_list = list(fp_df.full_model)
+                class_pred_tot = sum([int(i) for i in fp_list])
+                fp = class_pred_tot - tp
+                tn = non_class_items - fp
+                print(f"\ntn: {tn}")
+
+                print(f"\nclass: {this_class}\ntp: {tp}\nclass_items: {class_items}\n"
+                      f"non_class_items: {non_class_items}\ntn: ")
+
+                print(f"\t\tpred_A\tpred_notA\ttot\n"
+                      f"A\t\t{tp}\t{fn}\t\t{class_items}\n"
+                      f"notA\t{fp}\t\t{tn}\t{non_class_items}")
+                
+                trad_bal_acc = ((tp/class_items) + (tn/non_class_items)) / 2
+                unit_bal_acc_dict[this_class] = trad_bal_acc
+
+                
+                # # for a relative balanced acc based on full model correct per class
+                # # full_mod_items is class total correct in full model
+                full_mod_class_items = full_model_CPC[this_class]
+                full_mod_non_class_items = scores_dict['n_correct'] - full_mod_class_items
+                rel_fn = full_mod_class_items - tp
+                fp = class_pred_tot - tp  # same - not changed
+                rel_tn = full_mod_non_class_items - fp
+                
+                rel_bal_acc = ((tp/full_mod_class_items) + (rel_tn/full_mod_non_class_items)) / 2
+                unit_rel_bal_act_dict[this_class] = rel_bal_acc
+
+            unit_bal_acc_dict['total'] = sum(unit_bal_acc_dict.values())/n_cats
+            unit_rel_bal_act_dict['total'] = sum(unit_rel_bal_act_dict.values())/n_cats
+
+            bal_acc_dict[layer_name][unit] = unit_bal_acc_dict
+            print(f"unit_bal_acc_dict: {unit_bal_acc_dict}")
+
+            rel_bal_act_dict[layer_name][unit] = unit_rel_bal_act_dict
+            print(f"unit_rel_bal_act_dict: {unit_rel_bal_act_dict}")
+            
+            
             # # get layer means
             layer_total_change_list.append(unit_prop_change_dict['total'])
             layer_max_drop_list.append(min(list(unit_prop_change_dict.values())[:-1]))
@@ -688,6 +771,16 @@ def lesion_2020(gha_dict_path,
         # nick_to_csv(item_change_df, "{}_{}_item_change.csv".format(output_filename, layer_name))
         if verbose:
             print(f"\n\nitem_change_df:\n{item_change_df.head()}")
+
+        bal_acc_df = pd.DataFrame.from_dict(bal_acc_dict[layer_name])
+        bal_acc_df.to_csv(f"{output_filename}_{layer_name}_bal_acc.csv")
+        if verbose:
+            print(f"\n\nbal_acc_df:\n{bal_acc_df.head()}")
+
+        rel_bal_acc_df = pd.DataFrame.from_dict(rel_bal_act_dict[layer_name])
+        rel_bal_acc_df.to_csv(f"{output_filename}_{layer_name}_rel_bal_acc.csv")
+        if verbose:
+            print(f"\n\nrel_bal_acc_df:\n{rel_bal_acc_df.head()}")
 
 
         # # HIGHLIGHTS dict (for each layer)

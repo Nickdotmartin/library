@@ -154,7 +154,7 @@ def class_sel_basics(this_unit_acts_df, items_per_cat, n_classes, hi_val_thr=.5,
     if verbose:
         print("\n**** class_sel_basics() ****")
 
-
+    act_values = 'normed'
     if act_func in ['sigmoid', 'Sigmoid', 'sigm']:
         hi_val_thr = .75
         act_values = 'activation'
@@ -452,7 +452,7 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
             classes_of_interest = list(range(n_cats))
         else:
             classes_of_interest = list({k: v for (k, v) in items_per_cat.items() if v > 0})
-        print(f"classes_of_interest (all classes with correct items): {classes_of_interest}")
+        print(f"\nclasses_of_interest (all classes with correct items): {classes_of_interest}")
 
     # # # get values for correct/incorrect items (1/0 or True/False)
     full_model_values = y_scores_df.full_model.unique()
@@ -460,6 +460,7 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
         print(f"\nTYPE_ERROR!: what are the scores/acc for items? {full_model_values}")
         print(f"Were there any incorrect responses? n_incorrect = {n_incorrect}")
         print(f"type(n_incorrect): {type(n_incorrect)}")
+        raise TypeError(f"what are the scores/acc for items? {full_model_values}")
         if n_incorrect == 0:
             print("\nthere are no incorrect items so all responses are correct")
             correct_item = full_model_values[0]
@@ -509,7 +510,6 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     print(f"\noutput_filename: {output_filename}")
 
     # # open hid_acts.pickle
-    # todo: move this.  open hid_acts pickle for every layer/unit for imageNet.
     '''
     1. get layer number for last layer
     2. get output layer activations (these are held in memory, but could be loaded for each unit)
@@ -1242,7 +1242,10 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     # # just get means of hidden layers
     # hid_layer_means = lm[~lm.index.str.contains('utput')]
     # hid_layer_means = hid_layer_means[~hid_layer_means.index.str.contains('Total')]
-    hid_layer_means = lm.drop(['output', 'Total'])
+
+    ## this is cool, only drops existing labels and ignores any that don't exist
+    hid_layer_means = lm.drop(['output', 'Total'], axis=1, errors='ignore')
+    # hid_layer_means = lm.drop(['output', 'Total'])
     print(f"hid_layer_means:\n{hid_layer_means}")
 
     # mean_roc = lm.loc['Total', 'roc_auc']
@@ -1339,59 +1342,59 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
     top_hi_v = top_hi_v_df[~top_hi_v_df.layer.str.contains('utput')]
     max_hi_v_prop = top_hi_v['value'].to_list()[0]
 
-    # # spare variables to make anaysis easier
-    if 'chanProp' in output_filename:
-        var_one = 'chanProp'
-    elif 'chanDist' in output_filename:
-        var_one = 'chanDist'
-    elif 'cont' in output_filename:
-        var_one = 'cont'
-    elif 'bin' in output_filename:
-        var_one = 'bin'
-    else:
-        raise ValueError("dset_type not found (v1)")
-
-    if 'pro_sm' in output_filename:
-        var_two = 'pro_sm'
-    elif 'pro_med' in output_filename:
-        var_two = 'pro_med'
-    # elif 'LB' in output_filename:
-    #     var_two = 'LB'
-    else:
-        raise ValueError("between not found (v2)")
-
-    if 'v1' in output_filename:
-        var_three = 'v1'
-    elif 'v2' in output_filename:
-        var_three = 'v2'
-    elif 'v3' in output_filename:
-        var_three = 'v3'
-    else:
-        raise ValueError("within not found (v3)")
-
-    var_four = var_two + var_three
-
-    if 'ReLu' in output_filename:
-        var_five = 'relu'
-    elif 'relu' in output_filename:
-        var_five = 'relu'
-    elif 'sigm' in output_filename:
-        var_five = 'sigm'
-    else:
-        raise ValueError("act_func not found (v4)")
-
-    if '10' in output_filename:
-        var_six = 10
-    elif '25' in output_filename:
-        var_six = 25
-    elif '50' in output_filename:
-        var_six = 50
-    elif '100' in output_filename:
-        var_six = 100
-    elif '500' in output_filename:
-        var_six = 500
-    else:
-        raise ValueError("hid_units not found in output_filename (var6)")
+    # # # spare variables to make anaysis easier
+    # if 'chanProp' in output_filename:
+    #     var_one = 'chanProp'
+    # elif 'chanDist' in output_filename:
+    #     var_one = 'chanDist'
+    # elif 'cont' in output_filename:
+    #     var_one = 'cont'
+    # elif 'bin' in output_filename:
+    #     var_one = 'bin'
+    # else:
+    #     raise ValueError("dset_type not found (v1)")
+    #
+    # if 'pro_sm' in output_filename:
+    #     var_two = 'pro_sm'
+    # elif 'pro_med' in output_filename:
+    #     var_two = 'pro_med'
+    # # elif 'LB' in output_filename:
+    # #     var_two = 'LB'
+    # else:
+    #     raise ValueError("between not found (v2)")
+    #
+    # if 'v1' in output_filename:
+    #     var_three = 'v1'
+    # elif 'v2' in output_filename:
+    #     var_three = 'v2'
+    # elif 'v3' in output_filename:
+    #     var_three = 'v3'
+    # else:
+    #     raise ValueError("within not found (v3)")
+    #
+    # var_four = var_two + var_three
+    #
+    # if 'ReLu' in output_filename:
+    #     var_five = 'relu'
+    # elif 'relu' in output_filename:
+    #     var_five = 'relu'
+    # elif 'sigm' in output_filename:
+    #     var_five = 'sigm'
+    # else:
+    #     raise ValueError("act_func not found (v4)")
+    #
+    # if '10' in output_filename:
+    #     var_six = 10
+    # elif '25' in output_filename:
+    #     var_six = 25
+    # elif '50' in output_filename:
+    #     var_six = 50
+    # elif '100' in output_filename:
+    #     var_six = 100
+    # elif '500' in output_filename:
+    #     var_six = 500
+    # else:
+    #     raise ValueError("hid_units not found in output_filename (var6)")
 
     # print(f"\n{output_filename}: {var_one} {var_two} {var_three} {var_four} {var_five} {var_six}")
 
@@ -1416,7 +1419,7 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                     mean_nz_prop, max_nz_prop,
                     mean_hi_val_prop, max_hi_v_prop,
                     mean_act, mead_act_sd,
-                    var_one, var_two, var_three, var_four, var_five, var_six,
+                    # var_one, var_two, var_three, var_four, var_five, var_six,
                     sel_date, sel_time
                     ]
 
@@ -1433,7 +1436,7 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                        "mean_nz_prop", "max_nz_prop",
                        "mean_hi_val_prop", "max_hi_v_prop",
                        'mean_act', 'sd_act',
-                       'V1', 'V2', 'V3', 'V4', 'V5', 'V6',
+                       # 'V1', 'V2', 'V3', 'V4', 'V5', 'V6',
                        'sel_date', 'sel_time'
                        ]
 

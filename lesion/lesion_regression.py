@@ -33,7 +33,6 @@ from tools.dicts import load_dict, focussed_dict_print, print_nested_round_float
 
 # todo:  I need something about how often the most selective class was the max_class_drop class
 
-# todo: Zhou used spearman correlations rather than pearson
 
 def lesion_sel_regression(lesion_dict_path, sel_dict_path,
                           lesion_meas='prop_change',
@@ -76,7 +75,7 @@ def lesion_sel_regression(lesion_dict_path, sel_dict_path,
     print("\n**** running lesion_sel_regression() ****")
     print(f"sel_dict_path: {sel_dict_path}\nlesion_meas: {lesion_meas}")
 
-    lesion_measure_list = ['prop_change', 'class_change', 'chan_contri', 'sign_contri', 'drop_prop', 'just_drops']
+    lesion_measure_list = ['bal_acc', 'rel_bal_acc', 'prop_change', 'class_change', 'chan_contri', 'sign_contri', 'drop_prop', 'just_drops']
     if lesion_meas not in lesion_measure_list:
         raise ValueError(f"lesion_meas ({lesion_meas}) not recognised.\n"
                          f"Lesion_meas should be one of: {lesion_measure_list}.")
@@ -269,17 +268,17 @@ def lesion_sel_regression(lesion_dict_path, sel_dict_path,
             lesion_per_unit_path = f'{lesion_path}/{output_filename}_{lesion_layer}_{lesion_meas}.csv'
 
             lesion_per_unit = pd.read_csv(lesion_per_unit_path, index_col=0)
-            print(f"lesion_per_unit:\n{lesion_per_unit}")
+            # print(f"lesion_per_unit:\n{lesion_per_unit}")
             lesion_per_unit.drop('total', inplace=True)
             # lesion_per_unit = nick_read_csv(lesion_per_unit_path)
             # lesion_per_unit.set_index(0)
-            print("\nlesion_per_unit")
-            print(lesion_per_unit)
+            print(f"lesion_per_unit:\n{lesion_per_unit}")
+
 
             lesion_cols = list(lesion_per_unit)
 
             '''get max class drop per lesion_layer'''
-            if lesion_meas in ['prop_change', 'class_change', 'just_drops']:
+            if lesion_meas in ['prop_change', 'class_change', 'just_drops', 'rel_bal_acc', 'bal_acc']:
                 # # loop through lesion units (df columns) to find min class drop
                 lesion_cat_p_u_dict = dict()
                 lesion_unit_cat_list = []
@@ -1467,7 +1466,7 @@ def class_acc_sel_corr(lesion_dict_path, sel_dict_path,
     print("**** running class_acc_sel_corr() ****")
     print(f"sel_dict_path: {sel_dict_path}\nlesion_meas: {lesion_meas}")
 
-    lesion_measure_list = ['prop_change', 'class_change', 'chan_contri', 'sign_contri', 'drop_prop', 'just_drops']
+    lesion_measure_list = ['bal_acc', 'rel_bal_acc', 'prop_change', 'class_change', 'chan_contri', 'sign_contri', 'drop_prop', 'just_drops']
     if lesion_meas not in lesion_measure_list:
         raise ValueError(f"lesion_meas ({lesion_meas}) not recognised.\n"
                          f"Lesion_meas should be one of: {lesion_measure_list}.")
@@ -1625,7 +1624,7 @@ def class_acc_sel_corr(lesion_dict_path, sel_dict_path,
             print(lesion_cols)
 
             '''get max class drop per lesion_layer'''
-            if lesion_meas in ['prop_change', 'class_change', 'just_drops']:
+            if lesion_meas in ['prop_change', 'class_change', 'just_drops', 'rel_bal_acc', 'bal_acc']:
                 # # loop through lesion units (df columns) to find min class drop
                 lesion_cat_p_u_dict = dict()
                 lesion_unit_cat_list = []
@@ -1753,7 +1752,8 @@ def class_acc_sel_corr(lesion_dict_path, sel_dict_path,
             sel_pair_score = [i[1] for i in layer_les_sel_pairs]
             print("max_lesion_vals shape: ", np.shape(max_lesion_vals))
 
-            corr_coef, corr_p = stats.pearsonr(sel_pair_score, max_lesion_vals)
+            # corr_coef, corr_p = stats.pearsonr(sel_pair_score, max_lesion_vals)
+            corr_coef, corr_p = stats.spearmanr(sel_pair_score, max_lesion_vals)
 
             print(f"{sel_measure} corr: {corr_coef}, p = {corr_p}")
 
@@ -1778,9 +1778,6 @@ def class_acc_sel_corr(lesion_dict_path, sel_dict_path,
             # sel_corr_dict[lesion_layer] = measure_sel_corr_dict
 
         # # # sel lesion correlations
-        # todo: Zhou did spearman not pearson.
-        #  For this I need to rank selectivity and max class drops and do spearman on these ranks.
-        # I am not sure if I need to calculate ranks or whether scipy does that for me scipy.stats.spearmanr
         print("all_les_sel_pairs shape: ", np.shape(all_les_sel_pairs))
         max_lesion_vals = [i[0] for i in all_les_sel_pairs]
         sel_pair_score = [i[1] for i in all_les_sel_pairs]
