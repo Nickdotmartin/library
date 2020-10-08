@@ -121,11 +121,15 @@ def lesion_sel_regression(lesion_dict_path, sel_dict_path,
         sel_measures_list = list(sel_info[key_lesion_layers_list[0]][0].keys())
 
     # # remove measures that I don't want
-    sel_measures_to_remove = ['nZ_ave_prec', 'nZ_pr_auc', 'tcs_items', 'tcs_recall',
+    sel_measures_to_remove = ['nZ_ave_prec', 'nZ_pr_auc', 'nz_count',
                               'corr_coef', 'corr_p',
-                              'nz_count', 'max_info_f1', 'max_info_count',
+                              'max_info_f1', 'max_info_count',
                               'max_info_thr', 'max_info_sens', 'max_info_spec',
-                              'max_info_prec', 'tcs_thr', 'Zhou_selects', 'Zhou_thr', 'max', ]
+                              'max_info_prec',
+                              'b_sel_off', 'b_sel_zero', 'b_sel_pfive',
+                              'tcs_thr', 'tcs_items', 'tcs_recall',
+                              'zhou_selects', 'zhou_thr',
+                              'max', ]
 
     # sel_measures_list = ['roc_auc', 'ave_prec', 'pr_auc', 'max_informed', 'CCMAs', 'Zhou_prec',
     #                      'means', 'sd', 'nz_prop', 'nz_prec', 'hi_val_count', 'hi_val_prop', 'hi_val_prec']
@@ -1439,10 +1443,7 @@ def class_acc_sel_corr(lesion_dict_path, sel_dict_path,
                        verbose=False):
     """
     Script uses lesion dict and sel dict
-    Does class sel per unit predict class drop per unit
-    at the moment it only does max drop and selectivity for that class.
-
-    for each class or for max drop class
+    Does the size of the max class drop correlate with the selectivity of that class?
 
     for each layer
         for each unit
