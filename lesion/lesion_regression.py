@@ -1761,7 +1761,7 @@ def class_acc_sel_corr(lesion_dict_path, sel_dict_path,
             sel_corr_dict[lesion_layer][f'{sel_measure}_corr_coef'] = corr_coef
             sel_corr_dict[lesion_layer][f'{sel_measure}_corr_p'] = corr_p
 
-            sns.regplot(x=sel_pair_score, y=max_lesion_vals)
+            sns.regplot(x=sel_pair_score, y=max_lesion_vals, fit_reg=False)
             plt.ylabel("Max class drop")
             plt.xlabel("selectivity score")
             plt.suptitle(f"{lesion_layer} {lesion_meas} vs {sel_measure}")
@@ -1770,6 +1770,8 @@ def class_acc_sel_corr(lesion_dict_path, sel_dict_path,
             else:
                 plt.title(f"r={corr_coef:.3f}, p={corr_p:.3f}")
             print(os.getcwd())
+
+            # plt.show()
             if use_relu:
                 plt.savefig(f"{sel_les_corr_path}/{output_filename}_{lesion_layer}_{sel_measure}_{lesion_meas}_ReLu_corr.png")
             else:
@@ -1795,7 +1797,9 @@ def class_acc_sel_corr(lesion_dict_path, sel_dict_path,
         sel_corr_dict['all_layers'][f'{sel_measure}_corr_coef'] = corr_coef
         sel_corr_dict['all_layers'][f'{sel_measure}_corr_p'] = corr_p
 
-        sns.regplot(x=sel_pair_score, y=max_lesion_vals)
+        sns.regplot(x=sel_pair_score, y=max_lesion_vals, fit_reg=False)
+
+
         plt.ylabel("Max class drop")
         plt.xlabel("selectivity score")
         plt.suptitle(f"{lesion_meas} vs {sel_measure}")

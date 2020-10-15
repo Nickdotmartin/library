@@ -127,7 +127,7 @@ def lesion_2020(gha_dict_path,
     count_per_cat_dict = dict()  # count_per_cat_dict is for storing n_items_correct for the lesion study
     prop_change_dict = dict()   # prop_change dict - to compare with Zhou_2018
     class_change_dict = dict()  # number of items difference to full model (plus or mimus)
-    just_drops_dict = dict()  # drop in acc compared to full model (or zero if incr)
+    just_drops_dict = dict()  # drop in items compared to full model (or zero if incr)
     item_change_dict = dict()  # whether an item has changed in the lesioned model and how
     chan_contri_dict = dict()   # class change as a proportion of total change (can be > 1!)
     # chan_contri_both_dict = dict()  # class change as prop of total change with neg for total drop and pos for tot incr
@@ -612,7 +612,7 @@ def lesion_2020(gha_dict_path,
             sum_of_drops = sum(list(unit_just_drops_dict.values())[:-1])
 
             # # class drop as proportion of sum of drops (zero if class increases)
-            unit_drop_prop_dict = {k: (round(v / sum_of_drops, 2) if v < 0 else 0) for k, v in unit_just_drops_dict.items()}
+            unit_drop_prop_dict = {k: (v / sum_of_drops if v < 0 else 0) for k, v in unit_just_drops_dict.items()}
 
             unit_drop_prop_dict["total"] = sum_of_drops
             drop_prop_dict[layer_name][unit] = unit_drop_prop_dict
@@ -623,7 +623,7 @@ def lesion_2020(gha_dict_path,
                 if fv == 0:
                     prop_change = -1
                 else:
-                    prop_change = round((v2 / fv) - 1, 2)
+                    prop_change = (v2 / fv) - 1
                 unit_prop_change_dict[fk] = prop_change
 
             prop_change_dict[layer_name][unit] = unit_prop_change_dict
