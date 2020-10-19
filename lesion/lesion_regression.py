@@ -582,8 +582,11 @@ def lesion_sel_regression(lesion_dict_path, sel_dict_path,
         regression_measures_dict[sel_measure] = regression_score
 
     # # comparrison with null model (dummy classifier)
-    dummy = DummyClassifier(strategy='most_frequent').fit(x_test, y_test)
-    dummy_score = dummy.score(x_data, y)
+    # dummy = DummyClassifier(strategy='most_frequent').fit(x_test, y_test)
+    # dummy_score = dummy.score(x_data, y)
+    dummy = DummyClassifier(strategy='most_frequent').fit(x_train, y_train)
+    dummy_score = dummy.score(x_test, y_test)
+
     print(f"{sel_measure} dummy_score: {dummy_score:.2f}")
 
     regression_measures_dict['dummy_mode'] = dummy_score
