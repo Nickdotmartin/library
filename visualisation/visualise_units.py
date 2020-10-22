@@ -1539,7 +1539,11 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', coi_m
         min_out_idx = min(output_idx)
         key_lesion_layers_list = key_lesion_layers_list[:min_out_idx]
 
+    n_cats = lesion_dict['data_info']["n_cats"]
     class_labels = list(lesion_dict['data_info']['cat_names'].values())
+    class_numbers = list(range(n_cats))
+    class_name_num = [f"{i}. {class_labels[i]}" for i in class_numbers]
+    print(f"\nclass_name_num: {class_name_num}")
 
     # # sel_dict
     sel_dict = load_dict(sel_dict_path)
@@ -1610,8 +1614,6 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', coi_m
     # # load data
     # # check for training data
     use_dataset = sel_dict['GHA_info']['use_dataset']
-
-    n_cats = sel_dict['data_info']["n_cats"]
 
     if use_dataset in sel_dict['data_info']:
         # n_items = sel_dict["data_info"][use_dataset]["n_items"]
@@ -1856,13 +1858,13 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', coi_m
             total_unit_change = max_class_drop_col['total']
             max_class_drop_col = max_class_drop_col.drop(labels=['total'])
             max_class_drop_val = max_class_drop_col.min()
-            max_drop_class = max_class_drop_col.idxmin()
+            max_drop_class = int(max_class_drop_col.idxmin())
             print(f"\n\tmax_class_drop_val: {max_class_drop_val}\n"
                   f"\tmax_drop_class: {max_drop_class}\n"
                   f"\ttotal_unit_change: {total_unit_change}")
 
             # # getting best sel measure (max_informed)
-            main_sel_name = 'informedness'
+            main_sel_name = 'max-info'
 
             # # includes if statement since some units have not score (dead relu?)
             if old_sel_dict:
@@ -1875,6 +1877,8 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', coi_m
 
             print(f"\tmain_sel_val: {main_sel_val}")
             print(f"\tmain_sel_class: {main_sel_class}")
+
+
 
             # # coi stands for Class Of Interest
             # # if doing oneVsAll I need to have a coi measure. (e.g., clas with max informed 'c_informed')
@@ -1919,6 +1923,7 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', coi_m
             l_failed_df = unit_df[(unit_df['item_change'] == -1)]
             l_failed_df = l_failed_df.sort_values(by=['hid_acts'])
 
+
             min_failed_act = l_failed_df['hid_acts'].min()
             print(f"\n\tsmallest activation of items that failed after lesioning was {min_failed_act}")
             if min_failed_act == 0.0:
@@ -1926,6 +1931,7 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', coi_m
                 fail_zero_count = len(fail_zero_df.index)
                 print(f"\n\tfail_zero_df: {fail_zero_count} items\n\t{fail_zero_df.head()}")
                 fail_zero_df.to_csv(f"{output_filename}_{gha_layer_name}_{unit}_fail_zero_df.csv", index=False)
+
 
 
             # # make plot of class changes
@@ -1943,20 +1949,20 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', coi_m
                 if max(class_prop_change) > class_change_x_max:
                     class_change_x_max = max(class_prop_change)
 
-                class_change_curve = sns.barplot(x=class_prop_change, y=class_labels, orient='h')
+                class_change_curve = sns.barplot(x=class_prop_change, y=class_name_num, orient='h')
                 class_change_curve.set_xlim([class_change_x_min, class_change_x_max])
                 class_change_curve.axvline(0, color="k", clip_on=False)
-                plt.subplots_adjust(left=0.15)  # just to fit the label 'automobile' on
+                plt.subplots_adjust(left=0.2)  # just to fit the label 'automobile' on
 
                 print(f'\nclass num: {class_prop_change.index(min(class_prop_change))}, '
-                      f'class label: {class_labels[class_prop_change.index(min(class_prop_change))]}, '
+                      f'class label: {class_name_num[class_prop_change.index(min(class_prop_change))]}, '
                       f'class_val: {min(class_prop_change):.2f}'
                       )
 
                 plt.title(f"{lesion_layer_and_unit}\n"
-                          f"total change: {total_unit_change:.2f} "
-                          f"max_class ({class_labels[class_prop_change.index(min(class_prop_change))]}): "
-                          f"{min(class_prop_change):.2f}")
+                          f"total change: {total_unit_change:.2f},  "
+                          f"max_class_drop: {min(class_prop_change):.2f} "
+                          f"({class_name_num[class_prop_change.index(min(class_prop_change))]})")
                 plt.savefig(f"{output_filename}_{output_layer_and_unit}_class_prop_change.png")
 
                 if test_run:
@@ -1973,8 +1979,8 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', coi_m
             # # # plot title
             if plot_fails:
                 title = f"Layer: {gha_layer_name} Unit: {unit}\nmax_class_drop: {max_class_drop_val:.2f} " \
-                        f"({max_drop_class}), total change: {total_unit_change:.2f}\n" \
-                        f"{main_sel_name}: {main_sel_val:.2f} ({main_sel_class})"
+                        f"({class_name_num[max_drop_class]}), total change: {total_unit_change:.2f}\n" \
+                        f"{main_sel_name}: {main_sel_val:.2f} ({class_name_num[main_sel_class]})"
 
                 if plot_type == "OneVsAll":
                     title = f"Layer: {gha_layer_name} Unit: {unit} class: {coi}\n" \
@@ -1992,7 +1998,7 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', coi_m
 
             # # # load main dataframe
             raincloud_data = unit_df
-            # print(raincloud_data.head())
+            print(raincloud_data.head())
 
             plot_y_vals = "class"
             # use_this_ipc = items_per_cat
@@ -2051,7 +2057,7 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', coi_m
 
             zd_zero_perc = [x / y * 100 if y else 0 for x, y in zip(zeros_dict.values(), use_this_ipc.values())]
 
-            zd_data = {"class": class_labels, "zero_count": zd_zero_count, "zero_perc": zd_zero_perc}
+            zd_data = {"class": class_name_num, "zero_count": zd_zero_count, "zero_perc": zd_zero_perc}
 
             zeros_dict_df = pd.DataFrame.from_dict(data=zd_data)
 
@@ -2108,7 +2114,7 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', coi_m
             # # item_change: 1 ('grey') passed before and after lesioning
             # # -1 ('red') passed in full model but failed when lesioned
             # # 2 ('green') failed in full model but passed in lesioning"""
-            fail_palette = {1: "silver", -1: "red", 2: "green", 0: "orange"}
+            fail_palette = {1: "silver", -1: "grey", 2: "green", 0: "orange"}
 
 
             # # separate rain drops for pass pass,
@@ -2128,11 +2134,20 @@ def raincloud_w_fail(sel_dict_path, lesion_dict_path, plot_type='classes', coi_m
                 #                                     label='')
 
                 # # separate raindrops for pass fail
+                '''
+                Order parameter: if there are categories with no values, (e.g., no cata for class 2), 
+                pass a list of class labels in the right order to the order parameter, so it leave class 2 blank.
+                e.g., 
+                df = pd.DataFrame({'Data':[1,3,4,6,3,2],
+                                   'Number':['One','One','One','One','Three','Three']})
+                exp_cats = ["One", "Two", "Three"]
+                ax = sns.stripplot(x='Number', y='Data', jitter=True, data=df, order=exp_cats)               
+                '''
                 if not l_failed_df.empty:
                     # pass_fail_drops
-                    sns.stripplot(data=l_failed_df, x=data_values, y=data_class, jitter=1, zorder=4, size=4,
-                                  orient=orientation, hue='item_change', palette=fail_palette, edgecolor='white',
-                                  linewidth=.4, marker='s')
+                    sns.stripplot(data=l_failed_df, x=data_values, y='class', jitter=1, zorder=4, size=4,
+                                  orient=orientation, hue='item_change', palette=fail_palette, edgecolor='black',
+                                  linewidth=.4, marker='s', order=class_numbers)
 
             # box_plot
             sns.boxplot(data=raincloud_data, color="gray", orient=orientation, width=.15, x=data_values,
