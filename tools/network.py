@@ -686,6 +686,8 @@ def loop_thru_acts(gha_dict_path,
         n_layers = gha_dict['model_info']['overview']['n_layers']
     elif 'hid_layers' in gha_dict['model_info']['overview']:
         n_layers = gha_dict['model_info']['overview']['hid_layers']
+    elif 'act_layers' in gha_dict['model_info']['layers']['hid_layers']['hid_totals']:
+        n_layers = gha_dict['model_info']['layers']['hid_layers']['hid_totals']['act_layers']
     else:
         raise ValueError("How many layers? ln 690 Network")
     model_dict = gha_dict['model_info']['config']
@@ -771,12 +773,21 @@ def loop_thru_acts(gha_dict_path,
     # # if not sequence data, load y_labels to go with hid_acts and item_correct for items
     elif 'item_correct_name' in gha_dict['GHA_info']['scores_dict']:
         n_correct = gha_dict['GHA_info']['scores_dict']['n_correct']
+        n_incorrect = gha_dict['GHA_info']['scores_dict']['n_items'] - n_correct
         n_seq_corr = n_correct
         # # load item_correct (y_data)
         item_correct_name = gha_dict['GHA_info']['scores_dict']['item_correct_name']
         # y_df = pd.read_csv(item_correct_name)
         y_scores_df = nick_read_csv(item_correct_name)
-        test_label_seqs = y_scores_df['full_model'].tolist()
+        seqs_corr = y_scores_df['full_model'].to_list()
+        test_label_seqs = np.array(y_scores_df['full_model'].to_list())
+
+        if verbose:
+            print(f"\nVERBOSE\n\n"
+                  f"y_scores_df:\n{y_scores_df.head()}\n\n"
+                  f"seqs_corr:\n{seqs_corr}\n"
+                  f"test_label_seqs:\n{test_label_seqs}\n"
+                  f"")
 
 
     # else:
@@ -890,8 +901,8 @@ def loop_thru_acts(gha_dict_path,
             print(f"first layer keys: {list(hid_acts_dict[0].keys())}")
             # focussed_dict_print(hid_acts_dict, 'hid_acts_dict')
 
-        last_layer_num = hid_acts_keys_list[-1]
-        last_layer_name = hid_acts_dict[last_layer_num]['layer_name']
+        last_hid_act_number = hid_acts_keys_list[-1]
+        last_layer_name = hid_acts_dict[last_hid_act_number]['layer_name']
         
     elif acts_saved_as is 'h5':
         with h5py.File(hid_acts_filename, 'r') as hid_acts_dict:
@@ -901,8 +912,8 @@ def loop_thru_acts(gha_dict_path,
                 print(f"\n**** h5py opening {hid_acts_filename} ****")
                 print(f"hid_acts_keys_list: {hid_acts_keys_list}")
 
-            last_layer_num = hid_acts_keys_list[-1]
-            last_layer_name = hid_acts_dict[last_layer_num]['layer_name']
+            last_hid_act_number = hid_acts_keys_list[-1]
+            last_layer_name = hid_acts_dict[last_hid_act_number]['layer_name']
 
 
 
@@ -913,13 +924,16 @@ def loop_thru_acts(gha_dict_path,
     if test_run:
         layer_counter = 0
 
+    layer_number = -1
+
     # # loop through layer numbers in list of dict keys
-    for layer_number in hid_acts_keys_list:
+    for hid_act_number in hid_acts_keys_list:
+        layer_number = layer_number + 1
 
         # # don't run sel on output layer
-        if layer_number == last_layer_num:
+        if hid_act_number == last_hid_act_number:
             if verbose:
-                print(f"\nskip output layer! (layer: {layer_number})")
+                print(f"\nskip output layer! (layer: {hid_act_number})")
             continue
 
         if test_run is True:
@@ -937,14 +951,34 @@ def loop_thru_acts(gha_dict_path,
         if acts_saved_as is 'pickle':
             with open(hid_acts_filename, 'rb') as pkl:
                 hid_acts_dict = pickle.load(pkl)
-                layer_dict = hid_acts_dict[layer_number]
+                layer_dict = hid_acts_dict[hid_act_number]
                 
         elif acts_saved_as is 'h5':
             with h5py.File(hid_acts_filename, 'r') as hid_acts_dict:
-                layer_dict = hid_acts_dict[layer_number]
+                layer_dict = hid_acts_dict[hid_act_number]
 
 
         layer_name = layer_dict['layer_name']
+        found_name = gha_dict['model_info']['layers']['hid_layers'][layer_number]['name']
+        print(layer_name, found_name)
+        if found_name == layer_name:
+            print('match\n')
+        else:
+            print("wrong\n")
+            while found_name != layer_name:
+                # print("still wrong")
+                found_name = gha_dict['model_info']['layers']['hid_layers'][layer_number]['name']
+                if found_name == layer_name:
+                    print(layer_name, found_name, 'match\n')
+                    break
+                layer_number += 1
+
+        act_func = gha_dict['model_info']['layers']['hid_layers'][layer_number]['act_func']
+        print(f"\nlayer_name: {layer_name}\n"
+              f"found_name: {found_name}\n"
+              f"layer_number: {layer_number}\n"
+              f"act_func: {act_func}\n")
+
 
         partially_completed_layer = False
         if layer_name in already_completed:
@@ -955,7 +989,7 @@ def loop_thru_acts(gha_dict_path,
                 partially_completed_layer = True
 
         if verbose:
-            print(f"\nrunning layer {layer_number}: {layer_name}")
+            print(f"\nrunning layer {hid_act_number}: {layer_name}")
 
         if 'hid_acts' in layer_dict:
             hid_acts_array = layer_dict['hid_acts']
@@ -984,13 +1018,20 @@ def loop_thru_acts(gha_dict_path,
                           f"hid_acts_array: {np.shape(hid_acts_array)}")
 
                 hid_acts_array = hid_acts_array[mask]
+                # these_labels = np.array(list(range(_n_items)))[mask]
                 if verbose:
                     print(f"(cleaned) np.shape(hid_acts_array) (n_seqs_corr, timesteps, units_per_layer): "
                           f"{np.shape(hid_acts_array)}"
                           f"\ntest_label_seqs: {np.shape(test_label_seqs)}")
 
+        # get units per layer
+        if len(np.shape(hid_acts_array)) == 3:
+            _n_seqs, _timesteps, units_per_layer = np.shape(hid_acts_array)
+        elif len(np.shape(hid_acts_array)) == 2:
+            _n_items, units_per_layer = np.shape(hid_acts_array)
+        else:
+            raise ValueError(f"hid_acts array should be 2d or 3d, not {np.shape(hid_acts_array)}")
 
-        act_func = gha_dict['model_info']['layers']['hid_layers'][layer_number]['act_func']
 
         
         
@@ -1012,7 +1053,7 @@ def loop_thru_acts(gha_dict_path,
                 if unit_counter > 3:
                     continue
 
-            print(f"\n****\nrunning layer {layer_number} of {n_layers} "
+            print(f"\n****\nrunning layer {hid_act_number} of {n_layers} "
                   f"({layer_name}): unit {unit_index} of {units_per_layer}\n****")
             
             if sequence_data:
@@ -1062,7 +1103,7 @@ def loop_thru_acts(gha_dict_path,
                                      "sequence_data": sequence_data,
                                      "y_1hot": y_1hot,
                                      "act_func": act_func,
-                                     "layer_number": layer_number, "layer_name": layer_name,
+                                     "hid_act_number": hid_act_number, "layer_name": layer_name,
                                      "unit_index": unit_index,
                                      "timestep": timestep,
                                      'item_act_label_array': item_act_label_array,
@@ -1085,7 +1126,14 @@ def loop_thru_acts(gha_dict_path,
                               f"{np.shape(this_unit_just_acts)}")
 
                     these_acts = this_unit_just_acts
-                    these_labels = item_correct_list
+                    these_labels = y_df['class'].tolist()
+                    #
+                    # if verbose:
+                    #     print(f"\nidiot check\n"
+                    #           f"item_index: {np.shape(item_index)}\n"
+                    #           f"these_acts: {np.shape(these_acts)}\n"
+                    #           f"these_labels: {np.shape(these_labels)}\n"
+                    #           f"these_labels: {these_labels}")
 
                     # insert act values in middle of labels (item, act, cat)
                     item_act_label_array = np.vstack((item_index, these_acts, these_labels)).T
@@ -1100,7 +1148,7 @@ def loop_thru_acts(gha_dict_path,
                         "sequence_data": sequence_data,
                         "y_1hot": y_1hot,
                         "act_func": act_func,
-                        "layer_number": layer_number, "layer_name": layer_name,
+                        "hid_act_number": hid_act_number, "layer_name": layer_name,
                         "unit_index": unit_index,
                         "timestep": timestep,
                         'item_act_label_array': item_act_label_array,

@@ -209,17 +209,33 @@ def train_model(exp_name,
     # # data preprocessing
     x_size = data_dict["X_size"]
 
+    # check data shape
+    print(f"\ninput shape: {np.shape(x_train)}")
     if len(np.shape(x_train)) == 4:
         image_dim = data_dict['image_dim']
         n_items, width, height, channels = np.shape(x_train)
     else:
         # # this is just for MNIST
-        if model_dir == 'cnn':
+        if model_dir in ['cnn', 'cnns']:
+            print("reshaping mnist for cnn")
             width, height = data_dict['image_dim']
             x_train = x_train.reshape(x_train.shape[0], width, height, 1)
             print(f"\nRESHAPING x_train to: {np.shape(x_train)}")
             if use_val_data:
                 x_val = x_val.reshape(x_val.shape[0], width, height, 1)
+        if model_dir == 'mlps':
+            if len(np.shape(x_train)) > 2:
+                print(f"reshaping image data from {len(np.shape(x_train))}d to 2d for mlp")
+                x_train = np.reshape(x_train, (x_train.shape[0], x_train.shape[1] * x_train.shape[2]))
+                x_data = np.reshape(x_data, (x_data.shape[0], x_data.shape[1] * x_data.shape[2]))
+
+                if use_val_data:
+                    # x_val = x_val.transpose(2,0,1).reshape(3,-1)
+                    x_val = np.reshape(x_val, (x_val.shape[0], x_val.shape[1] * x_val.shape[2]))
+
+                print(f"\nNEW input shape: {np.shape(x_train)}")
+                x_size = np.shape(x_train)[1]
+                print(f"NEW x_size: {x_size}")
 
     """# # # proprocessing here - put data in range 0-1
     # if len(np.shape(x_train)) == 2:
@@ -569,59 +585,59 @@ def train_model(exp_name,
     str_fpl = "-".join(map(str, model_info['layers']['hid_layers']['hid_totals']['FPL']))
 
 
-    # # spare variables to make anaysis easier
-    if 'chanProp' in cond_name:
-        var_one = 'chanProp'
-    elif 'chanDist' in cond_name:
-        var_one = 'chanDist'
-    elif 'cont' in cond_name:
-        var_one = 'cont'
-    elif 'bin' in cond_name:
-        var_one = 'bin'
-    else:
-        raise ValueError("dset_type not found (v1)")
-
-    if 'pro_sm' in cond_name:
-        var_two = 'pro_sm'
-    elif 'pro_med' in cond_name:
-        var_two = 'pro_med'
-    # elif 'LB' in cond_name:
-    #     var_two = 'LB'
-    else:
-        raise ValueError("between not found (v2)")
-
-    if 'v1' in cond_name:
-        var_three = 'v1'
-    elif 'v2' in cond_name:
-        var_three = 'v2'
-    elif 'v3' in cond_name:
-        var_three = 'v3'
-    else:
-        raise ValueError("within not found (v3)")
-
-    var_four = var_two + var_three
-
-    if 'ReLu' in cond_name:
-        var_five = 'relu'
-    elif 'relu' in cond_name:
-        var_five = 'relu'
-    elif 'sigm' in cond_name:
-        var_five = 'sigm'
-    else:
-        raise ValueError("act_func not found (v4)")
-
-    if '10' in cond_name:
-        var_six = 10
-    elif '25' in cond_name:
-        var_six = 25
-    elif '50' in cond_name:
-        var_six = 50
-    elif '100' in cond_name:
-        var_six = 100
-    elif '500' in cond_name:
-        var_six = 500
-    else:
-        raise ValueError("hid_units not found in cond_name (var6)")
+    # # # spare variables to make anaysis easier
+    # if 'chanProp' in cond_name:
+    #     var_one = 'chanProp'
+    # elif 'chanDist' in cond_name:
+    #     var_one = 'chanDist'
+    # elif 'cont' in cond_name:
+    #     var_one = 'cont'
+    # elif 'bin' in cond_name:
+    #     var_one = 'bin'
+    # else:
+    #     raise ValueError("dset_type not found (v1)")
+    #
+    # if 'pro_sm' in cond_name:
+    #     var_two = 'pro_sm'
+    # elif 'pro_med' in cond_name:
+    #     var_two = 'pro_med'
+    # # elif 'LB' in cond_name:
+    # #     var_two = 'LB'
+    # else:
+    #     raise ValueError("between not found (v2)")
+    #
+    # if 'v1' in cond_name:
+    #     var_three = 'v1'
+    # elif 'v2' in cond_name:
+    #     var_three = 'v2'
+    # elif 'v3' in cond_name:
+    #     var_three = 'v3'
+    # else:
+    #     raise ValueError("within not found (v3)")
+    #
+    # var_four = var_two + var_three
+    #
+    # if 'ReLu' in cond_name:
+    #     var_five = 'relu'
+    # elif 'relu' in cond_name:
+    #     var_five = 'relu'
+    # elif 'sigm' in cond_name:
+    #     var_five = 'sigm'
+    # else:
+    #     raise ValueError("act_func not found (v4)")
+    #
+    # if '10' in cond_name:
+    #     var_six = 10
+    # elif '25' in cond_name:
+    #     var_six = 25
+    # elif '50' in cond_name:
+    #     var_six = 50
+    # elif '100' in cond_name:
+    #     var_six = 100
+    # elif '500' in cond_name:
+    #     var_six = 500
+    # else:
+    #     raise ValueError("hid_units not found in cond_name (var6)")
 
     # print(f"\n{cond_name}: {var_one} {var_two} {var_three} {var_four} {var_five} {var_six}")
 
@@ -642,7 +658,7 @@ def train_model(exp_name,
                      use_val_data, loss_target, min_loss_change,
                      max_epochs, trained_for, end_acc, end_loss, end_val_acc, end_val_loss,
                      checkpoint_path, trained_date, trained_time,
-                     var_one, var_two, var_three, var_four, var_five, var_six
+                     # var_one, var_two, var_three, var_four, var_five, var_six
                      ]
 
 
@@ -662,7 +678,8 @@ def train_model(exp_name,
                    "val_data", "loss_target", "min_loss_change",
                    "max_epochs", "trained_for", "end_acc", "end_loss", "end_val_acc", "end_val_loss",
                    "model_file", "date", "time",
-                   'V1', 'V2', 'V3', 'V4', 'V5', 'V6']
+                   # 'V1', 'V2', 'V3', 'V4', 'V5', 'V6'
+                   ]
 
         training_overview = open(f"{exp_name}_training_summary.csv", 'w')
         mywriter = csv.writer(training_overview)

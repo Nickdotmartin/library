@@ -12,6 +12,7 @@ from scipy.stats.stats import pearsonr
 
 from tools.dicts import load_dict, focussed_dict_print
 from tools.data import nick_read_csv
+from tools.network import loop_thru_acts
 
 
 def nick_roc_stuff(class_list, hid_acts, this_class, class_a_size, not_a_size,
@@ -382,6 +383,128 @@ def sel_unit_max(all_sel_dict, verbose=False):
     # focussed_dict_print(max_sel_dict, 'max_sel_dict')
 
     return max_sel_dict
+
+###################################################################################################
+
+def get_unit_sparsity(gha_dict_path,
+                      correct_items_only=True,
+                      verbose=True,
+                      test_run=False):
+    """For each unit:
+        mean_act: mean activation.
+        (nz_prop): proportion of items with activation > 0.
+        hi_val_prop: Proportion of items with activations above .5.
+
+        1. load dict from study (GHA dict) - get variables from dict
+        2. load y, sort out incorrect resonses
+        3. find where to load gha from: pickle, hdf5, shelve.
+            for now write assuming pickle
+            load hidden activations
+        4. loop through all layers:
+            loop through all units:
+                (loop through timesteps?)
+        5. get mean, nz_prop and hi_val_prop,
+        6. write to nested dict and unpact to csv.
+
+        This is a generator-iterator, not a function, as I want it to yeild hid_acts
+        and details one unit at a time.
+
+        :param gha_dict_path: path of the gha dict
+        :param correct_items_only: Whether to skip test items that that model got incorrect.
+        # :param already_completed: None, or dict with layer_names as keys,
+        #                         values are ether 'all' or number of last completed unit.
+
+        :param verbose: how much to print to screen
+        :param test_run: if True, only do subset, e.g., 3 units from 3 layers
+
+        :return: nested dict pickle with mean, nz-prop and hi_val_prop per unit
+        :return: return sparsity master csv with mean, nz-prop and hi_val_prop per unit
+        """
+
+    print(f"\n**running get_unit_sparsity() **\n"
+          f"gha_dict_path={gha_dict_path}\n"
+          f"correct_items_only={correct_items_only}")
+
+    gha_dict = load_dict(gha_dict_path)
+    focussed_dict_print(gha_dict, 'gha_dict', focus_list='model_info')
+
+    loop_gha = loop_thru_acts(gha_dict_path=gha_dict_path,
+                              correct_items_only=correct_items_only,
+                              verbose=verbose,
+                              test_run=test_run
+                              )
+
+    unit_sparsity_list = [['layer', 'unit', 'unit_mean', 'unit_nz_prop', 'unit_hi_val_prop']]
+
+    for index, unit_gha in enumerate(loop_gha):
+        print(f"\nindex: {index}")
+        focussed_dict_print(unit_gha, 'unit_gha')
+
+        sequence_data = unit_gha["sequence_data"]
+        y_1hot = unit_gha["y_1hot"]
+        layer_name = unit_gha["layer_name"]
+        unit_index = unit_gha["unit_index"]
+        item_act_label_array = unit_gha["item_act_label_array"]
+        act_func = unit_gha['act_func']
+        n_items, _ = np.shape(item_act_label_array)
+        print(f"plotting {layer_name} {unit_index}")
+        print(f"sequence_data: {sequence_data}")
+        print(f"y_1hot: {y_1hot}")
+        print(f"unit_index: {unit_index}")
+        print(f"act_func: {act_func}")
+        print(f"item_act_array shape: {np.shape(item_act_label_array)} ")
+
+        # #  make df
+        this_unit_acts = pd.DataFrame(data=item_act_label_array,
+                                      columns=['item', 'activation', 'label'])
+
+        # # # normalize activations
+        just_act_values = this_unit_acts['activation'].tolist()
+        max_act = max(just_act_values)
+        normed_acts = np.true_divide(just_act_values, max_act)
+        this_unit_acts.insert(2, column='normed', value=normed_acts)
+
+        this_unit_acts_df = this_unit_acts.astype(
+            {'item': 'int32', 'activation': 'float', 'normed': 'float', 'label': 'int32'})
+
+        act_values = normed_acts
+        hi_val_thr = .5
+
+        if act_func.lower() in ['sigmoid', 'sig', 'sigm']:
+            hi_val_thr = .75
+            act_values = just_act_values
+
+        unit_mean_act = np.mean(act_values)
+        print(f"unit_mean_act: {unit_mean_act}")
+
+        non_zero_count = sum(i > 0.0 for i in act_values)
+        nz_prop = non_zero_count/n_items
+        print(f"\nnz_count = {non_zero_count}\nitems: {n_items}\nnz_prop: {nz_prop}")
+
+        hi_val_count = sum(i > hi_val_thr for i in act_values)
+        hi_val_prop = hi_val_count/n_items
+
+        print(f"\nhi_val_count = {hi_val_count}\nitems: {n_items}\nhi_val_prop: {hi_val_prop}")
+
+        unit_sparsity_details = [layer_name, unit_index, unit_mean_act, nz_prop, hi_val_prop]
+
+        unit_sparsity_list.append(unit_sparsity_details)
+
+    column_names = unit_sparsity_list.pop(0)
+    unit_sparsity_df = pd.DataFrame(unit_sparsity_list, columns=column_names)
+    print(unit_sparsity_df.head())
+
+    tail, head = os.path.split(gha_dict_path)
+    save_name = f"{gha_dict['topic_info']['output_filename']}_sparsity.csv"
+    if test_run:
+        save_name = f"{gha_dict['topic_info']['output_filename']}_sparsity_test.csv"
+
+    save_path = os.path.join(tail, save_name)
+
+    print(f"saving to: {save_path}")
+    unit_sparsity_df.to_csv(save_path)
+
+    print("\n\nEnd of script - get_unit_sparsity()")
 
 
 #######################################################################################################
