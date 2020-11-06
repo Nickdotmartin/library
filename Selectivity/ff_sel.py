@@ -308,20 +308,21 @@ def sel_unit_max(all_sel_dict, verbose=False):
         classes = list(clean_dict.keys())
         values = list(clean_dict.values())
 
-        # print("\nidiot check\n"
-        #       f"measure_c_name: {measure_c_name}\n"
-        #       f"classes:{classes}\n"
-        #       f"values:{values}"
-        #       )
+        print("\nidiot check (leave this in, it fails here sometimes\n"
+              f"measure_c_name: {measure_c_name}\n"
+              f"classes:{classes}\n"
+              f"values:{values}"
+              )
 
         # # for each sel measure get max value and class
-        max_val = max(values)
-        max_class = classes[values.index(max_val)]
-        # print(measure, measure_c_name)
+        if len(values) > 0:
+            max_val = max(values)
+            max_class = classes[values.index(max_val)]
+            # print(measure, measure_c_name)
 
-        # # copy max class and value to max_class_dict
-        max_sel_dict[measure] = max_val
-        max_sel_dict[measure_c_name] = max_class
+            # # copy max class and value to max_class_dict
+            max_sel_dict[measure] = max_val
+            max_sel_dict[measure_c_name] = max_class
 
 
     # # remove unnecessary variables rom the dict
@@ -372,7 +373,8 @@ def sel_unit_max(all_sel_dict, verbose=False):
         max_sel_dict['corr_coef_c'] = coef_df['class'].iloc[0]
         max_sel_dict['corr_p'] = coef_df['p'].iloc[0]
 
-    del max_sel_dict['corr_p_c']
+    if 'corr_p_c' in max_sel_dict:
+        del max_sel_dict['corr_p_c']
 
     # # round values
     for k, v in max_sel_dict.items():
@@ -712,17 +714,17 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
                        "means": [['value', 'class', 'sd', 'layer', 'unit']],
 
-                       "nz_count": [['value', 'class', 'layer', 'unit']],
+                       # "nz_count": [['value', 'class', 'layer', 'unit']],
 
                        "nz_prop": [['value', 'class', 'layer', 'unit']],
 
-                       "nz_prec": [['value', 'class', 'layer', 'unit']],
+                       # "nz_prec": [['value', 'class', 'layer', 'unit']],
 
-                       "hi_val_count": [['value', 'class', 'layer', 'unit']],
+                       # "hi_val_count": [['value', 'class', 'layer', 'unit']],
 
                        "hi_val_prop": [['value', 'class', 'layer', 'unit']],
 
-                       "hi_val_prec": [['value', 'class', 'layer', 'unit']],
+                       # "hi_val_prec": [['value', 'class', 'layer', 'unit']],
 
                        # 'all_act_mean': [['value', 'layer', 'unit']],
                        }
@@ -792,11 +794,13 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                   f"unit {unit} of {units_per_layer}\n************")
 
             sel_measures_list = ['roc_auc', 'ave_prec', 'pr_auc',
-                                 'max_informed', 'max_info_count', 'max_info_thr',
+                                 'max_informed',
+                                 'max_info_count', 'max_info_thr',
                                  'max_info_sens', 'max_info_spec', 'max_info_prec',
                                  'ccma',
                                  'b_sel', 'b_sel_off', 'b_sel_zero', 'b_sel_pfive',
-                                 'zhou_prec', 'zhou_selects', 'zhou_thr',
+                                 'zhou_prec',
+                                 'zhou_selects', 'zhou_thr',
                                  'corr_coef', 'corr_p',
                                  'means', 'sd', 'nz_prop', 'hi_val_prop']
 
