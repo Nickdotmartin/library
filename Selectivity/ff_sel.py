@@ -327,26 +327,16 @@ def sel_unit_max(all_sel_dict, verbose=False):
 
     # # remove unnecessary variables rom the dict
     max_sel_dict['max_info_count'] = copy_sel_dict['max_info_count'][max_sel_dict["max_informed_c"]]
-    del max_sel_dict['max_info_count_c']
     max_sel_dict['max_info_thr'] = copy_sel_dict['max_info_thr'][max_sel_dict["max_informed_c"]]
-    del max_sel_dict['max_info_thr_c']
     max_sel_dict['max_info_sens'] = copy_sel_dict['max_info_sens'][max_sel_dict["max_informed_c"]]
-    del max_sel_dict['max_info_sens_c']
     max_sel_dict['max_info_spec'] = copy_sel_dict['max_info_spec'][max_sel_dict["max_informed_c"]]
-    del max_sel_dict['max_info_spec_c']
     max_sel_dict['max_info_prec'] = copy_sel_dict['max_info_prec'][max_sel_dict["max_informed_c"]]
-    del max_sel_dict['max_info_prec_c']
     max_sel_dict['zhou_selects'] = copy_sel_dict['zhou_selects'][max_sel_dict["zhou_prec_c"]]
-    del max_sel_dict['zhou_selects_c']
     max_sel_dict['zhou_thr'] = copy_sel_dict['zhou_thr'][max_sel_dict["zhou_prec_c"]]
-    del max_sel_dict['zhou_thr_c']
 
     max_sel_dict['b_sel_off'] = copy_sel_dict['b_sel_off'][max_sel_dict["b_sel_c"]]
-    del max_sel_dict['b_sel_off_c']
     max_sel_dict['b_sel_zero'] = copy_sel_dict['b_sel_zero'][max_sel_dict["b_sel_c"]]
-    del max_sel_dict['b_sel_zero_c']
     max_sel_dict['b_sel_pfive'] = copy_sel_dict['b_sel_pfive'][max_sel_dict["b_sel_c"]]
-    del max_sel_dict['b_sel_pfive_c']
 
 
 
@@ -373,8 +363,14 @@ def sel_unit_max(all_sel_dict, verbose=False):
         max_sel_dict['corr_coef_c'] = coef_df['class'].iloc[0]
         max_sel_dict['corr_p'] = coef_df['p'].iloc[0]
 
-    if 'corr_p_c' in max_sel_dict:
-        del max_sel_dict['corr_p_c']
+    delete_list = ['max_info_count_c', 'max_info_thr_c', 'max_info_sens_c', 'max_info_spec_c', 'max_info_prec_c',
+                   'zhou_selects_c', 'zhou_thr_c',
+                   'b_sel_off_c', 'b_sel_zero_c', 'b_sel_pfive_c',
+                   'corr_p_c']
+
+    for delete_item in delete_list:
+        if delete_item in max_sel_dict:
+            del max_sel_dict[delete_item]
 
     # # round values
     for k, v in max_sel_dict.items():
