@@ -334,9 +334,14 @@ def sel_unit_max(all_sel_dict, verbose=False):
     max_sel_dict['zhou_selects'] = copy_sel_dict['zhou_selects'][max_sel_dict["zhou_prec_c"]]
     max_sel_dict['zhou_thr'] = copy_sel_dict['zhou_thr'][max_sel_dict["zhou_prec_c"]]
 
-    max_sel_dict['b_sel_off'] = copy_sel_dict['b_sel_off'][max_sel_dict["b_sel_c"]]
-    max_sel_dict['b_sel_zero'] = copy_sel_dict['b_sel_zero'][max_sel_dict["b_sel_c"]]
-    max_sel_dict['b_sel_pfive'] = copy_sel_dict['b_sel_pfive'][max_sel_dict["b_sel_c"]]
+    if not len(copy_sel_dict["b_sel_c"].values()):  # if there are not items with that p_value
+        max_sel_dict['b_sel_off'] = float('NaN')
+        max_sel_dict['b_sel_zero'] = float('NaN')
+        max_sel_dict['b_sel_pfive'] = float('NaN')
+    else:
+        max_sel_dict['b_sel_off'] = copy_sel_dict['b_sel_off'][max_sel_dict["b_sel_c"]]
+        max_sel_dict['b_sel_zero'] = copy_sel_dict['b_sel_zero'][max_sel_dict["b_sel_c"]]
+        max_sel_dict['b_sel_pfive'] = copy_sel_dict['b_sel_pfive'][max_sel_dict["b_sel_c"]]
 
 
 
@@ -374,7 +379,7 @@ def sel_unit_max(all_sel_dict, verbose=False):
 
     # # round values
     for k, v in max_sel_dict.items():
-        if v is 'flaot':
+        if type(v) is float:
             max_sel_dict[k] = round(v, 3)
 
     # print("\n\n\n\nmax sel dict", max_sel_dict)
