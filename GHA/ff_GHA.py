@@ -147,6 +147,10 @@ def ff_gha(sim_dict_path,
     else:
         print(f"\nERROR! requested dataset ({use_dataset}) not found in dict:")
         focussed_dict_print(sim_dict['data_info'], "sim_dict['data_info']")
+        if 'X_data' in sim_dict['data_info']:
+            print(f"\nloading only dset available:")
+            x_data_path = os.path.join(sim_dict['data_info']['data_path'], sim_dict['data_info']['X_data'])
+            y_data_path = os.path.join(sim_dict['data_info']['data_path'], sim_dict['data_info']['Y_labels'])
 
     x_data = load_x_data(x_data_path)
     y_df, y_label_list = load_y_data(y_data_path)
@@ -155,11 +159,35 @@ def ff_gha(sim_dict_path,
 
     # # data preprocessing
     # # if network is cnn but data is 2d (e.g., MNIST)
-    if len(np.shape(x_data)) != 4:
-        if sim_dict['model_info']['overview']['model_type'] == 'cnn':
-            width, height = sim_dict['data_info']['image_dim']
+    # # old version
+    # if len(np.shape(x_data)) != 4:
+    #     if sim_dict['model_info']['overview']['model_type'] == 'cnn':
+    #         width, height = sim_dict['data_info']['image_dim']
+    #         x_data = x_data.reshape(x_data.shape[0], width, height, 1)
+    #         print(f"\nRESHAPING x_data to: {np.shape(x_data)}")
+
+    # new version
+    print(f"\ninput shape: {np.shape(x_data)}")
+    if len(np.shape(x_data)) == 4:
+        image_dim = sim_dict['image_dim']
+        n_items, width, height, channels = np.shape(x_data)
+    else:
+        # # this is just for MNIST
+        if sim_dict['model_info']['overview']['model_type'] in ['cnn', 'cnns']:
+            print("reshaping mnist for cnn")
+            width, height = sim_dict['image_dim']
             x_data = x_data.reshape(x_data.shape[0], width, height, 1)
             print(f"\nRESHAPING x_data to: {np.shape(x_data)}")
+
+        if sim_dict['model_info']['overview']['model_type'] == 'mlps':
+            if len(np.shape(x_data)) > 2:
+                print(f"reshaping image data from {len(np.shape(x_data))}d to 2d for mlp")
+                x_data = np.reshape(x_data, (x_data.shape[0], x_data.shape[1] * x_data.shape[2]))
+
+                print(f"\nNEW input shape: {np.shape(x_data)}")
+                x_size = np.shape(x_data)[1]
+                print(f"NEW x_size: {x_size}")
+
 
     # Output files
     output_filename = sim_dict["topic_info"]["output_filename"]
@@ -256,7 +284,7 @@ def ff_gha(sim_dict_path,
     predicted_outputs = loaded_model.predict(x_data)
 
     item_correct_df, scores_dict, incorrect_items = get_scores(predicted_outputs, y_df, output_filename,
-                                                               save_all_csvs=True)
+                                                               save_all_csvs=True, verbose=True)
 
     if verbose:
         focussed_dict_print(scores_dict, 'Scores_dict')
@@ -408,66 +436,67 @@ def ff_gha(sim_dict_path,
 
     print(f"\nadded to list for selectivity analysis: {gha_dict_name[:-7]}")
 
-    # # spare variables to make anaysis easier
-    if 'chanProp' in output_filename:
-        var_one = 'chanProp'
-    elif 'chanDist' in output_filename:
-        var_one = 'chanDist'
-    elif 'cont' in output_filename:
-        var_one = 'cont'
-    elif 'bin' in output_filename:
-        var_one = 'bin'
-    else:
-        raise ValueError("dset_type not found (v1)")
-
-    if 'pro_sm' in output_filename:
-        var_two = 'pro_sm'
-    elif 'pro_med' in output_filename:
-        var_two = 'pro_med'
-    # elif 'LB' in output_filename:
-    #     var_two = 'LB'
-    else:
-        raise ValueError("between not found (v2)")
-
-    if 'v1' in output_filename:
-        var_three = 'v1'
-    elif 'v2' in output_filename:
-        var_three = 'v2'
-    elif 'v3' in output_filename:
-        var_three = 'v3'
-    else:
-        raise ValueError("within not found (v3)")
-
-    var_four = var_two + var_three
-
-    if 'ReLu' in output_filename:
-        var_five = 'relu'
-    elif 'relu' in output_filename:
-        var_five = 'relu'
-    elif 'sigm' in output_filename:
-        var_five = 'sigm'
-    else:
-        raise ValueError("act_func not found (v4)")
-
-    if '10' in output_filename:
-        var_six = 10
-    elif '25' in output_filename:
-        var_six = 25
-    elif '50' in output_filename:
-        var_six = 50
-    elif '100' in output_filename:
-        var_six = 100
-    elif '500' in output_filename:
-        var_six = 500
-    else:
-        raise ValueError("hid_units not found in output_filename (var6)")
+    # # # spare variables to make anaysis easier
+    # if 'chanProp' in output_filename:
+    #     var_one = 'chanProp'
+    # elif 'chanDist' in output_filename:
+    #     var_one = 'chanDist'
+    # elif 'cont' in output_filename:
+    #     var_one = 'cont'
+    # elif 'bin' in output_filename:
+    #     var_one = 'bin'
+    # else:
+    #     raise ValueError("dset_type not found (v1)")
+    #
+    # if 'pro_sm' in output_filename:
+    #     var_two = 'pro_sm'
+    # elif 'pro_med' in output_filename:
+    #     var_two = 'pro_med'
+    # # elif 'LB' in output_filename:
+    # #     var_two = 'LB'
+    # else:
+    #     raise ValueError("between not found (v2)")
+    #
+    # if 'v1' in output_filename:
+    #     var_three = 'v1'
+    # elif 'v2' in output_filename:
+    #     var_three = 'v2'
+    # elif 'v3' in output_filename:
+    #     var_three = 'v3'
+    # else:
+    #     raise ValueError("within not found (v3)")
+    #
+    # var_four = var_two + var_three
+    #
+    # if 'ReLu' in output_filename:
+    #     var_five = 'relu'
+    # elif 'relu' in output_filename:
+    #     var_five = 'relu'
+    # elif 'sigm' in output_filename:
+    #     var_five = 'sigm'
+    # else:
+    #     raise ValueError("act_func not found (v4)")
+    #
+    # if '10' in output_filename:
+    #     var_six = 10
+    # elif '25' in output_filename:
+    #     var_six = 25
+    # elif '50' in output_filename:
+    #     var_six = 50
+    # elif '100' in output_filename:
+    #     var_six = 100
+    # elif '500' in output_filename:
+    #     var_six = 500
+    # else:
+    #     raise ValueError("hid_units not found in output_filename (var6)")
 
     # print(f"\n{output_filename}: {var_one} {var_two} {var_three} {var_four} {var_five} {var_six}")
     
 
     gha_info = [cond, run, output_filename, n_layers, hid_units, dataset, use_dataset,
                 gha_incorrect, n_cats, trained_for, end_accuracy, gha_acc, n_cats_correct, 
-                var_one, var_two, var_three, var_four, var_five, var_six]
+                # var_one, var_two, var_three, var_four, var_five, var_six
+                ]
 
     # # check if gha_summary.csv exists
     # # save summary file in exp folder (grandparent dir to gha folder: exp/cond/gha)
@@ -484,7 +513,8 @@ def ff_gha(sim_dict_path,
         mywriter = csv.writer(gha_summary)
         summary_headers = ["cond", "run", 'filename', "n_layers", "hid_units", "dataset", "GHA_on",
                            'incorrect', "n_cats", "trained_for", "train_acc", "gha_acc", 'n_cats_correct', 
-                           'V1', 'V2', 'V3', 'V4', 'V5', 'V6']
+                           # 'V1', 'V2', 'V3', 'V4', 'V5', 'V6'
+                           ]
 
         mywriter.writerow(summary_headers)
         print(f"creating summary csv at: {exp_path}")
