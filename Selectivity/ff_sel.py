@@ -334,8 +334,18 @@ def sel_unit_max(all_sel_dict, verbose=False):
     max_sel_dict['zhou_selects'] = copy_sel_dict['zhou_selects'][max_sel_dict["zhou_prec_c"]]
     max_sel_dict['zhou_thr'] = copy_sel_dict['zhou_thr'][max_sel_dict["zhou_prec_c"]]
 
-    if not len(copy_sel_dict["b_sel_c"].values()):  # if there are not items with that p_value
-        max_sel_dict['b_sel_off'] = float('NaN')
+    focussed_dict_print(copy_sel_dict)
+    print(copy_sel_dict['b_sel'].keys())
+    print(copy_sel_dict['b_sel'])
+    print(copy_sel_dict['b_sel'].values())
+    print(list(copy_sel_dict['b_sel'].values()))
+    print(len(list(copy_sel_dict['b_sel'].values())))
+    # print()
+
+
+    if not len(list(copy_sel_dict['b_sel'].values())):  # if there are no values
+        print(f"len(list(copy_sel_dict['b_sel'].values())):{len(list(copy_sel_dict['b_sel'].values()))}")
+        max_sel_dict['b_sel'] = float('NaN')
         max_sel_dict['b_sel_zero'] = float('NaN')
         max_sel_dict['b_sel_pfive'] = float('NaN')
     else:
@@ -1009,6 +1019,7 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                 if verbose is True:
                     focussed_dict_print(unit_dict, 'unit_dict')
 
+
                 # # # for each sel variable - get the class with the highest values and add to per_unit
                 max_sel_p_unit_dict = sel_unit_max(unit_dict, verbose=verbose)
                 unit_dict['max'] = max_sel_p_unit_dict
@@ -1131,7 +1142,7 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
         # # # get top three highlights for each feature
         highlights_list = list(highlights_dict.keys())
-        print(f"highlights_list: {highlights_list}")
+        print(f"\nhighlights_list: {highlights_list}")
 
         if layer_name not in ['output', 'Output', 'OUTPUT']:
             # don't get highlights for output
@@ -1146,7 +1157,7 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
                 # then select info for highlights dict for top 3 items
 
-                print(f"layer_top_3_df\n{layer_top_3_df}")
+                print(f"\nlayer_top_3_df\n{layer_top_3_df}")
                 print(f"layer_top_3_df.loc[{measure}]\n{layer_top_3_df[measure]}")
 
                 # if measure == 'tcs_recall':
@@ -1255,19 +1266,54 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                         highlights_dict[measure].append(new_row)
 
                 else:  # for most most measures use below
+                    print(f'\nmeasure: {measure}')
                     for i in range(2):
-                        top_val = layer_top_3_df[measure].iloc[i]
-                        print('top_val: ', top_val)
-                        print(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])
-                        if len(list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])) > 1:
-                            top_class = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, f'{measure}_c'])[i]
-                            top_unit_name = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])[i]
-                        elif len(list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])) < 1:
+                        print(f'i={i}. layer_top_3_df[{measure}].iloc: ', layer_top_3_df[measure])
+
+                        number_of_entries = len(list(layer_top_3_df[measure]))
+                        print(f"number_of_entries: {number_of_entries}")
+
+                        # if the number of entries is more than i
+                        if number_of_entries >= i:
+
+                            top_val = layer_top_3_df[measure].iloc[i]
+                            print('\ntop_val: ', top_val)
+                            print(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])
+
+                            # # if the number of entries is more than one
+                            if len(list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])) > 1:
+                                top_class = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, f'{measure}_c'])[i]
+                                top_unit_name = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])[i]
+
+                            # is the number of entries is less than one
+                            elif len(list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])) < 1:
+                                top_class = np.nan
+                                top_unit_name = np.nan
+
+                            # if the number of entries is exactly one.
+                            else:
+                                top_class = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, f'{measure}_c'].values[0]
+                                top_unit_name = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'].values[0]
+
+                        # if the number of entries is less than i (so can't proceed)
+                        else:
                             top_class = np.nan
                             top_unit_name = np.nan
-                        else:
-                            top_class = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, f'{measure}_c'].values[0]
-                            top_unit_name = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'].values[0]
+
+                            # # # if the number of entries is more than one
+                            # if len(list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])) > 1:
+                            #     top_class = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, f'{measure}_c'])[i]
+                            #     top_unit_name = list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])[i]
+                            #
+                            # # is the number of entries is less than one
+                            # elif len(list(layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'])) < 1:
+                            #     top_class = np.nan
+                            #     top_unit_name = np.nan
+                            #
+                            # # if the number of entries is exactly one.
+                            # else:
+                            #     top_class = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, f'{measure}_c'].values[0]
+                            #     top_unit_name = layer_top_3_df.loc[layer_top_3_df[measure] == top_val, 'unit'].values[0]
 
                         new_row = [top_val, top_class, layer_name, top_unit_name]
 
