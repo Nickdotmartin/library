@@ -45,7 +45,7 @@ class con6_pool3_fc1:
 	def build(width, height, depth, classes, batch_norm=True, dropout=True):
 		# initialize the model along with the input shape to be
 		# "channels last" and the channels dimension itself
-		model = Sequential(layers=6, name="con6_pool3_fc1")
+		model = Sequential(name="con6_pool3_fc1")  # layers=6,
 		inputShape = (height, width, depth)
 		chanDim = -1
 
@@ -122,7 +122,7 @@ class con4_pool2_fc1:
 	def build(width, height, depth, classes, batch_norm=True, dropout=True):
 		# initialize the model along with the input shape to be
 		# "channels last" and the channels dimension itself
-		model = Sequential(layers=4, name="con4_pool2_fc1")
+		model = Sequential(name="con4_pool2_fc1")  # layers=4,
 		inputShape = (height, width, depth)
 		chanDim = -1
 
@@ -177,7 +177,7 @@ class con2_pool2_fc1:
 	def build(width, height, depth, classes, batch_norm=True, dropout=True):
 		# initialize the model along with the input shape to be
 		# "channels last" and the channels dimension itself
-		model = Sequential(layers=2, name="con2_pool2_fc1")
+		model = Sequential(name="con2_pool2_fc1")  # layers=2,
 		inputShape = (height, width, depth)
 		chanDim = -1
 
@@ -236,7 +236,7 @@ class con4_pool2_fc1_reluconv:
 	def build(width, height, depth, classes, batch_norm=True, dropout=True):
 		# initialize the model along with the input shape to be
 		# "channels last" and the channels dimension itself
-		model = Sequential(layers=2, name="con4_pool2_fc1_reluconv")
+		model = Sequential(name="con4_pool2_fc1_reluconv")  # layers=2,
 		inputShape = (height, width, depth)
 		chanDim = -1
 
@@ -290,7 +290,7 @@ class con4_pool2_fc1_noise_layer:
 	def build(width, height, depth, classes, batch_norm=True, dropout=True):
 		# initialize the model along with the input shape to be
 		# "channels last" and the channels dimension itself
-		model = Sequential(layers=4, name="con4_pool2_fc1_noise_layer")
+		model = Sequential(name="con4_pool2_fc1_noise_layer")  # layers=4,
 		inputShape = (height, width, depth)
 		chanDim = -1
 
@@ -333,6 +333,61 @@ class con4_pool2_fc1_noise_layer:
 
 		# softmax classifier
 		model.add(GaussianNoise(stddev=0.1, name='noise_6'))
+		model.add(Dense(classes, name='Output_fc', activation='softmax'))
+		# model.add(Activation("softmax", name='softmax'))
+
+		# return the constructed network architecture
+		return model
+
+class con2_pool2_fc1_reluconv:
+	"""
+	based on https://keras.io/examples/cifar10_cnn/
+	Train a simple deep CNN on the CIFAR10 small images dataset.
+	It gets to 75% validation accuracy in 25 epochs, and 79% after 50 epochs.
+	(it's still underfitting at that point, though).
+	just truing different format - adding relu to conv ;layers rather than after
+
+	it makes no difference
+	"""
+	@staticmethod
+	def build(width, height, depth, classes, batch_norm=True, dropout=True):
+		# initialize the model along with the input shape to be
+		# "channels last" and the channels dimension itself
+		model = Sequential(name="con2_pool2_fc1_reluconv")
+		inputShape = (height, width, depth)
+		chanDim = -1
+
+		# if we are using "channels first", update the input shape
+		# and channels dimension
+		if K.image_data_format() == "channels_first":
+			inputShape = (depth, height, width)
+			chanDim = 1
+
+		# first set of CONV => POOL layer set
+		model.add(Conv2D(32, (3, 3), padding="same", input_shape=inputShape, activation='relu', name='conv_1'))
+		if batch_norm is True:
+			model.add(BatchNormalization(axis=chanDim, name='bn_1'))
+		model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), name="mpool_1"))
+		if dropout is True:
+			model.add(Dropout(0.25, name='dropout_1'))
+
+		# second set of CONV POOL layer set
+		model.add(Conv2D(64, (3, 3), padding="same",  activation='relu', name='conv_2'))
+		if batch_norm is True:
+			model.add(BatchNormalization(axis=chanDim, name='bn_2'))
+		model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), name='mpool_2'))
+		if dropout is True:
+			model.add(Dropout(0.25, name='dropout_2'))
+
+		# first (and only) FC layer
+		model.add(Flatten())
+		model.add(Dense(100, activation='relu', name='fc_1'))
+		if batch_norm is True:
+			model.add(BatchNormalization(name='bn_3'))
+		if dropout is True:
+			model.add(Dropout(0.5, name='dropout_3'))
+
+		# softmax classifier
 		model.add(Dense(classes, name='Output_fc', activation='softmax'))
 		# model.add(Activation("softmax", name='softmax'))
 

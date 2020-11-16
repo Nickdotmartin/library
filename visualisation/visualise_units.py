@@ -22,6 +22,7 @@ from tools.RNN_STM import get_X_and_Y_data_from_seq, seq_items_per_class, spell_
 
 def simple_plot(gha_dict_path,
                 plot_what='all',
+                save_all_plots_dir=None, 
                 measure=None,
                 letter_sel=False,
                 correct_items_only=True,
@@ -31,6 +32,7 @@ def simple_plot(gha_dict_path,
 
     :param gha_dict_path: or gha_dict
     :param plot_what: 'all' or 'highlights' or dict[layer_names][units][timesteps] 
+    :param save_all_plots_dir: None to save in the condition folder, or add one location to save plots to.
     :param measure: None, or selectivity measure to focus on if hl_dict provided,
                     or multiple meaures ['measure', '2nd_measure']
     :param letter_sel: focus on level of words or letters
@@ -71,7 +73,11 @@ def simple_plot(gha_dict_path,
     plots_folder = 'plots'
     cond_name = gha_dict['topic_info']['output_filename']
     condition_path = find_path_to_dir(long_path=exp_cond_gha_path, target_dir=cond_name)
-    plots_path = os.path.join(condition_path, plots_folder)
+    if save_all_plots_dir is None:
+        plots_path = os.path.join(condition_path, plots_folder)
+    else:
+        plots_path = save_all_plots_dir
+        
     if not os.path.exists(plots_path):
         os.makedirs(plots_path)
     # os.chdir(plots_path)
@@ -408,30 +414,30 @@ def simple_plot(gha_dict_path,
 
 
         # # only plot units of interest according to hl dict
-        if measure is not None:
-            if hl_dict:
-                if layer_name not in hl_dict:
-                    print(f"{layer_name} not in hl_dict")
-                    continue
-                if unit_index not in hl_dict[layer_name]:
-                    print(f"unit {unit_index} not in hl_dict[{layer_name}]")
-                    continue
-                # if ts_name not in hl_dict[layer_name][unit_index]:
-                #     print(f"{ts_name} not in hl_dict[{layer_name}][{unit_index}]")
-                #     continue
+        if hl_dict:
+            if layer_name not in hl_dict:
+                print(f"{layer_name} not in hl_dict")
+                continue
+            if unit_index not in hl_dict[layer_name]:
+                print(f"unit {unit_index} not in hl_dict[{layer_name}]")
+                continue
+            # if ts_name not in hl_dict[layer_name][unit_index]:
+            #     print(f"{ts_name} not in hl_dict[{layer_name}][{unit_index}]")
+            #     continue
 
-                # # get sel_scores
-                print(f"hl_dict[layer_name][unit_index]: {hl_dict[layer_name][unit_index]}")
-
+            # # get sel_scores
+            print(f"hl_dict[layer_name][unit_index]: {hl_dict[layer_name][unit_index]}")
 
 
-                #     if len(measure) == 2:
-                #         measure1_unit = hl_dict[layer_name][unit_index][0]
-                #         measure2_unit = hl_dict[layer_name][unit_index][0]
-                # else:
-                #     # if just one measure
-                #     measure1_unit = hl_dict[layer_name][unit_index]
 
+            #     if len(measure) == 2:
+            #         measure1_unit = hl_dict[layer_name][unit_index][0]
+            #         measure2_unit = hl_dict[layer_name][unit_index][0]
+            # else:
+            #     # if just one measure
+            #     measure1_unit = hl_dict[layer_name][unit_index]
+
+            if measure is not None:
 
                 unit_hl_info = []
 
@@ -455,11 +461,6 @@ def simple_plot(gha_dict_path,
                     # print(f"{measure} not in hl_dict[{layer_name}][{unit_index}][{ts_name}]")
                     print(f"{measure} not in hl_dict[{layer_name}][{unit_index}]")
                     continue
-
-                if test_run:
-                    if test_run_counter == 3:
-                        break
-                    test_run_counter += 1
 
 
                 # print(f"plotting {layer_name} {unit_index} {ts_name} "
@@ -502,8 +503,13 @@ def simple_plot(gha_dict_path,
                     print(f"\nhl_text: {hl_text}")
                     # hl_text = hl_text + '\n'
 
-            else:
-                print("no hl_dict")
+        else:
+            print("no hl_dict")
+
+        if test_run:
+            if test_run_counter == 3:
+                break
+            test_run_counter += 1
 
         # #  make df
         this_unit_acts = pd.DataFrame(data=item_act_label_array,

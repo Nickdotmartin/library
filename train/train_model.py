@@ -21,7 +21,7 @@ from tools.data import load_x_data, load_y_data, switch_home_dirs
 from tools.network import get_model_dict, get_scores
 
 from models.cnns import con6_pool3_fc1, con2_pool2_fc1, con4_pool2_fc1, \
-    con4_pool2_fc1_reluconv, con4_pool2_fc1_noise_layer
+    con4_pool2_fc1_reluconv, con4_pool2_fc1_noise_layer, con2_pool2_fc1_reluconv
 from models.rnns import Bowers14rnn, SimpleRNNn, GRUn, LSTMn, Seq2Seq
 from models.mlps import mlp, fc1, fc2, fc4
 
@@ -295,7 +295,8 @@ def train_model(exp_name,
                       'con4_pool2_fc1': con4_pool2_fc1,
                       'con2_pool2_fc1': con2_pool2_fc1,
                       'con4_pool2_fc1_reluconv': con4_pool2_fc1_reluconv,
-                      'con4_pool2_fc1_noise_layer': con4_pool2_fc1_noise_layer}
+                      'con4_pool2_fc1_noise_layer': con4_pool2_fc1_noise_layer,
+                      'con2_pool2_fc1_reluconv': con2_pool2_fc1_reluconv}
 
         units_per_layer = None
         width, height = data_dict['image_dim']
@@ -497,8 +498,9 @@ def train_model(exp_name,
 
     # # # PART 3 get_scores() # # #
     # # these three lines are to re-shape MNIST
+    print(f"len(np.shape(x_data)): {len(np.shape(x_data))}")
     if len(np.shape(x_data)) != 4:
-        if model_dir == 'cnn':
+        if model_dir in ['cnn', 'cnns']:
             x_data = x_data.reshape(x_data.shape[0], width, height, 1)
 
     predicted_outputs = model.predict(x_data)  # use x_data NOT x_train to fit shape of y_df
