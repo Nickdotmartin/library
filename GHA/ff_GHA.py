@@ -169,13 +169,13 @@ def ff_gha(sim_dict_path,
     # new version
     print(f"\ninput shape: {np.shape(x_data)}")
     if len(np.shape(x_data)) == 4:
-        image_dim = sim_dict['image_dim']
+        image_dim = sim_dict['data_info']['image_dim']
         n_items, width, height, channels = np.shape(x_data)
     else:
         # # this is just for MNIST
         if sim_dict['model_info']['overview']['model_type'] in ['cnn', 'cnns']:
             print("reshaping mnist for cnn")
-            width, height = sim_dict['image_dim']
+            width, height = sim_dict['data_info']['image_dim']
             x_data = x_data.reshape(x_data.shape[0], width, height, 1)
             print(f"\nRESHAPING x_data to: {np.shape(x_data)}")
 
@@ -188,6 +188,12 @@ def ff_gha(sim_dict_path,
                 x_size = np.shape(x_data)[1]
                 print(f"NEW x_size: {x_size}")
 
+    # Preprocess the data (these are NumPy arrays)
+    if x_data.dtype == "uint8":
+        print(f"converting input data from {x_data.dtype} to float32")
+        max_x = np.amax(x_data)
+        x_data = x_data.astype("float32") / max_x
+        print(f"x_data.dtype: {x_data.dtype}")
 
     # Output files
     output_filename = sim_dict["topic_info"]["output_filename"]

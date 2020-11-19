@@ -9,8 +9,9 @@ import numpy as np
 import tensorflow as tf
 
 from tensorflow.keras.optimizers import Adam, SGD, RMSprop
-from keras.preprocessing.image import ImageDataGenerator
-from keras.utils.np_utils import to_categorical
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+# from tensorflow.keras.utils.np_utils import to_categorical
+from tensorflow.keras.utils import to_categorical
 from tensorflow.python.keras.callbacks import TensorBoard
 
 from sklearn.model_selection import train_test_split
@@ -185,6 +186,10 @@ def train_model(exp_name,
             y_val_df, y_val_label_list = load_y_data(os.path.join(data_dict['data_path'],
                                                                   data_dict['val_set']['Y_labels']))
             y_val = to_categorical(y_val_label_list, num_classes=n_cats)
+
+            # # do I need these?
+            # x_train = x_data
+            # y_train = y_data
         else:
             print("validation data not found - performing split")
             x_train, x_val, y_train_label_list, y_val_label_list = train_test_split(x_data, y_label_list, test_size=0.2,
@@ -198,6 +203,8 @@ def train_model(exp_name,
     else:
         x_train = x_data
         y_train = y_data
+
+
 
     n_items = len(y_train)
 
@@ -220,6 +227,8 @@ def train_model(exp_name,
             print("reshaping mnist for cnn")
             width, height = data_dict['image_dim']
             x_train = x_train.reshape(x_train.shape[0], width, height, 1)
+            x_data = x_data.reshape(x_data.shape[0], width, height, 1)
+
             print(f"\nRESHAPING x_train to: {np.shape(x_train)}")
             if use_val_data:
                 x_val = x_val.reshape(x_val.shape[0], width, height, 1)
@@ -236,6 +245,24 @@ def train_model(exp_name,
                 print(f"\nNEW input shape: {np.shape(x_train)}")
                 x_size = np.shape(x_train)[1]
                 print(f"NEW x_size: {x_size}")
+
+
+    print(f"x_data.dtype: {x_data.dtype}")
+    print(f"x_train.dtype: {x_train.dtype}")
+
+    # Preprocess the data (these are NumPy arrays)
+    if x_train.dtype == "uint8":
+        print(f"converting input data from {x_train.dtype} to float32")
+        max_x = np.amax(x_data)
+        x_train = x_train.astype("float32") / max_x
+        x_data = x_data.astype("float32") / max_x
+        # x_test = x_test.astype("float32") / 255
+        # y_train = y_train.astype("float32")
+        # y_test = y_test.astype("float32")
+        if use_val_data:
+            x_val = x_val.astype("float32") / max_x
+        print(f"x_data.dtype: {x_data.dtype}")
+        print(f"x_train.dtype: {x_train.dtype}")
 
     """# # # proprocessing here - put data in range 0-1
     # if len(np.shape(x_train)) == 2:
@@ -502,6 +529,9 @@ def train_model(exp_name,
     if len(np.shape(x_data)) != 4:
         if model_dir in ['cnn', 'cnns']:
             x_data = x_data.reshape(x_data.shape[0], width, height, 1)
+    print(f"len(np.shape(x_data)): {len(np.shape(x_data))}")
+    print(f"{type(x_data)}")
+    print(f"{x_data.dtype}")
 
     predicted_outputs = model.predict(x_data)  # use x_data NOT x_train to fit shape of y_df
     item_correct_df, scores_dict, incorrect_items = get_scores(predicted_outputs, y_df, output_filename,
