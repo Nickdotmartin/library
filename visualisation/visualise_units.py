@@ -1238,7 +1238,11 @@ def simple_rain(gha_dict_path,
         dset = gha_dict['data_info']['dataset']
 
         # title = f"{dset} {dtype} {act_func} {n_units}: unit {unit_index}"
-        title = f"{dset} {act_func} l.{hid_layers} u.{n_units}: unit {unit_index}"
+        if hid_layers == 1:
+            title = f"{dset} {act_func} l.{hid_layers} u.{n_units}: unit {unit_index}"
+        else:
+            title = f"{dset} {act_func} l.{hid_layers} u.{n_units}: {layer_name} unit {unit_index}"
+
 
         print(f"title: {title}")
 

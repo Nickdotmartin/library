@@ -22,7 +22,8 @@ from tools.data import load_x_data, load_y_data, switch_home_dirs
 from tools.network import get_model_dict, get_scores
 
 from models.cnns import con6_pool3_fc1, con2_pool2_fc1, con4_pool2_fc1, \
-    con4_pool2_fc1_reluconv, con4_pool2_fc1_noise_layer, con2_pool2_fc1_reluconv
+    con4_pool2_fc1_reluconv, con4_pool2_fc1_noise_layer, con2_pool2_fc1_reluconv, \
+    conv1_pool1_fc1_reluconv
 from models.rnns import Bowers14rnn, SimpleRNNn, GRUn, LSTMn, Seq2Seq
 from models.mlps import mlp, fc1, fc2, fc4
 
@@ -323,7 +324,8 @@ def train_model(exp_name,
                       'con2_pool2_fc1': con2_pool2_fc1,
                       'con4_pool2_fc1_reluconv': con4_pool2_fc1_reluconv,
                       'con4_pool2_fc1_noise_layer': con4_pool2_fc1_noise_layer,
-                      'con2_pool2_fc1_reluconv': con2_pool2_fc1_reluconv}
+                      'con2_pool2_fc1_reluconv': con2_pool2_fc1_reluconv,
+                      'conv1_pool1_fc1_reluconv': conv1_pool1_fc1_reluconv}
 
         units_per_layer = None
         width, height = data_dict['image_dim']

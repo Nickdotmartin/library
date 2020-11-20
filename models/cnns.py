@@ -393,3 +393,46 @@ class con2_pool2_fc1_reluconv:
 
 		# return the constructed network architecture
 		return model
+
+class conv1_pool1_fc1_reluconv:
+	"""
+	based on https://machinelearningmastery.com/how-to-develop-a-cnn-from-scratch-for-fashion-mnist-clothing-classification/
+	Train a simple deep CNN on the fashion which gets should get 90% after 10 epochs.
+	"""
+	@staticmethod
+	def build(width, height, depth, classes, batch_norm=True, dropout=True):
+		# initialize the model along with the input shape to be
+		# "channels last" and the channels dimension itself
+		model = Sequential(name="con2_pool2_fc1_reluconv")
+		inputShape = (height, width, depth)
+		chanDim = -1
+
+		# if we are using "channels first", update the input shape
+		# and channels dimension
+		if K.image_data_format() == "channels_first":
+			inputShape = (depth, height, width)
+			chanDim = 1
+
+		# first set of CONV => POOL layer set
+		model.add(Conv2D(32, (3, 3), padding="same", input_shape=inputShape, kernel_initializer='he_uniform',
+						 activation='relu', name='conv_1'))
+		if batch_norm is True:
+			model.add(BatchNormalization(axis=chanDim, name='bn_1'))
+		model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), name="mpool_1"))
+		if dropout is True:
+			model.add(Dropout(0.25, name='dropout_1'))
+
+		# first (and only) FC layer
+		model.add(Flatten())
+		model.add(Dense(100, activation='relu', name='fc_1', kernel_initializer='he_uniform'))
+		if batch_norm is True:
+			model.add(BatchNormalization(name='bn_3'))
+		if dropout is True:
+			model.add(Dropout(0.5, name='dropout_3'))
+
+		# softmax classifier
+		model.add(Dense(classes, name='Output_fc', activation='softmax'))
+		# model.add(Activation("softmax", name='softmax'))
+
+		# return the constructed network architecture
+		return model
