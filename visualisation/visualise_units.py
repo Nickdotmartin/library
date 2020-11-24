@@ -597,8 +597,6 @@ def simple_plot(gha_dict_path,
 
         print(f"title: {title}")
 
-        font_size = 10
-
         # if hl_dict:
         if n_measures > 0:
 
@@ -684,6 +682,7 @@ def simple_rain(gha_dict_path,
                 measure=None,
                 letter_sel=False,
                 correct_items_only=True,
+                font_size=12,
                 verbose=False, test_run=False,
                 show_plots=False):
     """
@@ -1246,7 +1245,7 @@ def simple_rain(gha_dict_path,
 
         print(f"title: {title}")
 
-        font_size = 10
+        # font_size = 10
 
     #     # if hl_dict:
     #     if n_measures > 0:
@@ -1556,7 +1555,7 @@ def simple_rain(gha_dict_path,
         fig.subplots_adjust(wspace=0)
 
         # fig.suptitle(title, fontsize=12).set_position([.5, 1.0])  # .set_bbox([])  #
-        fig.suptitle(title, fontsize=12).set_position([.5, .95])  # .set_bbox([])  #
+        fig.suptitle(title, fontsize=font_size).set_position([.5, .95])  # .set_bbox([])  #
 
         # # add y axis back onto rainplot
         plt.axvline(x=min_x_val, linestyle="-", color='black', )

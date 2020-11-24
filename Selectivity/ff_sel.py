@@ -1001,6 +1001,9 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                     if n_correct < 20000:
                         zhou_cut_off = 100 / n_correct
                     zhou_selects = int(n_correct * zhou_cut_off)
+                    n_active = sum(i > 0 for i in normed_acts)
+                    if n_active < zhou_selects:
+                        zhou_selects = n_active
                     most_active = this_unit_acts_df.iloc[:zhou_selects]
                     zhou_thr = list(most_active["normed"])[-1]
                     zhou_prec = sum([1 for i in most_active['class'] if i == this_cat]) / zhou_selects
