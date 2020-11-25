@@ -935,9 +935,7 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
 
                     # # Bowers sel
-                    '''
-                    test for sel on and off units and give the max.  add variable for b_sel_off
-                    '''
+
                     if verbose:
                         print("\nBowers Sel")
 
@@ -947,7 +945,7 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                     not_class_a_max = not_class_a['activation'].max()
                     not_class_a_min = not_class_a['activation'].min()
 
-                    if act_func in ['tanh', 'relu', 'ReLu']:
+                    if act_func in ['tanh', 'relu', 'ReLu', 'Relu']:
                         class_a_min = class_a['normed'].min()
                         class_a_max = class_a['normed'].max()
                         not_class_a_max = not_class_a['normed'].max()
@@ -959,31 +957,50 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                               f"not_class_a_min: {not_class_a_min}\n"
                               f"not_class_a_max: {not_class_a_max}\n")
 
+                    # # for counting 'localist units'
+                    b_sel_zero = 0
+                    b_sel_pfive = 0
+
                     b_sel_on = class_a_min - not_class_a_max
                     b_sel_off = not_class_a_min - class_a_max
 
-                    print(f'\nb_sel_on = class_a_min: {class_a_min} - '
-                          f'not_class_a_max: {not_class_a_max} = {b_sel_on}\n'
-                          f'\nb_sel_off = not_class_a_min: {not_class_a_min} - '
-                          f'class_a_max: {class_a_max} = {b_sel_off}\n')
-
-                    if b_sel_on >= b_sel_off:
+                    # # #new b-sel logic
+                    # # if not_class_a_min is zero, unit must be ON
+                    if not_class_a_min == 0:
                         b_sel = b_sel_on
                         off_unit = 0
                         if verbose:
-                            print(f"\nb_sel ON\n"
+                            print(f"\nnot_class_a_min = {not_class_a_min}, so must be b_sel ON\n"
                                   f"class_a_min: {class_a_min} - not_class_a_max: {not_class_a_max}\n"
                                   f"b_sel: {b_sel}")
-                    else:
+
+                    elif class_a_max == 0:
+                        # # is the max for class A is zero, no point testing it as an on unit, it must be off.
                         b_sel = b_sel_off
                         off_unit = 1
                         if verbose:
-                            print(f"\nb_sel OFF\n"
+                            print(f"\nclass_a_max is zero, so must be b_sel OFF\n"
                                   f"not_class_a_min: {not_class_a_min} - class_a_max: {class_a_max}\n"
                                   f"b_sel: {b_sel}")
 
-                    b_sel_zero = 0
-                    b_sel_pfive = 0
+                    else:
+                    # # just regular comparrison of selectivity for on and off
+                        if b_sel_on >= b_sel_off:
+                            b_sel = b_sel_on
+                            off_unit = 0
+                            if verbose:
+                                print(f"\nb_sel ON\n"
+                                      f"class_a_min: {class_a_min} - not_class_a_max: {not_class_a_max}\n"
+                                      f"b_sel: {b_sel}")
+                        else:
+                            b_sel = b_sel_off
+                            off_unit = 1
+                            if verbose:
+                                print(f"\nb_sel OFF\n"
+                                      f"not_class_a_min: {not_class_a_min} - class_a_max: {class_a_max}\n"
+                                      f"b_sel: {b_sel}")
+
+                    # # for counting 'localist units'
                     if b_sel >= 0.0:
                         b_sel_zero = 1
                     if b_sel >= .5:
@@ -993,6 +1010,8 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
                     unit_dict["b_sel_off"][this_cat] = off_unit
                     unit_dict["b_sel_zero"][this_cat] = b_sel_zero
                     unit_dict["b_sel_pfive"][this_cat] = b_sel_pfive
+
+
 
 
 
