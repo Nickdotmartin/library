@@ -52,23 +52,33 @@ def nick_roc_stuff(class_list, hid_acts, this_class, class_a_size, not_a_size,
         hid_act_array = np.array(hid_acts)
 
         # # get ROC curve
-        fpr, tpr, thr = roc_curve(binary_array, hid_act_array)
+        fpr, tpr, thr = roc_curve(binary_array, hid_act_array,
+                                  drop_intermediate=False
+                                  )
 
         # # Use ROC dict stuff to compute all other needed vectors
-        tp_count_dict = [class_a_size * i for i in tpr]
-        fp_count_dict = [not_a_size * i for i in fpr]
-        abv_thr_count_dict = [x + y for x, y in zip(tp_count_dict, fp_count_dict)]
-        precision_dict = [x / y if y else 0 for x, y in zip(tp_count_dict, abv_thr_count_dict)]
-        recall_dict = [i / class_a_size for i in tp_count_dict]
-        recall2_dict = recall_dict[:-1]
-        recall2_dict.insert(0, 0)
-        recall_increase_dict = [x - y for x, y in zip(recall_dict, recall2_dict)]
-        my_ave_prec_vals_dict = [x * y for x, y in zip(precision_dict, recall_increase_dict)]
+        tp_count_list = [class_a_size * i for i in tpr]
+        fp_count_list = [not_a_size * i for i in fpr]
+        abv_thr_count_list = [x + y for x, y in zip(tp_count_list, fp_count_list)]
+        precision_list = [x / y if y else 0 for x, y in zip(tp_count_list, abv_thr_count_list)]
+        recall_list = [i / class_a_size for i in tp_count_list]
+        recall2_list = recall_list[:-1]
+        recall2_list.insert(0, 0)
+        recall_increase_list = [x - y for x, y in zip(recall_list, recall2_list)]
+        my_ave_prec_vals_list = [x * y for x, y in zip(precision_list, recall_increase_list)]
+
+        # print(f"idiot check\n pr_auc:\n"
+        #       f"thr\n{thr}\n"
+        #       f"precision_list\n{precision_list}\n"
+        #       f"recall_list\n{recall_list}\n"
+        #       )
 
         # # once we have all vectors, do necessary stats for whole range of activations
         roc_auc = auc(fpr, tpr)
-        ave_prec = np.sum(my_ave_prec_vals_dict)
-        pr_auc = auc(recall_dict, precision_dict)
+        ave_prec = np.sum(my_ave_prec_vals_list)
+        pr_auc = auc(recall_list, precision_list)
+
+
 
         # # Informedness
         get_informed_dict = [a + (1 - b) - 1 for a, b in zip(tpr, fpr)]
@@ -79,7 +89,7 @@ def nick_roc_stuff(class_list, hid_acts, this_class, class_a_size, not_a_size,
             max_informed = max_informed_thr = 0
         max_info_sens = tpr[max_informed_count]
         max_info_spec = 1 - fpr[max_informed_count]
-        max_informed_prec = precision_dict[max_informed_count]
+        max_informed_prec = precision_list[max_informed_count]
 
 
     else:  # if there are not items in this class
@@ -877,7 +887,7 @@ def ff_sel(gha_dict_path, correct_items_only=True, all_classes=True,
 
 
                 if verbose is True:
-                    print(f"\nthis_unit_acts_df: {this_unit_acts_df.shape}\n{this_unit_acts_df.head()}")
+                    print(f"\nthis_unit_acts_df: {this_unit_acts_df.shape}\n{this_unit_acts_df.head(10)}")
 
                 # # get class_sel_basics
                 class_sel_basics_dict = class_sel_basics(this_unit_acts_df,
