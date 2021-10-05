@@ -9,7 +9,7 @@ from tensorflow.keras.initializers import RandomUniform
 
 class mlp:
     @staticmethod
-    def build(features, classes, batch_size, n_layers=1, units_per_layer=200,
+    def build(features, classes, n_layers=1, units_per_layer=200,
               act_func='relu', y_1hot=True, weight_init='GlorotUniform',
               use_bias=True, dropout=0.0, batch_norm=True, output_act='softmax'):
 
@@ -27,18 +27,13 @@ class mlp:
                 batch_norm = False
                 dropout = False
 
-
-            # if layer == n_layers-1:  # last layer
-            #     layer_seqs = serial_recall
-
             if batch_norm is True:
-                model.add(BatchNormalization(name=f'bn_{layer}',
-                                             # axis=chanDim,
-                                             ))
-            # model.add(Activation("relu", name='activation_2'))
+                model.add(BatchNormalization(name=f'bn_{layer}'))
+
             if dropout > 0:
                 model.add(Dropout(rate=dropout, name=f'dropout_{layer}'))
 
+            '''
             # as first layer in a sequential model:
             # model = Sequential()
             # model.add(Dense(32, input_shape=(16,)))
@@ -47,17 +42,13 @@ class mlp:
             # after the first layer, you don't need to specify
             # the size of the input anymore:
             # model.add(Dense(32))
+            '''
 
             model.add(Dense(units=units_per_layer,
-
                             input_shape=(l_input_width, ),
-
                             use_bias=use_bias,
-
                             kernel_initializer=weight_init,
-
                             activation=act_func,
-
                             name=f"hid{layer}",))
 
         if y_1hot:

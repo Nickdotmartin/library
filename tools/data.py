@@ -44,7 +44,7 @@ def nick_read_csv(path):
         # #check to see if first row contains headers
         header_row = list(open_csv.iloc[0])
 
-        # # if pandas had added an idex, the first cell might be empty
+        # # if pandas had added an index, the first cell might be empty
         if np.isnan(header_row[0]):
             header_row[0] = 'index'
 
@@ -530,9 +530,3 @@ def switch_home_dirs(path_to_change):
         print(f"path not found in laptop or GPU paths\n{path_to_change}")
 
     return new_path
-
-# this_path = '/Users/nickmartin/Documents/PhD/python_v2/datasets/RNN/bowers14_rep'
-#
-# path_check = switch_home_dirs(this_path)
-#
-# print(f"output: {path_check}")

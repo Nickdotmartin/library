@@ -17,7 +17,7 @@ def get_label_seqs(n_labels=30, seq_len=3, repetitions=False, n_seqs=1, cycles=F
 
     :param n_labels: number of labels to select from
     :param seq_len: Number of labels to select for each seq
-    :param repetitions: if True a sequence may contian an item more than once e.g. [0, 1, 0]
+    :param repetitions: if True a sequence may contain an item more than once e.g. [0, 1, 0]
         If False, items may only appear in each sequence once.
     :param n_seqs: number of sequences to generate.
     :param cycles: default=False: All seqs same len,
@@ -28,7 +28,6 @@ def get_label_seqs(n_labels=30, seq_len=3, repetitions=False, n_seqs=1, cycles=F
     class_list = np.arange(n_labels)
 
     sequences = []
-
 
     if cycles:
         max_len = seq_len
