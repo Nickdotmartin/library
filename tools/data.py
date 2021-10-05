@@ -508,6 +508,7 @@ def running_on_laptop(verbose=True):
             print("Script is not running on Nick's laptop")
     return sys.executable[:18] == '/Users/nickmartin/'
 
+
 def switch_home_dirs(path_to_change):
     """
     Try this module anytime I am having a problem on my laptop with uni paths.
@@ -518,14 +519,25 @@ def switch_home_dirs(path_to_change):
 
     laptop_path = '/Users/nickmartin/Documents/PhD/python_v2/'
 
+    iCloud_path = '/Users/nickmartin/Library/Mobile Documents/com~apple~CloudDocs/Documents/PhD/python_v2/'
+
     GPU_path = '/home/nm13850/Documents/PhD/python_v2/'
 
     if laptop_path == path_to_change[:len(laptop_path)]:
+        # print('old path is laptop hd')
         snip_end = path_to_change[len(laptop_path):]
+        new_path = os.path.join(iCloud_path, snip_end)
+
+    if iCloud_path == path_to_change[:len(iCloud_path)]:
+        # print('old path is icloud')
+        snip_end = path_to_change[len(iCloud_path):]
         new_path = os.path.join(laptop_path, snip_end)
+
     elif GPU_path == path_to_change[:len(GPU_path)]:
+        # print('old path is gpu')
         snip_end = path_to_change[len(GPU_path):]
-        new_path = os.path.join(laptop_path, snip_end)
+        new_path = os.path.join(iCloud_path, snip_end)
+
     else:
         print(f"path not found in laptop or GPU paths\n{path_to_change}")
 

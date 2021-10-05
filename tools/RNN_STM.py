@@ -7,6 +7,7 @@ import tensorflow as tf
 from tensorflow.keras.models import load_model, Model
 
 from tools.dicts import load_dict, focussed_dict_print, print_nested_round_floats
+from tools.data import running_on_laptop, switch_home_dirs
 
 
 
@@ -302,6 +303,9 @@ def generate_STM_RNN_seqs(data_dict,
 
     :param data_dict: dict for this dataset with links to vocab_dict
     :param seq_len: Or time-steps.  number of items per seq.
+    :param repetitions: if True a sequence may contain an item more than once e.g. [0, 1, 0]
+        If False, items may only appear in each sequence once.
+
     :param batch_size: Generator outputs in batches - this sets their size
     :param serial_recall: if True, Y array is a list of vectors
                         If False, y-array is a single vector  e.g., activate all words simultaneously
@@ -324,7 +328,7 @@ def generate_STM_RNN_seqs(data_dict,
     # load vocab dict
     vocab_dict = load_dict(os.path.join(data_dict['data_path'], data_dict['vocab_dict']))
     n_cats = data_dict['n_cats']
-    class_list = list(range(n_cats))
+    # class_list = list(range(n_cats))
 
     while True:      # this allows it to go on forever
         x_batch = []
