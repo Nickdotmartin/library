@@ -45,7 +45,7 @@ def get_label_seqs(n_labels=30, seq_len=3, repetitions=False, n_seqs=1, cycles=F
             else:
                 # print('no repetions')
                 if n_labels < max_len:
-                    print(f"Can not produce seqs (max_len {max_len}) with no repetitions using only {n_labels} labels")
+                    raise ValueError(f"Can not produce seqs (max_len {max_len}) with no repetitions using only {n_labels} labels")
                 this_seq = more_itertools.random_permutation(iterable=class_list, r=this_len)
 
             sequences.append(this_seq)
@@ -59,12 +59,6 @@ def get_label_seqs(n_labels=30, seq_len=3, repetitions=False, n_seqs=1, cycles=F
         # print(f"padded:\n{padded}")
         sequences = padded
 
-
-    elif n_seqs == 1:
-        if repetitions:
-            sequences = more_itertools.random_product(class_list, repeat=seq_len)
-        else:
-            sequences = more_itertools.random_permutation(iterable=class_list, r=seq_len)
     else:
         for s in range(n_seqs):
             if repetitions:
@@ -152,11 +146,11 @@ def get_X_and_Y_data_from_seq(vocab_dict,
             x_data.append(this_word)
 
 
-    elif end_seq_cue == True:
+    elif end_seq_cue:
         # original code from before I started on cycles.
         # assumes a single last item which contains only the cue.
         # # add an additional unit which is only activated on the last item of each seq
-        # # not sure this really words...
+        # # not sure this really works...
         # get last_item to know which is last item of seq
         last_item = len(seq_line) - 1
         # print(f"last_item: {last_item}")
@@ -1283,20 +1277,20 @@ def letter_in_seq(letter, test_label_seqs, vocab_dict):
     :return: binary numpy array
     """
 
-    print(f"letter: {letter}\n"
-          # f"test_label_seqs: {np.shape(test_label_seqs)}\n"
-          # f"{test_label_seqs}"
-          )
+    # print(f"letter: {letter}\n"
+    #       # f"test_label_seqs: {np.shape(test_label_seqs)}\n"
+    #       # f"{test_label_seqs}"
+    #       )
 
-    letter_id_dict = load_dict('/home/nm13850/Documents/PhD/python_v2/datasets/'
-                               'RNN/bowers14_rep/letter_id_dict.txt')
+    letter_id_dict = load_dict('/Users/nickmartin/Library/Mobile Documents/com~apple~CloudDocs/'
+                               'Documents/PhD/python_v2/datasets/RNN/bowers14_rep/letter_id_dict.txt')
 
     if type(letter) is int:
         letter_id = letter
         letter = letter_id_dict[letter_id]
     elif type(letter) is str:
         all_letters = list(letter_id_dict.values())
-        print(all_letters)
+        # print(all_letters)
         letter_id = all_letters.index(letter)
     else:
         raise TypeError("letter to search for should be string or int")
