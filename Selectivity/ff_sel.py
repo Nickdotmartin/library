@@ -67,17 +67,11 @@ def nick_roc_stuff(class_list, hid_acts, this_class, class_a_size, not_a_size,
         recall_increase_list = [x - y for x, y in zip(recall_list, recall2_list)]
         my_ave_prec_vals_list = [x * y for x, y in zip(precision_list, recall_increase_list)]
 
-        # print(f"idiot check\n pr_auc:\n"
-        #       f"thr\n{thr}\n"
-        #       f"precision_list\n{precision_list}\n"
-        #       f"recall_list\n{recall_list}\n"
-        #       )
 
         # # once we have all vectors, do necessary stats for whole range of activations
         roc_auc = auc(fpr, tpr)
         ave_prec = np.sum(my_ave_prec_vals_list)
         pr_auc = auc(recall_list, precision_list)
-
 
 
         # # Informedness
@@ -187,16 +181,6 @@ def class_sel_basics(this_unit_acts_df, items_per_cat, n_classes, hi_val_thr=.5,
     sd_dict = {k: v if not np.isnan(v) else 0 for k, v in sd_dict.items()}
 
 
-    # print(f"\nidiot check sd\n"
-    #       f"means: {len(means_dict.values())} {means_dict}\n"
-    #       f"sd: {len(sd_dict.values())} {sd_dict}\n"
-    #       f"items_per_cat: {items_per_cat}\n"
-    #       f"this_unit_acts_df:\n{this_unit_acts_df}")
-    # for cat in range(n_classes):
-    #     print(f"\ncat: {cat}\n"
-    #           f"{this_unit_acts_df[this_unit_acts_df['class'] == cat]}")
-    # # if all(list(sd_dict.values())) == 'Nan'
-
     # # non-zero_count
     nz_count_dict = dict(this_unit_acts_df[this_unit_acts_df[act_values]
                                            > 0.0].groupby('class')[act_values].count())
@@ -214,8 +198,6 @@ def class_sel_basics(this_unit_acts_df, items_per_cat, n_classes, hi_val_thr=.5,
                     for k in items_per_cat.keys() & nz_count_dict}
 
     # # non_zero precision
-    # nz_prec_dict = {k: v / non_zero_count_total for k, v in nz_count_dict.items()}
-    # # changed on 13032020 to not divide by zero.
     nz_prec_dict = {k: (0 if v == 0 else v / non_zero_count_total) for k, v in nz_count_dict.items()}
 
     # # hi val count
@@ -298,9 +280,7 @@ def sel_unit_max(all_sel_dict, verbose=False):
     if verbose:
         print("\n**** sel_unit_max() ****")
     # is it necessary to copy this - i think so, script failed when I took copy statements out?
-    # copy_sel_dict = copy.deepcopy(all_sel_dict)
     copy_sel_dict = copy.copy(all_sel_dict)
-    # copy_sel_dict = all_sel_dict
 
     # focussed_dict_print(copy_sel_dict, 'copy_sel_dict')
 
@@ -312,17 +292,16 @@ def sel_unit_max(all_sel_dict, verbose=False):
         # # remove np.NaNs from dict
         clean_dict = {k: class_dict[k] for k in class_dict if not np.isnan(class_dict[k])}
 
-
         # # for each sel measure get list of sel values and classes
         measure_c_name = f"{measure}_c"
         classes = list(clean_dict.keys())
         values = list(clean_dict.values())
 
-        print("\nidiot check (leave this in, it fails here sometimes\n"
-              f"measure_c_name: {measure_c_name}\n"
-              f"classes:{classes}\n"
-              f"values:{values}"
-              )
+        # print("\ncheck (leave this in, it fails here sometimes\n"
+        #       f"measure_c_name: {measure_c_name}\n"
+        #       f"classes:{classes}\n"
+        #       f"values:{values}"
+        #       )
 
         # # for each sel measure get max value and class
         if len(values) > 0:
@@ -333,7 +312,6 @@ def sel_unit_max(all_sel_dict, verbose=False):
             # # copy max class and value to max_class_dict
             max_sel_dict[measure] = max_val
             max_sel_dict[measure_c_name] = max_class
-
 
     # # remove unnecessary variables rom the dict
     max_sel_dict['max_info_count'] = copy_sel_dict['max_info_count'][max_sel_dict["max_informed_c"]]
@@ -362,8 +340,6 @@ def sel_unit_max(all_sel_dict, verbose=False):
         max_sel_dict['b_sel_off'] = copy_sel_dict['b_sel_off'][max_sel_dict["b_sel_c"]]
         max_sel_dict['b_sel_zero'] = copy_sel_dict['b_sel_zero'][max_sel_dict["b_sel_c"]]
         max_sel_dict['b_sel_pfive'] = copy_sel_dict['b_sel_pfive'][max_sel_dict["b_sel_c"]]
-
-
 
 
     # # max corr_coef shold be the absolute max (e.g., including negative) where p < .05.
